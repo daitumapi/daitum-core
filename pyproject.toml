@@ -1,0 +1,136 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "daitum-core"
+version = "0.1.1"
+description = "Meta-package installing daitum-model, daitum-ui, and daitum-configuration"
+readme = "README.md"
+license = { file = "LICENSE" }
+authors = [{ name = "Daitum" }]
+requires-python = ">=3.10"
+keywords = ["optimisation", "modelling", "daitum"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "daitum-model==0.1.1",
+    "daitum-ui==0.1.1",
+    "daitum-configuration==0.1.0",
+]
+
+[project.urls]
+Homepage = "https://daitum.com"
+Documentation = "https://daitum-core.readthedocs.io"
+Repository = "https://github.com/daitumapi/daitum-core"
+
+[project.optional-dependencies]
+dev = [
+    "black==26.1.0",
+    "ruff==0.14.13",
+    "mypy==1.19.1",
+    "pytest==9.0.2",
+    "types-setuptools>=80.9.0",
+]
+docs = [
+    "sphinx>=7.0",
+    "sphinx-autodoc-typehints>=1.25",
+    "furo>=2024.1.29",
+]
+
+# -----------------------------
+# Ruff formatting + linting
+# -----------------------------
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+fix = true
+exclude = ["tests"]
+
+# -----------------------------
+# Lint rules
+# -----------------------------
+[tool.ruff.lint]
+# Select rules to enable:
+# E      = Pycodestyle errors (syntax/whitespace)
+# F      = Pyflakes checks (undefined names, unused imports)
+# B      = Bugbear rules (common mistakes / best practices)
+# UP     = Unused Python code
+# I      = Import-related issues (isort-like)
+# N      = Naming conventions (from PyLint/Ruff)
+# PL     = PyLint rules
+# TID = All Ruff Type / Import / Docstring rules
+# Optional / not currently applied:
+# S      = Security issues
+# D      = Docstring conventions
+# ERA    = Experimental rules
+select = ["E", "F", "B", "UP", "I", "N", "PL", "TID"]
+# PLR0402 conflicts with the architecture rule requiring 'import X.Y as Y' for module aliases.
+ignore = ["PLR0402"]
+exclude = ["tests"]
+
+# -----------------------------
+# Import sorting (replaces isort)
+# -----------------------------
+[tool.ruff.lint.isort]
+known-first-party = ["src", "daitum"]
+known-third-party = ["requests"]
+combine-as-imports = true
+
+# -----------------------------
+# Black (formatting)
+# -----------------------------
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+exclude = '''
+/(
+    .git
+  | venv
+  | .venv
+  | model-files
+  | dist
+  | __pycache__
+  | .mypy_cache
+  | .idea
+)/
+'''
+
+# -----------------------------
+# Per-file ignores
+# -----------------------------
+[tool.ruff.lint.per-file-ignores]
+"**/*.py" = ["PLC0415"]  # typing-only import warnings
+
+# -----------------------------
+# Mypy config
+# -----------------------------
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+check_untyped_defs = true
+exclude = [
+    "venv",
+    ".venv",
+    "model-files",
+    "__pycache__",
+    ".mypy_cache",
+    ".idea",
+    "tests"
+]
+
+[tool.pytest.ini_options]
+testpaths = [
+    "daitum-model/tests",
+    "daitum-ui/tests",
+    "daitum-configuration/tests",
+]

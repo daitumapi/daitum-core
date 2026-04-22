@@ -1,0 +1,22 @@
+version: 2
+
+build:
+  os: ubuntu-22.04
+  tools:
+    python: "3.11"
+
+sphinx:
+  configuration: docs/conf.py
+  fail_on_warning: true
+
+python:
+  install:
+    # Install all three packages so autodoc can import them.
+    - method: pip
+      path: daitum-model
+    - method: pip
+      path: daitum-ui
+    - method: pip
+      path: daitum-configuration
+    # Documentation build dependencies.
+    - requirements: docs/requirements.txt
