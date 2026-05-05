@@ -12,21 +12,19 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Type enum for model transform data inputs.
-"""
+""":class:`DataInputSourceType` discriminator enum for :class:`ModelTransformInput`."""
 
 from enum import Enum
 
 
 class DataInputSourceType(Enum):
-    """
-    Type enum indicating the source of non-model data.
+    """Identifies the source of one input to a :class:`ModelTransformConfig`.
 
     Values:
-        - DATA_STORE: Directly from a data store
-        - DATA_STORE_INTERFACE: From a data store interface
-        - DIRECT_UPLOAD: From directly uploaded csv or zip of csvs - not currently supported
+        DATA_STORE: Rows pulled directly from a data store.
+        DATA_STORE_INTERFACE: Rows pulled via a data-store interface.
+        DYNAMIC_VALUES: Computed values such as the current time.
+        DIRECT_UPLOAD: Rows from a CSV or zipped CSV upload.
     """
 
     DATA_STORE = "DATA_STORE"

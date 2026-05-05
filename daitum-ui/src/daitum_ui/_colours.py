@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from daitum_model.enums import Severity
+from daitum_model import Severity
 
 VALIDATION_COLOURS = {
     Severity.INFO: "blue",

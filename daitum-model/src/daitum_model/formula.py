@@ -26,8 +26,7 @@ from abc import ABC, abstractmethod
 from typeguard import typechecked
 
 from ._buildable import Buildable
-from .data_types import MapDataType, ObjectDataType
-from .enums import DataType
+from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType
 
 
 def _numerical_operation(
@@ -35,6 +34,24 @@ def _numerical_operation(
     y: Operand,
     operator: str,
 ) -> Formula:
+    """
+    Build a ``Formula`` for a binary numeric or comparison operation between two operands.
+
+    Validates that the data types of *x* and *y* are compatible with *operator*, infers the
+    result data type (preserving array-ness), and returns the composed formula string.
+
+    Args:
+        x: The left-hand operand.
+        y: The right-hand operand.
+        operator: One of ``+``, ``-``, ``*``, ``/``, ``^``, ``<``, ``>``, ``<=``, ``>=``.
+
+    Returns:
+        A ``Formula`` with the appropriate result data type.
+
+    Raises:
+        ValueError: If *operator* is not one of the supported operators.
+        TypeError: If the operand data types are incompatible with *operator*.
+    """
     if operator not in {"+", "-", "*", "/", "^", "<", ">", "<=", ">="}:
         raise ValueError(f"Operator {operator} is not supported")
 
@@ -117,12 +134,20 @@ def CONST(x: bool | float | int | str | Operand) -> Formula:
 
 @typechecked
 class Operand(ABC):
+    """
+    Abstract base for objects that can participate in formula expressions.
+
+    Concrete subclasses (``Formula``, ``Field``, ``Calculation``, ``Parameter``) implement
+    ``to_string()`` and ``to_data_type()``, and inherit all Python operator overloads so
+    that expressions like ``cost * qty`` or ``total > CONST(1000)`` compose naturally.
+    """
+
     @abstractmethod
     def to_string(self) -> str:
         pass
 
     @abstractmethod
-    def to_data_type(self) -> DataType | ObjectDataType | MapDataType:
+    def to_data_type(self) -> BaseDataType:
         pass
 
     def __add__(self, other: Operand | float | int | str) -> Formula:
@@ -292,6 +317,17 @@ class Operand(ABC):
         raise TypeError("Invalid data type")
 
     def equal_to(self, other: Operand | float | int | bool | str) -> Formula:
+        """
+        Return a ``BOOLEAN`` (or ``BOOLEAN_ARRAY``) formula testing equality with *other*.
+
+        Use this instead of ``==`` because Python's ``__eq__`` cannot return a ``Formula``.
+
+        Args:
+            other: The value or operand to compare against.
+
+        Returns:
+            A ``Formula`` that evaluates to ``True`` when this operand equals *other*.
+        """
         if isinstance(other, (float, int, bool, str)):
             return self.equal_to(CONST(other))
 
@@ -304,6 +340,17 @@ class Operand(ABC):
         return Formula(data_type, f"{self.to_string()} = {other.to_string()}")
 
     def not_equal_to(self, other: Operand | float | int | bool | str) -> Formula:
+        """
+        Return a ``BOOLEAN`` (or ``BOOLEAN_ARRAY``) formula testing inequality with *other*.
+
+        Use this instead of ``!=`` because Python's ``__ne__`` cannot return a ``Formula``.
+
+        Args:
+            other: The value or operand to compare against.
+
+        Returns:
+            A ``Formula`` that evaluates to ``True`` when this operand does not equal *other*.
+        """
         if isinstance(other, (float, int, bool, str)):
             return self.not_equal_to(CONST(other))
 
@@ -326,16 +373,16 @@ class Formula(Buildable, Operand):
         formula_string (str): The Excel formula as a string.
     """
 
-    def __init__(self, data_type: DataType | ObjectDataType | MapDataType, formula_string: str):
+    def __init__(self, data_type: BaseDataType, formula_string: str):
         self.data_type = data_type
         self.formula_string = formula_string
 
-    def to_data_type(self) -> DataType | ObjectDataType | MapDataType:
+    def to_data_type(self) -> BaseDataType:
         """
         Retrieves the data type of the formula.
 
         Returns:
-            DataType | ObjectDataType | MapDataType: The data type associated with the formula.
+            BaseDataType: The data type associated with the formula.
         """
         return self.data_type
 

@@ -13,35 +13,21 @@
 # limitations under the License.
 
 """
-Module for defining and managing configuration components.
+Top-level :class:`ConfigurationBuilder` for assembling a Daitum model configuration.
 
-This module provides a foundation for building a configuration file for models.
-The configuration is serialised and written to a JSON file.
-
-Key Classes:
-    - `Configuration`: Represents the overall configuration object, currently including the
-       algorithm configuration and designed for future expansion.
-    - `Algorithm`: A class that provides common parameters and functionality for
-       all optimisation algorithms. This class should be inherited by specific
-       algorithm implementations.
-    - `ModelConfiguration`: A class that stores the configuration of an optimisation model,
-       including its decision variables, objectives, constraints, and other model parameters.
-    - `ScheduleConfiguration`: A class which represent the building blocks of algorithm execution
-       schedules.
-    - `ReportProperty`: A class which encapsulates all metadata and configuration related to
-       exporting a report
-    - `ModelProperty`: A container for storing arbitrary properties that should be tracked
-       at a model level, including calculation flags and configurations.
-    - `DataSource`: A class used to encapsulate information and configuration related to a data
-       source for optimisation.
+A configuration ties an :class:`~daitum_configuration.algorithm_configuration.algorithm.Algorithm`
+and a :class:`~daitum_configuration.ModelConfiguration` to the data sources, schedule, and
+model/report properties that surround them. :meth:`ConfigurationBuilder.write_to_file`
+serialises the result into ``model-configuration.json``.
 """
 
 import json
 import os
-from typing import Any
+import pathlib
 
 from typeguard import typechecked
 
+from daitum_configuration._buildable import Buildable
 from daitum_configuration.algorithm_configuration.algorithm import Algorithm
 from daitum_configuration.data_source.batched_data_source.batched_data_source_config import (
     BatchedDataSourceConfig,
@@ -68,307 +54,153 @@ from daitum_configuration.report_property.report_property import ReportProperty
 from daitum_configuration.schedule_configuration.schedule_configuration import (
     ScheduleConfiguration,
 )
-from daitum_configuration.schedule_configuration.step_configuration import StepConfiguration
 
 
 # pylint: disable=too-few-public-methods
 # pylint: disable=too-many-instance-attributes
+# pylint: disable=too-many-arguments,too-many-positional-arguments
 @typechecked
-class Configuration:
+class ConfigurationBuilder(Buildable):
     """
-    Represents the overall configuration for a model setup.
+    Builder for a complete model configuration.
 
-    Currently, supports only the algorithm configuration and model configuration.
+    Use ``set_*`` methods to attach the algorithm, model configuration, schedule,
+    and model property; use ``add_*`` methods to register data sources and
+    report properties; call :meth:`write_to_file` to emit
+    ``model-configuration.json``.
     """
 
     def __init__(self):
-        """
-        Initialises the Configuration object.
-        """
-        self._algorithm = None
-        self._model_configuration = None
-        self._data_sources: list[DataSource] = []
-        self._schedule_configuration = None
-        self._solution_view_allowed = False
-        self._solution_view_enabled = False
-        self._report_properties: dict[str, dict[str, Any]] | None = None
-        self._model_property: dict[str, Any] | None = None
-        self._model_topic_mapping: list = []
-        self._tooltips: list = []
+        self.algorithm_configuration: Algorithm | None = None
+        self.model_configuration: ModelConfiguration | None = None
+        self.data_sources: list[DataSource] = []
+        self.schedule_configuration: ScheduleConfiguration | None = None
+        self.solution_view_allowed: bool = False
+        self.solution_view_enabled: bool = False
+        self.report_properties: dict[str, ReportProperty] | None = None
+        self.model_properties: ModelProperty | None = None
+        self.model_topic_mapping: list = []
+        self.tooltips: list = []
 
-    def set_algorithm(self, algorithm: Algorithm) -> None:
-        """
-        Sets the algorithm configuration to include.
+    def set_algorithm(self, algorithm: Algorithm) -> "ConfigurationBuilder":
+        """Set the top-level algorithm. Mutually exclusive with a schedule."""
+        self.algorithm_configuration = algorithm
+        return self
 
-        Args:
-            algorithm (Algorithm): The algorithm configuration to include.
-        """
-        self._algorithm = algorithm
-
-    def set_model_configuration(self, model_configuration: ModelConfiguration) -> None:
-        """
-        Sets the model configuration to include.
-
-        Args:
-            model_configuration (ModelConfiguration): The model configuration to include.
-        """
-        self._model_configuration = model_configuration
+    def set_model_configuration(
+        self, model_configuration: ModelConfiguration
+    ) -> "ConfigurationBuilder":
+        """Set the :class:`~daitum_configuration.ModelConfiguration` (decision variables,
+        objectives, constraints)."""
+        self.model_configuration = model_configuration
+        return self
 
     def set_schedule_configuration(
-        self,
-        algorithm_configurations: dict[str, Algorithm] | None = None,
-        schedule_root: StepConfiguration | None = None,
-    ) -> None:
-        """
-        Sets the schedule configuration to include.
+        self, schedule_configuration: ScheduleConfiguration
+    ) -> "ConfigurationBuilder":
+        """Set a multi-step schedule. Mutually exclusive with a single algorithm."""
+        self.schedule_configuration = schedule_configuration
+        return self
 
-        Args:
-            algorithm_configurations: Optional dictionary of algorithm configurations.
-                Keys are algorithm keys and values are Algorithm instances.
-                Defaults to an empty dictionary.
-            schedule_root: Optional root step configuration that defines the
-                execution schedule hierarchy. Defaults to None.
-        """
-        self._schedule_configuration = ScheduleConfiguration(
-            algorithm_configurations, schedule_root
-        )
+    def set_solution_view_allowed(self, solution_view_allowed: bool) -> "ConfigurationBuilder":
+        """Set whether the solution-view feature is permitted for this model."""
+        self.solution_view_allowed = solution_view_allowed
+        return self
 
-    def add_report_property(self, key: str, report_property: ReportProperty) -> None:
-        """
-        Adds the report property to the dictionary.
+    def set_solution_view_enabled(self, solution_view_enabled: bool) -> "ConfigurationBuilder":
+        """Set whether the solution view is enabled by default when allowed."""
+        self.solution_view_enabled = solution_view_enabled
+        return self
 
-        Args:
-            key (str): The key for the report property.
-            report_property (ReportProperty): The pre-built report property to add.
-        """
-        if self._report_properties is None:
-            self._report_properties = {}
-        self._report_properties[key] = report_property.to_dict()
+    def set_model_topic_mapping(self, model_topic_mapping: list) -> "ConfigurationBuilder":
+        """Set the model-topic mapping list emitted alongside the configuration."""
+        self.model_topic_mapping = model_topic_mapping
+        return self
+
+    def set_tooltips(self, tooltips: list) -> "ConfigurationBuilder":
+        """Set the tooltip definitions emitted alongside the configuration."""
+        self.tooltips = tooltips
+        return self
+
+    def add_report_property(
+        self, key: str, report_property: ReportProperty
+    ) -> "ConfigurationBuilder":
+        """Register a :class:`~daitum_configuration.report_property.report_property.ReportProperty`
+        under the given key."""
+        if self.report_properties is None:
+            self.report_properties = {}
+        self.report_properties[key] = report_property
+        return self
 
     def set_model_property(
         self,
-        calculate_on_load: bool = False,
+        calculate_on_load: bool = True,
         calculation_enabled: bool = True,
         ignore_formula: bool = False,
         import_options: ModelImportOptions | None = None,
         overlay_config: OverlayConfig | None = None,
-    ):
-        """
-        Data model representing model-level properties and configurations.
-
-        Args:
-            calculate_on_load (bool): Whether to calculate on load. Default False.
-            calculation_enabled (bool): Whether calculation is enabled. Default True.
-            ignore_formula (bool): Whether to ignore formulas. Default False.
-            import_options (Optional[ModelImportOptions]): Import configuration options.
-            overlay_config (Optional[OverlayConfig]): Spreadsheet overlay configuration.
-        """
-        model_property = ModelProperty(
-            calculate_on_load, calculation_enabled, ignore_formula, import_options, overlay_config
+    ) -> "ConfigurationBuilder":
+        """Construct and attach a
+        :class:`~daitum_configuration.model_property.model_property.ModelProperty` from
+        the given flags and configurations."""
+        self.model_properties = ModelProperty(
+            calculate_on_load,
+            calculation_enabled,
+            ignore_formula,
+            import_options,
+            overlay_config,
         )
-        self._model_property = model_property.to_dict()
+        return self
 
-    def add_excel_transform(
-        self,
-        name: str,
-        config: ExcelTransformConfig,
-    ) -> DataSource:
-        """
-        Adds a new Excel-based data source to the configuration.
+    def add_excel_transform(self, name: str, config: ExcelTransformConfig) -> DataSource:
+        """Register an Excel-transform data source and return its
+        :class:`~daitum_configuration.data_source.data_source.DataSource` wrapper for
+        further customisation (e.g. ``set_post_optimise``)."""
+        return self._add_data_source(DataSource(name, config))
 
-        Args:
-            name (str): Display name of the data source.
-            config (ExcelTransformConfig): Configuration object specifying how to import
-                and transform the Excel file.
+    def add_model_transform(self, name: str, config: ModelTransformConfig) -> DataSource:
+        """Register a model-transform data source. See :meth:`add_excel_transform` for the
+        return value."""
+        return self._add_data_source(DataSource(name, config))
 
-        Returns:
-            DataSource: The created data source instance, for further configuration via
-                chained setter calls (e.g. ``set_hidden``, ``set_post_optimise``).
-        """
-        data_source = DataSource(name, config)
-        self._data_sources.append(data_source)
+    def add_data_store(self, name: str, config: DataStoreConfig) -> DataSource:
+        """Register a data-store data source. See :meth:`add_excel_transform` for the
+        return value."""
+        return self._add_data_source(DataSource(name, config))
+
+    def add_batched_data_source(self, name: str, config: BatchedDataSourceConfig) -> DataSource:
+        """Register a batched data source bundling other data sources. See
+        :meth:`add_excel_transform` for the return value."""
+        return self._add_data_source(DataSource(name, config))
+
+    def add_report_data_source(self, name: str, report_name: str) -> DataSource:
+        """Register a data source that feeds rows from a previously-run report. See
+        :meth:`add_excel_transform` for the return value."""
+        return self._add_data_source(DataSource(name, RunReportConfig(report_name)))
+
+    def add_distance_matrix(self, name: str, config: DistanceMatrixConfig) -> DataSource:
+        """Register a distance-matrix data source. See :meth:`add_excel_transform` for the
+        return value."""
+        return self._add_data_source(DataSource(name, config))
+
+    def add_set_features(self, name: str, config: SetFeaturesConfig) -> DataSource:
+        """Register a feature-flag data source. See :meth:`add_excel_transform` for the
+        return value."""
+        return self._add_data_source(DataSource(name, config))
+
+    def add_geo_location(self, name: str, config: GeoLocationConfig) -> DataSource:
+        """Register a geocoding data source. See :meth:`add_excel_transform` for the
+        return value."""
+        return self._add_data_source(DataSource(name, config))
+
+    def _add_data_source(self, data_source: DataSource) -> DataSource:
+        self.data_sources.append(data_source)
         return data_source
 
-    def add_model_transform(
-        self,
-        name: str,
-        config: ModelTransformConfig,
-    ) -> DataSource:
-        """
-        Adds a new ModelTransformConfig data source to the configuration.
-
-        Args:
-            name (str): Display name of the data source.
-            config (ModelTransformConfig): Configuration class for model transforms,
-                transformation of model data using the v3 modelling language and data
-                store integration.
-
-        Returns:
-            DataSource: The created data source instance, for further configuration via
-                chained setter calls (e.g. ``set_hidden``, ``set_post_optimise``).
-        """
-        data_source = DataSource(name, config)
-        self._data_sources.append(data_source)
-        return data_source
-
-    def add_data_store(
-        self,
-        name: str,
-        config: DataStoreConfig,
-    ) -> DataSource:
-        """
-        Adds a new DataStoreConfig data source to the configuration.
-
-        Args:
-            name (str): Display name of the data source.
-            config (DataStoreConfig): Configuration class for data stores, enabling structured
-                serialisation and supporting optional filtering and debug options.
-
-        Returns:
-            DataSource: The created data source instance, for further configuration via
-                chained setter calls (e.g. ``set_hidden``, ``set_post_optimise``).
-        """
-        data_source = DataSource(name, config)
-        self._data_sources.append(data_source)
-        return data_source
-
-    def add_batched_data_source(
-        self,
-        name: str,
-        config: BatchedDataSourceConfig,
-    ) -> DataSource:
-        """
-        Adds a new BatchedDataSourceConfig data source to the configuration.
-
-        Args:
-            name (str): Display name of the data source.
-            config (BatchedDataSourceConfig): Represents a configuration for a batched data
-                source composed of multiple individual data sources.
-
-        Returns:
-            DataSource: The created data source instance, for further configuration via
-                chained setter calls (e.g. ``set_hidden``, ``set_post_optimise``).
-        """
-        data_source = DataSource(name, config)
-        self._data_sources.append(data_source)
-        return data_source
-
-    def add_report_data_source(
-        self,
-        name: str,
-        report_name: str,
-    ) -> DataSource:
-        """
-        Adds a new RunReport data source to the configuration.
-
-        Args:
-            name (str): Display name of the data source.
-            report_name (str): The name of the report to be run.
-
-        Returns:
-            DataSource: The created data source instance, for further configuration via
-                chained setter calls (e.g. ``set_hidden``, ``set_post_optimise``).
-        """
-        data_source = DataSource(name, RunReportConfig(report_name))
-        self._data_sources.append(data_source)
-        return data_source
-
-    def add_distance_matrix(
-        self,
-        name: str,
-        config: DistanceMatrixConfig,
-    ) -> DataSource:
-        """
-        Adds a new DistanceMatrixConfig data source to the configuration.
-
-        Args:
-            name (str): Display name of the data source.
-            config (DistanceMatrixConfig): Represents a configuration model for a distance
-                matrix data source.
-
-        Returns:
-            DataSource: The created data source instance, for further configuration via
-                chained setter calls (e.g. ``set_hidden``, ``set_post_optimise``).
-        """
-        data_source = DataSource(name, config)
-        self._data_sources.append(data_source)
-        return data_source
-
-    def add_set_features(
-        self,
-        name: str,
-        config: SetFeaturesConfig,
-    ) -> DataSource:
-        """
-        Adds a new SetFeaturesConfig data source to the configuration.
-
-        Args:
-            name (str): Display name of the data source.
-            config (SetFeaturesConfig): A configuration class that holds boolean feature flags
-                for enabling or disabling specific functionalities.
-
-        Returns:
-            DataSource: The created data source instance, for further configuration via
-                chained setter calls (e.g. ``set_hidden``, ``set_post_optimise``).
-        """
-        data_source = DataSource(name, config)
-        self._data_sources.append(data_source)
-        return data_source
-
-    def add_geo_location(
-        self,
-        name: str,
-        config: GeoLocationConfig,
-    ) -> DataSource:
-        """
-        Adds a new GeoLocationConfig data source to the configuration.
-
-        Args:
-            name (str): Display name of the data source.
-            config (GeoLocationConfig): A configuration class that represents a geolocation
-                configuration for address-to-coordinate transformation.
-
-        Returns:
-            DataSource: The created data source instance, for further configuration via
-                chained setter calls (e.g. ``set_hidden``, ``set_post_optimise``).
-        """
-        data_source = DataSource(name, config)
-        self._data_sources.append(data_source)
-        return data_source
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Converts the `Configuration` object to a dictionary representation for JSON serialisation.
-
-        Returns:
-            dict[str, Any]: A dictionary representation of the configuration.
-        """
-        return {
-            "algorithmConfiguration": self._algorithm.to_dict() if self._algorithm else None,
-            "modelConfiguration": (
-                self._model_configuration.to_dict() if self._model_configuration else None
-            ),
-            "dataSources": [ds.to_dict() for ds in self._data_sources],
-            "scheduleConfiguration": (
-                self._schedule_configuration.to_dict() if self._schedule_configuration else None
-            ),
-            "solutionViewAllowed": self._solution_view_allowed,
-            "solutionViewEnabled": self._solution_view_enabled,
-            "reportProperties": self._report_properties,
-            "modelProperties": self._model_property,
-            "modelTopicMapping": self._model_topic_mapping,
-            "tooltips": self._tooltips,
-        }
-
-    def write_to_file(self, file_name: str):
-        """
-        Serialises the configuration and writes it to a JSON file.
-
-        Args:
-            file_name (str): The path to the file where the model will be saved.
-        """
-        directory = os.path.dirname(file_name)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory)
-        with open(file_name, "w", encoding="utf-8") as fp:
-            json.dump(self.to_dict(), fp, indent=4, sort_keys=False)
+    def write_to_file(self, model_directory: str | os.PathLike[str]) -> None:
+        """Serialise this configuration into ``model-configuration.json`` under
+        ``model_directory``, creating the directory if it does not exist."""
+        path = pathlib.Path(model_directory) / "model-configuration.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as fp:
+            json.dump(self.build(), fp, indent=4, sort_keys=False)

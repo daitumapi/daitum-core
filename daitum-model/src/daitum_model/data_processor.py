@@ -12,6 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Utilities for converting raw CSV input data into the JSON format expected by the Daitum platform.
+"""
+
 import csv
 import datetime
 import json
@@ -24,6 +28,19 @@ from daitum_model.tables import DataTable, Table
 
 
 def prepare_data(model: ModelBuilder, input_path: str, output_path: str):
+    """
+    Convert CSV data files for all ``DataTable`` objects in *model* into Daitum-format CSVs.
+
+    Reads each table's CSV from ``{input_path}/{table_id}.csv``, converts field values to the
+    JSON encoding expected by the platform (typed scalars, date/time lists, object row-UIDs,
+    etc.), and writes the result to the appropriate subdirectory under *output_path*
+    (``model-data/`` for model-level tables, ``scenarios/Initial/`` otherwise).
+
+    Args:
+        model: The ``ModelBuilder`` whose ``DataTable`` objects should be processed.
+        input_path: Directory containing the raw source CSV files.
+        output_path: Root directory for the converted output CSV files.
+    """
     data_tables = [table for table in model.get_tables() if isinstance(table, DataTable)]
     table_data = {}
     for table in data_tables:

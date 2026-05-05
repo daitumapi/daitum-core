@@ -1,4 +1,4 @@
-"""Sphinx configuration for the unified daitum-core documentation."""
+"""Sphinx configuration for the unified Daitum documentation."""
 
 import sys
 from pathlib import Path
@@ -16,7 +16,7 @@ for _pkg_src in [
 # Project metadata
 # ---------------------------------------------------------------------------
 
-project = "daitum-core"
+project = "Daitum"
 author = "Daitum"
 copyright = f"2026, {author}"  # noqa: A001
 
@@ -37,7 +37,15 @@ templates_path = ["_templates"]
 
 html_theme = "sphinx_rtd_theme"
 html_static_path = ["_static"]
+html_css_files = ["custom.css"]
+html_title = "daitum"
+html_logo = "_static/daitum.png"
+html_favicon = "_static/daitum.svg"
 html_show_sphinx = False
+html_compact_lists = False
+html_theme_options = {
+    "logo_only": True,
+}
 
 # ---------------------------------------------------------------------------
 # Extensions
@@ -58,7 +66,6 @@ extensions = [
 autodoc_default_options = {
     "members": True,
     "undoc-members": False,
-    "show-inheritance": True,
     "member-order": "bysource",
 }
 
@@ -84,17 +91,16 @@ intersphinx_mapping = {
 }
 
 # ---------------------------------------------------------------------------
-# HTML output
-# ---------------------------------------------------------------------------
-
-html_theme = "furo"
-html_title = "daitum-core"
-
-# ---------------------------------------------------------------------------
 # General
 # ---------------------------------------------------------------------------
 
-exclude_patterns = ["_build", "Thumbs.db", ".DS_Store"]
+exclude_patterns = [
+    "_build",
+    "Thumbs.db",
+    ".DS_Store",
+    # Source for generate_formula_docs.py — not rendered as its own page.
+    "daitum_model/formulas_intro.rst",
+]
 nitpicky = False
 
 

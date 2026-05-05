@@ -12,42 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the `Objective` data model, used to represent an optimization objective.
-The model includes a utility to serialize the objective into a structured dictionary format.
+""":class:`Objective` — a quantity to optimise within a :class:`ModelConfiguration`."""
 
-Features:
-    - Automatically assigns a unique tracking ID to each objective using a static counter.
-    - Validates input to ensure the objective reference is a string.
-    - Includes metadata such as priority, weight, and maximization flag.
-
-Examples:
-
-.. code-block:: python
-
-    obj = Objective("EXCESS USAGE")
-    obj_dict = obj.to_dict()
-
-Classes:
-    - Objective: A class representing an optimization objective with serialization support.
-"""
+from typing import Any
 
 from daitum_model import Calculation, DataType
 from typeguard import typechecked
 
+from daitum_configuration._buildable import Buildable
 from daitum_configuration.model_configuration.priority import Priority
 
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-instance-attributes
 # pylint: disable=too-many-branches,too-few-public-methods
 @typechecked
-class Objective:
+class Objective(Buildable):
     """
-    Represents an optimization objective, storing its reference and providing
-    a method to serialize it into a dictionary format for use in optimization systems.
+    A numeric quantity the solver should maximise or minimise.
+
+    Construct via :meth:`ModelConfiguration.add_objective`. The wrapped
+    :class:`~daitum_model.Calculation` must be ``INTEGER`` or ``DECIMAL``.
     """
 
-    # Class-level static variable for tracking ID
     _tracking_counter = 0
 
     def __init__(
@@ -58,22 +44,6 @@ class Objective:
         weight: float = 1.0,
         name: str | None = None,
     ):
-        """
-        Initializes the Objective instance.
-
-        Args:
-            objective (Calculation): A `Calculation` object representing the optimization
-                target.
-            maximise (bool): Whether the objective should be maximised. Defaults to
-                False (minimize).
-            priority (Priority): The priority level of the objective. Defaults to
-                Priority.HIGH.
-            weight (float): The relative importance (weight) of the objective. Defaults
-                to 1.0.
-            name (Optional[str]): An optional human-readable name for the objective.
-                Defaults to None.
-        """
-
         objective_datatype = objective.to_data_type()
         if objective_datatype not in {DataType.INTEGER, DataType.DECIMAL}:
             raise ValueError(f"{objective_datatype} is not integer or decimal")
@@ -86,13 +56,13 @@ class Objective:
         self._weight = weight
         self._name = name
 
-    def to_dict(self) -> dict:
-        """
-        Serializes the instance into a dictionary representation for optimization.
+    @property
+    def name(self) -> str | None:
+        """Optional display name for this objective."""
+        return self._name
 
-        Returns:
-            dict: A dictionary formatted for use in optimization.
-        """
+    def build(self) -> dict[str, Any]:
+        """Serialise to a JSON-compatible dict."""
         return {
             "cellReference": f"!!!{self._objective.to_string()}",
             "trackingId": self._tracking_id,

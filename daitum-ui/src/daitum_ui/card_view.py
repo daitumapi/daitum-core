@@ -79,6 +79,12 @@ class CardView(BaseView, FilterableView):
         display_name: str | None = None,
         hidden: bool = False,
     ):
+        """
+        Args:
+            card_template: The card template used to render each row.
+            display_name: Optional display name for this view.
+            hidden: If ``True``, the view is not visible in the UI.
+        """
         BaseView.__init__(self, hidden)
         if display_name is not None:
             self._display_name = display_name

@@ -12,26 +12,25 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the ImportOptionOverrides class, which allows fine-grained control
-over how data is imported from external sources like Excel sheets. It provides options
-to enforce structure, preserve ordering, and manage existing data during import.
-
-Classes:
-    ImportOptionOverrides: Configures custom import behaviour for a given data source or sheet.
-
-"""
+""":class:`ImportOptionOverrides` — per-sheet overrides used by :class:`ExcelTransformConfig`."""
 
 from typeguard import typechecked
+
+from daitum_configuration._buildable import Buildable
 
 
 # pylint: disable=too-many-instance-attributes
 # pylint: disable=too-few-public-methods
 @typechecked
-class ImportOptionOverrides:
+class ImportOptionOverrides(Buildable):
     """
-    Represents customisation options for importing data, such as validation, structure
-    enforcement, and row matching behaviour.
+    Per-sheet overrides for column matching, ordering, and row reconciliation.
+
+    Args:
+        match_column_count: Reject the import if the column count differs.
+        match_column_headers: Reject the import if column headers differ.
+        match_existing_rows: Match incoming rows to existing rows by key.
+        preserve_ordering: Preserve the source row order in the target.
     """
 
     def __init__(
@@ -41,91 +40,31 @@ class ImportOptionOverrides:
         match_existing_rows: bool = False,
         preserve_ordering: bool = False,
     ):
-        """
-        Initialises an ImportOptionOverrides instance with optional import validation and
-        behaviour settings.
-
-        Args:
-            match_column_count (bool): Whether to enforce exact column count during import.
-            match_column_headers (bool): Whether to validate that headers match expected ones.
-            match_existing_rows (bool): Whether to attempt row matching with existing data.
-            preserve_ordering (bool): Whether to preserve the order of rows from the source.
-        """
-        self._match_column_count = match_column_count
-        self._match_column_headers = match_column_headers
-        self._match_existing_rows = match_existing_rows
-        self._preserve_ordering = preserve_ordering
-        self._clear_sheet: bool = False
-        self._reset_decisions: bool = False
-        self._expected_column_count: int | None = None
-        self._key_column: str | None = None
+        self.match_column_count = match_column_count
+        self.match_column_headers = match_column_headers
+        self.match_existing_rows = match_existing_rows
+        self.preserve_ordering = preserve_ordering
+        self.clear_sheet: bool = False
+        self.reset_decisions: bool = False
+        self.expected_column_count: int | None = None
+        self.key_column: str | None = None
 
     def set_clear_sheet(self, clear_sheet: bool) -> "ImportOptionOverrides":
-        """
-        Sets whether to clear existing data in the sheet before import.
-
-        Args:
-            clear_sheet (bool): If True, clears existing data before import.
-
-        Returns:
-            ImportOptionOverrides: self, for method chaining.
-        """
-        self._clear_sheet = clear_sheet
+        """Clear the sheet before writing imported rows."""
+        self.clear_sheet = clear_sheet
         return self
 
     def set_reset_decisions(self, reset_decisions: bool) -> "ImportOptionOverrides":
-        """
-        Sets whether to reset prior decisions on rows during import.
-
-        Args:
-            reset_decisions (bool): If True, resets prior decisions on rows.
-
-        Returns:
-            ImportOptionOverrides: self, for method chaining.
-        """
-        self._reset_decisions = reset_decisions
+        """Reset decision-variable values for any matched rows on import."""
+        self.reset_decisions = reset_decisions
         return self
 
     def set_expected_column_count(self, expected_column_count: int) -> "ImportOptionOverrides":
-        """
-        Sets the number of columns expected in the source.
-
-        Args:
-            expected_column_count (int): Number of columns expected in the source.
-
-        Returns:
-            ImportOptionOverrides: self, for method chaining.
-        """
-        self._expected_column_count = expected_column_count
+        """Set the column count enforced when ``match_column_count`` is True."""
+        self.expected_column_count = expected_column_count
         return self
 
     def set_key_column(self, key_column: str) -> "ImportOptionOverrides":
-        """
-        Sets the name of the key column for row matching.
-
-        Args:
-            key_column (str): Name of the key column for row matching.
-
-        Returns:
-            ImportOptionOverrides: self, for method chaining.
-        """
-        self._key_column = key_column
+        """Set the column used to match incoming rows against existing ones."""
+        self.key_column = key_column
         return self
-
-    def to_dict(self) -> dict:
-        """
-        Serialises the instance into a dictionary representation for ImportOptionOverrides.
-
-        Returns:
-            dict: A dictionary representation of the ImportOptionOverrides instance.
-        """
-        return {
-            "matchColumnCount": self._match_column_count,
-            "matchColumnHeaders": self._match_column_headers,
-            "matchExistingRows": self._match_existing_rows,
-            "preserveOrdering": self._preserve_ordering,
-            "clearSheet": self._clear_sheet,
-            "resetDecisions": self._reset_decisions,
-            "expectedColumnCount": self._expected_column_count,
-            "keyColumn": self._key_column,
-        }

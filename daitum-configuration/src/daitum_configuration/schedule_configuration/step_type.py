@@ -12,37 +12,18 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the StepType enumeration for algorithm scheduling configurations.
-
-The StepType enum specifies the different types of steps that can be used when building
-an execution schedule for algorithms. These step types form the building blocks for
-creating complex execution workflows that can include parallel processing, sequential
-execution, or single algorithm runs.
-
-The available step types are:
-    - PARALLEL: For executing multiple steps concurrently
-    - SEQUENCE: For executing multiple steps in a defined order
-    - SINGLE: For executing a single algorithm
-
-This enum is typically used in conjunction with the StepConfiguration class to create
-complete schedule definitions.
-"""
+""":class:`StepType` enum used by :class:`StepConfiguration`."""
 
 from enum import Enum
 
 
 class StepType(Enum):
-    """
-    Enumeration of different possible elements in an algorithm schedule.
-
-    This defines the types of steps that can be used to build an execution schedule.
+    """Kind of node in a :class:`ScheduleConfiguration` execution tree.
 
     Values:
-        - PARALLEL: Step contains a number of other steps to be run alongside each other
-          in parallel.
-        - SEQUENCE: Step contains a number of other steps to be run in sequence.
-        - SINGLE: Step is a single algorithm execution.
+        PARALLEL: Run child steps concurrently.
+        SEQUENCE: Run child steps one after another.
+        SINGLE: Run a single algorithm referenced by key.
     """
 
     PARALLEL = "PARALLEL"

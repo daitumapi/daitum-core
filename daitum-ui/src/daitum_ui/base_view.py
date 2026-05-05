@@ -21,11 +21,12 @@ forms, etc.) inherit from, as well as common UI components like action bars.
 
 The BaseView class establishes the common interface and functionality shared across
 all views, including:
-    - View identification and display properties
-    - Title configuration with styling and positioning
-    - Visibility control with conditional hiding
-    - Action bars for interactive elements
-    - Filter integration
+
+- View identification and display properties
+- Title configuration with styling and positioning
+- Visibility control with conditional hiding
+- Action bars for interactive elements
+- Filter integration
 
 All concrete view implementations (TableView, ChartView, FormView, etc.) extend
 BaseView to inherit this common functionality while adding their specific features.
@@ -210,18 +211,22 @@ class BaseView(ABC, Buildable):
 
     @property
     def id(self):
+        """Randomly generated unique identifier for this view."""
         return self._id
 
     @property
     def display_name(self):
+        """The human-readable display name shown in the UI."""
         return self._display_name
 
     @property
     def hidden(self):
+        """Whether this view is unconditionally hidden."""
         return self._hidden
 
     @property
     def hidden_conditions(self):
+        """The serialised hidden conditions list, or ``None`` if none have been added."""
         return (
             [condition.build() for condition in self._hidden_conditions]
             if self._hidden_conditions is not None
@@ -229,6 +234,16 @@ class BaseView(ABC, Buildable):
         )
 
     def build(self):
+        """
+        Serialise this view to a JSON-compatible dict.
+
+        Wraps the inner ``viewDefinition`` produced by ``super().build()`` inside a
+        top-level envelope containing ``id``, ``displayName``, ``hidden``, and
+        ``hiddenConditions`` keys.
+
+        Returns:
+            dict: The serialised view envelope.
+        """
         view_definition = super().build()
         return {
             "id": self.id,

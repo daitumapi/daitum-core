@@ -44,6 +44,19 @@ MODEL_MISSING = ValueError(
 def _get_tracked_object(
     model_object: Field | Parameter | Calculation, context: Table | ModelBuilder
 ) -> Field | Parameter | Calculation:
+    """
+    Return the tracking counterpart of *model_object* from *context*.
+
+    Args:
+        model_object: A tracked field, parameter, or calculation.
+        context: A ``Table`` when *model_object* is a ``Field``; a ``ModelBuilder`` otherwise.
+
+    Returns:
+        The corresponding tracking field or named value.
+
+    Raises:
+        ValueError: If *model_object* has no tracking group, or if *context* is the wrong type.
+    """
     if not model_object.tracking_group:
         raise TRACKING_GROUP_MISSING
 

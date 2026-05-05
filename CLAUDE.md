@@ -70,7 +70,10 @@ The libraries use fluent builder APIs:
 - `daitum_ui`: Define UI screens, navigation groups, components
 - `daitum_configuration`: Build model configuration (algorithms, objectives, data sources)
 
-All Daitum model objects use `.to_dict()` methods for JSON serialisation.
+All Daitum objects inherit from a `Buildable` base class and expose `.build()` for
+JSON-compatible dict serialisation; the canonical output entry points are
+`ModelBuilder.write_to_file()`, `UiBuilder.write_to_file()`, and
+`ConfigurationBuilder.write_to_file()`.
 
 ### Import conventions
 

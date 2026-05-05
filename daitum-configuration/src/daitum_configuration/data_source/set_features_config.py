@@ -12,14 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the SetFeaturesConfig class, which represents a configuration
-used to toggle features on or off in a data pipeline.
-
-Classes:
-    - SetFeaturesConfig: A configuration class that holds boolean feature flags
-      for enabling or disabling specific functionalities.
-"""
+""":class:`SetFeaturesConfig` — feature-flag data source."""
 
 from typeguard import typechecked
 
@@ -30,48 +23,19 @@ from daitum_configuration.data_source.data_source_type import DataSourceType
 @typechecked
 class SetFeaturesConfig(DataSourceConfig):
     """
-    Configuration class for setting feature flags.
+    Toggles named feature flags when the data source runs.
 
-    This class enables or disables specific system features by using a dictionary
-    of feature names mapped to boolean values. It is useful for conditional
-    behavior based on user or system-level preferences.
+    Args:
+        feature_settings: Map of feature key to enabled flag.
     """
 
     def __init__(
         self,
         feature_settings: dict[str, bool] | None = None,
     ):
-        """
-        Initializes a SetFeaturesConfig instance.
-
-        Args:
-            feature_settings (dict[str, bool] | None): Optional dictionary specifying
-                feature names and their enabled/disabled status.
-        """
-        self._feature_settings = feature_settings
+        self.feature_settings = feature_settings
         super().__init__()
 
     @property
     def type(self) -> DataSourceType:
-        """
-        Returns the type identifier for this data source configuration.
-
-        Returns:
-            DataSourceType: Enum indicating this is a SET_FEATURES type configuration.
-        """
         return DataSourceType.SET_FEATURES
-
-    def to_dict(self) -> dict:
-        """
-        Serializes the instance into a dictionary representation for exporting or
-        persisting the feature configuration.
-
-        Returns:
-            - A dictionary representation of the SetFeaturesConfig instance,
-              including the type, feature flags, and change-tracking support flag.
-        """
-        return {
-            "type": self.type.value,
-            "featureSettings": self._feature_settings,
-            "trackChangesSupported": self._track_changes_supported,
-        }

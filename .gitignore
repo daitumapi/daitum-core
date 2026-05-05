@@ -11,3 +11,4 @@ build/
 docs/_build/
 docs/daitum_model/formulas/
 .idea/
+model-files/

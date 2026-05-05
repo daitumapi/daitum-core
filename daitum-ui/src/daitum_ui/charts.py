@@ -499,6 +499,14 @@ class ChartSeries(Buildable):
         display_field: str | None = None,
         marker: DataPointMarker | None = None,
     ):
+        """
+        Args:
+            source_field: The field whose values are plotted by this series.
+            name: Optional display name shown in the legend and tooltips.
+            color: Optional colour override (hex code or colour name).
+            display_field: Optional alternate field ID used for label or tooltip text.
+            marker: Optional visual configuration for individual data-point markers.
+        """
         self._source_field = source_field
         self.source_field = source_field.id
 
@@ -562,6 +570,14 @@ class CombinationChartComponent(Buildable):
         point_label: str | None = None,
         tooltip: str | None = None,
     ):
+        """
+        Args:
+            orientation: Chart orientation (vertical or horizontal).
+            chart_type: The chart type for this component (e.g. ``LINE``, ``BAR``).
+            stacking: How multiple series are stacked (``NORMAL`` or ``PERCENT``).
+            point_label: Optional label template displayed on each data point.
+            tooltip: Optional tooltip template for hover interactions.
+        """
         self.orientation = orientation
         self.type = chart_type
         self.stacking = stacking

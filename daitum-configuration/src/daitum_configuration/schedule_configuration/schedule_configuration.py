@@ -12,36 +12,30 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the ScheduleConfiguration class which represents a configuration
-for scheduling algorithms and steps in a computational workflow.
-
-The ScheduleConfiguration class serves as a container for algorithm configurations
-and a root step configuration that defines the execution schedule. It provides methods
-to convert the configuration to a dictionary format.
-"""
+""":class:`ScheduleConfiguration` — multi-step optimisation schedule."""
 
 from typing import Any
 
 from typeguard import typechecked
 
+from daitum_configuration._buildable import Buildable
 from daitum_configuration.algorithm_configuration.algorithm import Algorithm
 from daitum_configuration.schedule_configuration.step_configuration import StepConfiguration
 
 
 # pylint: disable=too-few-public-methods
 @typechecked
-class ScheduleConfiguration:
+class ScheduleConfiguration(Buildable):
     """
-    Represents a configuration for scheduling algorithms and execution steps.
+    Multi-step optimisation schedule.
 
-    This class holds algorithm configurations and a root step configuration that
-    defines the execution schedule hierarchy. It can be converted to a dictionary
-    representation for serialization.
+    Pairs a map of named :class:`~daitum_configuration.algorithm_configuration.algorithm.Algorithm`
+    instances with a :class:`StepConfiguration` tree that references them by key.
 
-    Notes:
-        - _global_parameters: Not sure how does this work: can not be overwritten for now
-
+    Args:
+        algorithm_configurations: Map from algorithm key (referenced by
+            :class:`StepConfiguration`) to :class:`Algorithm`.
+        schedule_root: Root step of the execution tree.
     """
 
     def __init__(
@@ -49,43 +43,23 @@ class ScheduleConfiguration:
         algorithm_configurations: dict[str, Algorithm] | None = None,
         schedule_root: StepConfiguration | None = None,
     ):
-        """
-        Initializes a ScheduleConfiguration instance.
+        self.global_parameters: dict[str, str] | None = None
 
-        Args:
-            algorithm_configurations: Optional dictionary of algorithm configurations.
-                Keys are algorithm keys and values are Algorithm instances.
-                Defaults to an empty dictionary.
-            schedule_root: Optional root step configuration that defines the
-                execution schedule hierarchy. Defaults to None.
-        """
-        # Not sure how does this work: can not be overwritten for now
-        self._global_parameters: dict[str, str] | None = None
+        self.algorithm_configurations: dict[str, Algorithm] | None = algorithm_configurations
+        self.schedule_root = schedule_root
 
-        self._algorithm_configurations = algorithm_configurations
-        self._schedule_root = schedule_root
+    def set_algorithm_configurations(
+        self, algorithm_configurations: dict[str, Algorithm]
+    ) -> "ScheduleConfiguration":
+        """Set the key → :class:`Algorithm` map used by step references."""
+        self.algorithm_configurations = algorithm_configurations
+        return self
 
-        self._algorithm_configurations_string: dict[str, dict[str, Any]] | None = None
-        if algorithm_configurations is not None:
-            self._algorithm_configurations_string = {}
-            for key, algorithm in algorithm_configurations.items():
-                self._algorithm_configurations_string[key] = algorithm.to_dict()
+    def set_schedule_root(self, schedule_root: StepConfiguration) -> "ScheduleConfiguration":
+        """Set the root :class:`StepConfiguration` of the execution tree."""
+        self.schedule_root = schedule_root
+        return self
 
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Converts the schedule configuration to a dictionary representation.
-
-        The resulting dictionary can be used for serialization.
-
-        Returns:
-
-        - "algorithmConfigurations": The algorithm configurations dictionary
-        - "globalParameters": The global parameters (currently always None)
-        - "scheduleRoot": Dictionary representation of the root step configuration,
-          or None if no root step is configured
-        """
-        return {
-            "algorithmConfigurations": self._algorithm_configurations_string,
-            "globalParameters": self._global_parameters,
-            "scheduleRoot": self._schedule_root.to_dict() if self._schedule_root else None,
-        }
+    def build(self) -> dict[str, Any]:
+        """Serialise to a JSON-compatible dict."""
+        return super().build()

@@ -12,19 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the ReportData class, representing metadata required
-for exporting reports, including sheet requirements and calculation flags.
-"""
+""":class:`ReportData` — sheet/feature prerequisites for a :class:`ReportProperty`."""
+
+from typing import Any
 
 from typeguard import typechecked
+
+from daitum_configuration._buildable import Buildable
 
 
 # pylint: disable=too-few-public-methods
 @typechecked
-class ReportData:
+class ReportData(Buildable):
     """
-    Data model representing report-related metadata.
+    Sheet and feature prerequisites for one report.
+
+    Args:
+        required_sheets: Sheet names that must be present for the report to run.
+        requires_monte_carlo: Whether the report depends on Monte Carlo output.
+        requires_scenario_comparison: Whether the report depends on scenario
+            comparison output.
     """
 
     def __init__(
@@ -33,27 +40,12 @@ class ReportData:
         requires_monte_carlo: bool = False,
         requires_scenario_comparison: bool = False,
     ):
-        """
-        Initialize ReportData instance.
-
-        Args:
-            required_sheets: A set of required sheet names. Defaults to empty set.
-            requires_monte_carlo: Indicates if Monte Carlo simulation is required.
-            requires_scenario_comparison: Indicates if scenario comparison is required.
-        """
         self._required_sheets = required_sheets if required_sheets is not None else set()
-        self._requires_monte_carlo = requires_monte_carlo
-        self._requires_scenario_comparison = requires_scenario_comparison
+        self.requires_monte_carlo = requires_monte_carlo
+        self.requires_scenario_comparison = requires_scenario_comparison
 
-    def to_dict(self) -> dict:
-        """
-        Serializes the ReportData instance to a dictionary.
-
-        Returns:
-            dict: A dictionary representation of the ReportData instance.
-        """
-        return {
-            "requiredSheets": list(self._required_sheets),
-            "requiresMonteCarlo": self._requires_monte_carlo,
-            "requiresScenarioComparison": self._requires_scenario_comparison,
-        }
+    def build(self) -> dict[str, Any]:
+        """Serialise to a JSON-compatible dict (the required-sheets set becomes a list)."""
+        result = {"requiredSheets": list(self._required_sheets)}
+        result.update(super().build())
+        return result

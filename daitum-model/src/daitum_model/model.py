@@ -13,69 +13,44 @@
 # limitations under the License.
 
 """
-Module for managing a data model consisting of calculations, parameters, and tables.
+Top-level :class:`ModelBuilder` for assembling a Daitum model definition.
 
-This module defines the `ModelBuilder` class, which provides methods to create and manage various
- types of tables, including data tables, derived tables, joined tables, and union tables. The model
-  also supports adding calculations and parameters that can be referenced across the tables.
-
-Key Classes:
-    - `ModelBuilder`: A class responsible for building and managing the data model, including adding
-        tables, calculations, and parameters.
-    - `Calculation`: Represents a calculation with an associated formula.
-    - `Parameter`: Represents a parameter with a specified data type and value.
-    - `Table` and its subclasses (`DataTable`, `DerivedTable`, `JoinedTable`, `UnionTable`):
-        Represent various types of tables in the model.
-    - `Field`: Represents a column of values in a table
-        data aggregation.
-    - `Formula`: Represents a formula used in a calculation.
-
-This module also includes utility methods for serialising the model to JSON and writing it to a
- file for persistence.
-
-Usage Example:
-    model = ModelBuilder()
-    data_table = model.add_data_table("my_table", id_field="id", key_column="key")
-    data_table.add_data_field("id", DataType.INTEGER)
-    data_table.add_data_field("key", DataType.STRING)
-    model.add_calculation("calc1", CONST(0))
-    model.write_to_file("model.json", "named_values.json")
+A model is composed of tables (data, derived, joined, union) and named values
+(:class:`~daitum_model.Calculation` and :class:`~daitum_model.Parameter`).
+:meth:`ModelBuilder.write_to_file` serialises the model into the canonical
+JSON layout consumed by the Daitum platform.
 """
 
 import json
 import os
+import pathlib
 from typing import Any, cast
 
 from typeguard import typechecked
 
 from ._helpers import replace_field, replace_named_value
-from .data_types import MapDataType, ObjectDataType
-from .enums import SEVERITY_RANK, DataType
+from .data_types import BaseDataType, DataType
+from .derived_table import DerivedTable
 from .fields import CalculatedField, Field
 from .formula import CONST, Formula, Operand
+from .joined_table import JoinCondition, JoinedTable
 from .named_values import Calculation, Parameter
-from .tables import (
-    DataTable,
-    DerivedTable,
-    JoinCondition,
-    JoinedTable,
-    Table,
-    UnionSource,
-    UnionTable,
-)
+from .tables import DataTable, Table
+from .union_table import UnionSource, UnionTable
 
 
 @typechecked
 class ModelBuilder:
     """
-    Represents a model that contains a collection of calculations, parameters, and tables.
+    Top-level entry point for building a Daitum model.
 
-    The ModelBuilder class provides methods to add calculations, parameters, and various types of
-    tables to a model, as well as to serialise the model to JSON. It manages the relationships
-    between these entities and ensures that there are no duplicates in the model.
+    A model holds tables and named values (calculations and parameters). Build
+    one incrementally with the ``add_*`` factory methods, then call
+    :meth:`write_to_file` to emit the JSON output.
     """
 
     def __init__(self):
+        """Initialise an empty model with no tables, calculations, or parameters."""
         self._calculations: list[Calculation] = list[Calculation]()
         self._parameters: list[Parameter] = list[Parameter]()
         self._tables: list[Table] = list[Table]()
@@ -93,18 +68,27 @@ class ModelBuilder:
         tracking_group: str | None = None,
     ) -> Calculation:
         """
-        Adds a calculation to the model.
+        Add a :class:`~daitum_model.Calculation` to the model.
 
         Args:
-            id (str): The unique identifier for the calculation.
-            formula (Formula): The formula to be used for the calculation.
-            model_level (bool): A flag indicating whether the calculation is at the model level.
+            id: Unique identifier for the calculation. Must not collide with any
+                existing calculation or parameter id.
+            formula: The expression. A :class:`~daitum_model.Formula` or any value
+                accepted by :func:`~daitum_model.formula.CONST` (number, bool, or
+                string), which is wrapped automatically.
+            model_level: If ``True``, the calculation is evaluated once for the
+                whole model. If ``False`` (the default) it is scenario-level.
+            tracking_group: Optional change-tracking group. When set, a sibling
+                ``*_TRACKING_*`` calculation is generated with references to
+                other tracked named values and fields rewritten to their
+                tracking ids.
 
         Returns:
-            Calculation: The newly added calculation.
+            The newly added :class:`~daitum_model.Calculation`.
 
         Raises:
-            ValueError: If a calculation or parameter with the same id already exists.
+            ValueError: If a calculation or parameter with the same ``id``
+                already exists in the model.
         """
         if not isinstance(formula, Formula):
             return self.add_calculation(id, CONST(formula), model_level, tracking_group)
@@ -159,22 +143,26 @@ class ModelBuilder:
     def add_parameter(
         self,
         id: str,
-        data_type: DataType | ObjectDataType | MapDataType,
+        data_type: BaseDataType,
         value: Any,
         model_level: bool = False,
         tracking_group: str | None = None,
     ) -> Parameter:
         """
-        Adds a parameter to the model.
+        Add a :class:`~daitum_model.Parameter` to the model.
 
         Args:
-            id (str): The unique identifier for the parameter.
-            data_type (DataType | ObjectDataType | MapDataType): The data type of the parameter.
-            value (Any): The value of the parameter.
-            model_level (bool): A flag indicating whether the parameter is at the model level.
+            id: Unique identifier for the parameter.
+            data_type: Data type of the parameter — a :class:`~daitum_model.DataType`,
+                :class:`~daitum_model.ObjectDataType`, or :class:`~daitum_model.MapDataType`.
+            value: Initial value. Must be compatible with ``data_type``.
+            model_level: If ``True``, the parameter is shared across all
+                scenarios. If ``False`` (the default) it is scenario-level.
+            tracking_group: Optional change-tracking group. When set, a sibling
+                ``*_TRACKING_*`` parameter is generated with the same value.
 
         Returns:
-            Parameter: The newly added parameter.
+            The newly added :class:`~daitum_model.Parameter`.
         """
         param = Parameter(id, data_type, value, model_level)
         if tracking_group is not None:
@@ -189,13 +177,22 @@ class ModelBuilder:
 
     def add_data_table(self, id: str) -> DataTable:
         """
-        Adds a Data Table to the model.
+        Add a :class:`~daitum_model.tables.DataTable` to the model.
+
+        A data table holds raw imported rows and is the only table type that
+        supports decision variables.
 
         Args:
-            id (str): The unique identifier for the data table.
+            id: Unique identifier for the table. Must not collide with any
+                existing table id.
 
         Returns:
-            DataTable: The newly added data table.
+            The newly added :class:`~daitum_model.tables.DataTable`. Use its
+            ``add_data_field`` / ``add_calculated_field`` / ``set_key_column``
+            methods to populate it.
+
+        Raises:
+            ValueError: If a table with the same ``id`` already exists.
         """
         table = DataTable(id)
         self._add_table(table)
@@ -209,31 +206,48 @@ class ModelBuilder:
         filter_field: Field | None = None,
     ) -> DerivedTable:
         """
-        Adds a Derived Table to the model based on an existing source table.
+        Add a :class:`~daitum_model.derived_table.DerivedTable` to the model.
+
+        A derived table is a grouped, filtered, and/or sorted view of an
+        existing source table.
 
         Args:
-            id (str): The unique identifier for the derived table.
-            source_table (Table): The source table from which the derived table is created.
-            group_by (list[Field], optional): Fields to group by.
-            filter_field (Field, optional): A BOOLEAN field to filter rows by.
+            id: Unique identifier for the derived table.
+            source_table: The table whose rows the derived table draws from.
+            group_by: Optional fields to group rows by. When supplied,
+                non-group fields must be added with an
+                :class:`~daitum_model.AggregationMethod`.
+            filter_field: Optional ``BOOLEAN`` field on ``source_table``;
+                only rows where it is ``True`` are kept.
 
         Returns:
-            DerivedTable: The newly added derived table.
+            The newly added :class:`~daitum_model.derived_table.DerivedTable`.
+
+        Raises:
+            ValueError: If a table with the same ``id`` already exists.
         """
-        table = source_table.create_derived_table(id, group_by=group_by, filter_field=filter_field)
+        table = DerivedTable(id, source_table, group_by=group_by, filter_field=filter_field)
         self._add_table(table)
         return table
 
     def add_joined_table(self, id: str, join_conditions: list[JoinCondition]) -> JoinedTable:
         """
-        Adds a Joined Table to the model.
+        Add a :class:`~daitum_model.joined_table.JoinedTable` to the model.
+
+        A joined table is the result of joining two or more tables on a list
+        of :class:`~daitum_model.joined_table.JoinCondition` rows.
 
         Args:
-            id (str): The unique identifier for the joined table.
-            join_conditions (list[JoinCondition]): The conditions for joining tables.
+            id: Unique identifier for the joined table.
+            join_conditions: One condition per joined table pairing. The
+                :class:`~daitum_model.JoinType` of each condition controls how
+                unmatched rows are handled.
 
         Returns:
-            JoinedTable: The newly added joined table.
+            The newly added :class:`~daitum_model.joined_table.JoinedTable`.
+
+        Raises:
+            ValueError: If a table with the same ``id`` already exists.
         """
         table = JoinedTable(id, join_conditions)
         self._add_table(table)
@@ -241,14 +255,23 @@ class ModelBuilder:
 
     def add_union_table(self, id: str, source_tables: list[Table | UnionSource]) -> UnionTable:
         """
-        Adds a Union Table to the model.
+        Add a :class:`~daitum_model.union_table.UnionTable` to the model.
+
+        A union table stacks rows from multiple source tables. Pass a
+        :class:`~daitum_model.union_table.UnionSource` instead of a bare
+        :class:`~daitum_model.Table` when the source schema does not line up
+        with the union table's fields.
 
         Args:
-            id (str): The unique identifier for the union table.
-            source_tables (list[Table]): The source tables to be included in the union.
+            id: Unique identifier for the union table.
+            source_tables: The tables (or wrapped ``UnionSource`` instances)
+                whose rows are stacked.
 
         Returns:
-            UnionTable: The newly added union table.
+            The newly added :class:`~daitum_model.union_table.UnionTable`.
+
+        Raises:
+            ValueError: If a table with the same ``id`` already exists.
         """
         table = UnionTable(id, source_tables)
         self._add_table(table)
@@ -256,26 +279,34 @@ class ModelBuilder:
 
     def set_partial_evaluation_allowed(self, partial_evaluation_allowed: bool = True):
         """
-        Specifies whether partial evaluation of the model is allowed. When set to True, can speed
-        up UI rendering by only evaluating necessary changes.
+        Toggle partial evaluation for this model.
+
+        When enabled (the default), the platform re-evaluates only the
+        calculations affected by a change rather than the whole model, which
+        speeds up UI rendering. Disable only if a model has dependencies that
+        the partial evaluator cannot track correctly.
+
+        Args:
+            partial_evaluation_allowed: ``True`` to allow partial evaluation.
         """
         self._partial_evaluation_allowed = partial_evaluation_allowed
 
     def set_data_validation_rule(self, named_value: Parameter | Calculation):
         """
-        Sets a data validation rule that determines whether optimisation can proceed.
+        Gate optimisation on a boolean named value.
 
-        The rule is defined by a named value (either a Parameter or Calculation).
-        If the value evaluates to True, optimisation is allowed to run. If False,
-        optimisation is blocked. In cases where optimisation is blocked and a validation
-        screen has been specified in the UI definition, the user will automatically
-        be redirected to the validation screen when attempting to start optimisation.
+        Optimisation is allowed only while ``named_value`` evaluates to
+        ``True``. When it is ``False`` and the UI definition specifies a
+        validation screen, the user is redirected there on attempting to start
+        optimisation.
 
         Args:
-            named_value (Parameter | Calculation): The named value used for validation.
+            named_value: A :class:`~daitum_model.Parameter` or
+                :class:`~daitum_model.Calculation` of type
+                :attr:`~daitum_model.DataType.BOOLEAN`.
 
         Raises:
-            ValueError: If the provided named value is not of boolean data type.
+            ValueError: If ``named_value`` is not of boolean data type.
         """
         if named_value.to_data_type() != DataType.BOOLEAN:
             raise ValueError(f"Invalid data validation rule with type {named_value.to_data_type()}")
@@ -283,25 +314,22 @@ class ModelBuilder:
 
     def get_tables(self) -> list[Table]:
         """
-        Retrieves all tables in the model.
-
-        Returns:
-            list[Table]: A list of all tables in the model.
+        Return every table that has been added to the model, in insertion order.
         """
         return self._tables
 
     def get_table(self, id: str) -> Table:
         """
-        Retrieves a specific table by its table ID.
+        Return the table with the given id.
 
         Args:
-            id (str): The unique identifier for the table.
+            id: Identifier of the table to look up.
 
         Returns:
-            Table: The table with the specified ID.
+            The matching :class:`~daitum_model.Table`.
 
         Raises:
-            ValueError: If the table does not exist in the model.
+            ValueError: If no table with that id exists in the model.
         """
         if not any(table.id == id for table in self._tables):
             raise ValueError(f"The table {id} does not exist in the model")
@@ -309,16 +337,19 @@ class ModelBuilder:
 
     def get_named_value(self, id: str) -> Parameter | Calculation:
         """
-        Retrieves a named value (either a parameter or calculation) by its ID.
+        Return the named value (parameter or calculation) with the given id.
 
         Args:
-            id (str): The unique identifier for the named value.
+            id: Identifier of the named value to look up.
 
         Returns:
-            Parameter | Calculation: The named value with the specified ID.
+            The matching :class:`~daitum_model.Parameter` or
+            :class:`~daitum_model.Calculation`. Parameters are searched first,
+            so a parameter is returned if both exist with the same id (which
+            ``add_parameter`` / ``add_calculation`` would normally prevent).
 
         Raises:
-            ValueError: If the named value does not exist in the model.
+            ValueError: If no named value with that id exists in the model.
         """
         if any(parameter.id == id for parameter in self._parameters):
             return next(parameter for parameter in self._parameters if parameter.id == id)
@@ -328,24 +359,26 @@ class ModelBuilder:
 
     def get_validation_state(self) -> Calculation | Parameter:
         """
-        Build a formula-based calculation representing the maximum severity rank
-        among all currently-invalid fields, parameters, and calculations.
+        Return (and lazily build) a calculation summarising current validity.
 
-        For each entity with validators, the corresponding ``__invalid__`` formula
-        is inspected at runtime: only entities whose ``__invalid__`` formula evaluates
-        to ``True`` contribute to the result.  The returned calculation evaluates to
-        the highest ``SEVERITY_RANK`` value among those failing entities, or ``0``
-        when nothing is invalid.
+        The calculation evaluates to the highest
+        :data:`~daitum_model.validator.SEVERITY_RANK` among every field, parameter,
+        and calculation whose ``__invalid__`` formula is currently ``True``, or
+        ``0`` when nothing is invalid. Useful as the gating value for
+        :meth:`set_data_validation_rule`.
 
-        The result is registered in the model as a calculation named
-        ``__validation_state__``.  Subsequent calls return the already-registered
-        calculation without rebuilding it.
+        The result is registered in the model under the id
+        ``__validation_state__``. Subsequent calls return the already-registered
+        calculation without rebuilding it, so call this only after every
+        validator has been attached.
 
         Returns:
-            Calculation: A model-level calculation whose integer value is the
-            highest severity rank of any currently-invalid entity.
+            A model-level :class:`~daitum_model.Calculation` whose integer
+            value is the highest severity rank of any currently-invalid entity.
         """
         from daitum_model import formulas  # pylint: disable=import-outside-toplevel
+
+        from .validator import SEVERITY_RANK  # pylint: disable=import-outside-toplevel
 
         if "__validation_state__" in [cal.id for cal in self._calculations]:
             return self.get_named_value("__validation_state__")
@@ -383,50 +416,56 @@ class ModelBuilder:
 
     def _add_table(self, table: Table):
         """
-        Adds a table to the model.
-
-        Args:
-            table (Table): The table to be added.
+        Append ``table`` to the model after checking its id is unique.
 
         Raises:
-            ValueError: If a table with the same id already exists in the model.
+            ValueError: If a table with the same id already exists.
         """
         if any(_table.id == table.id for _table in self._tables):
             raise ValueError(f"A table with id {table.id} already exists in the model")
         self._tables.append(table)
 
-    def write_to_file(
-        self, file_name: str, scenario_named_value_path: str, model_named_value_path: str
-    ):
+    def write_to_file(self, model_directory: str | os.PathLike[str]) -> None:
         """
-        Serialises the model and writes it to two separate JSON files.
+        Serialise the model into the canonical Daitum directory layout.
+
+        Writes three files under ``model_directory``, creating it if it does
+        not exist:
+
+        - ``model-definition.json`` — the full model definition from :meth:`build`.
+        - ``scenarios/Initial/named-values.json`` — scenario-level named values
+          (those added with ``model_level=False``).
+        - ``model-data/named-values.json`` — model-level named values
+          (those added with ``model_level=True``).
 
         Args:
-            file_name (str): The path to the file where the model will be saved.
-            named_value_path (str): The path to the file where named values will be saved.
+            model_directory: Destination directory. Parents are created as needed.
         """
-        directory = os.path.dirname(file_name)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory)
-        with open(file_name, "w", encoding="utf-8") as fp:
-            json.dump(self.build(), fp, indent=2, sort_keys=True)
-        directory = os.path.dirname(scenario_named_value_path)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory)
-        with open(scenario_named_value_path, "w", encoding="utf-8") as fp:
-            json.dump(self.to_named_value_dict(False), fp, indent=2, sort_keys=True)
-        directory = os.path.dirname(model_named_value_path)
-        if directory and not os.path.exists(directory):
-            os.makedirs(directory)
-        with open(model_named_value_path, "w", encoding="utf-8") as fp:
-            json.dump(self.to_named_value_dict(True), fp, indent=2, sort_keys=True)
+        root = pathlib.Path(model_directory)
+        targets = [
+            (root / "model-definition.json", self.build()),
+            (root / "scenarios/Initial/named-values.json", self.to_named_value_dict(False)),
+            (root / "model-data/named-values.json", self.to_named_value_dict(True)),
+        ]
+        for path, payload in targets:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with path.open("w", encoding="utf-8") as fp:
+                json.dump(payload, fp, indent=2, sort_keys=True)
 
     def build(self) -> dict[str, Any]:
         """
-        Converts the `Model` object to a dictionary representation for JSON serialisation.
+        Build the JSON-compatible dict representation of the model.
+
+        On the first call, change-tracking metadata is resolved: tracked
+        calculated fields have their formulas rewritten to reference the
+        ``*_TRACKING_*`` ids of any other tracked named values and fields.
+        This step is idempotent and only runs once per builder.
 
         Returns:
-            dict[str, Any]: A dictionary representation of the model.
+            A dict suitable for ``json.dump`` containing
+            ``calculationDefinitions``, ``parameterDefinitions``,
+            ``tableDefinitions``, ``optimisationCheckNamedValue``, and
+            ``partialEvaluationAllowed`` keys.
         """
 
         if not self._have_converted_tracked_fields:
@@ -497,10 +536,16 @@ class ModelBuilder:
 
     def to_named_value_dict(self, model_level: bool) -> dict[str, Any]:
         """
-        Converts the `Model` object to a dictionary representation for named values.
+        Build the JSON-compatible dict of parameter values for one scope.
+
+        Args:
+            model_level: When ``True``, include only model-level parameters
+                (written to ``model-data/named-values.json``). When ``False``,
+                include only scenario-level parameters (written to
+                ``scenarios/Initial/named-values.json``).
 
         Returns:
-            dict[str, Any]: A dictionary representation of the model.
+            ``{"values": {parameter_id: value_dict, ...}}``.
         """
         return {
             "values": {

@@ -12,27 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Contains classes for building model transforms.
-Model transforms are simple ui-less v3 models that are used to transform data in a model and write
-it back in various operations like the MODEL_TRANSFORM data source and template upgrade scripts.
-"""
+""":class:`ModelTransform` — wraps a sub-model used by :class:`ModelTransformConfig`."""
 
 from typing import Any
 
 from daitum_model import ModelBuilder, Table
 from daitum_model.fields import ComboField, DataField
 
+from daitum_configuration._buildable import Buildable
 
-class ModelTransform:
+
+class ModelTransform(Buildable):
     """
-    Model transform builder class
+    Sub-model that produces output tables consumed by a :class:`ModelTransformConfig`.
 
-    Attributes:
-        _model_definition (ModelBuilder): a model builder defining the v3 model that this transform
-            uses  (a.k.a sub model)
-        _parameter_outputs (dict): maps from parameter in target model to named value in sub model
-        _table_outputs (dict): maps from table in target model to table in sub model
+    Args:
+        model_builder: The sub-model whose tables are mapped onto target-model
+            tables via :meth:`add_output_table`.
     """
 
     def __init__(self, model_builder: ModelBuilder):
@@ -45,16 +41,15 @@ class ModelTransform:
         sub_model_table: Table,
         model_table: Table,
         field_mapping: dict[str, str] | None = None,
-    ):
-        """
-        Retrieves a field from the table.
+    ) -> "ModelTransform":
+        """Route rows from ``sub_model_table`` into ``model_table``.
 
         Args:
-            sub_model_table (Table): the table in the sub model (this model transform's definition).
-            model_table (Table): the table to write to in the target model.
-            field_mapping (Optional[dict]): A mapping of field in target model to the field in the
-                sub model. If not specified, it will map fields from the sub model to all datafields
-                with matching names in the model
+            sub_model_table: Source table inside the sub-model.
+            model_table: Destination table in the parent model.
+            field_mapping: Map of sub-model field id to parent-model field id.
+                When omitted, fields with matching ids are auto-paired
+                (data and combo fields only).
         """
         mapping: dict[str, Any] = {"sourceName": sub_model_table.id}
         if field_mapping is not None:
@@ -63,18 +58,14 @@ class ModelTransform:
             mapping["fieldMapping"] = {}
             sub_model_fields = [field.id for field in sub_model_table.get_fields()]
             for field in model_table.get_fields():
-                if field.id in sub_model_fields and (isinstance(field, (DataField, ComboField))):
+                if field.id in sub_model_fields and isinstance(field, (DataField, ComboField)):
                     mapping["fieldMapping"][field.id] = field.id
 
         self._table_outputs[model_table.id] = mapping
+        return self
 
-    def to_dict(self):
-        """
-        Converts to dict for json serialisation
-
-        Returns: dict with properties matching the daitum platform spec
-
-        """
+    def build(self) -> dict[str, Any]:
+        """Serialise to a JSON-compatible dict including the embedded sub-model."""
         return {
             "parameterOutputs": self._parameter_outputs,
             "tableOutputs": self._table_outputs,

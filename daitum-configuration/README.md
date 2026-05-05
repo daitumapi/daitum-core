@@ -15,9 +15,9 @@ pip install daitum-configuration
 ## Usage
 
 ```python
-from daitum_configuration import Configuration, GeneticAlgorithm
+from daitum_configuration import ConfigurationBuilder, GeneticAlgorithm
 
-config = Configuration()
+config = ConfigurationBuilder()
 config.set_algorithm(GeneticAlgorithm())
 ```
 

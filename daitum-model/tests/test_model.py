@@ -172,3 +172,57 @@ class TestValidators:
     def test_length_validator_negative_raises(self):
         with pytest.raises(ValueError, match="non-negative"):
             LengthValidator(Severity.ERROR, -1)
+
+
+class TestUnionTable:
+    def _make_union(self):
+        model = ModelBuilder()
+        t1 = model.add_data_table("TableA")
+        t1.add_data_field("Cost", DataType.DECIMAL)
+        t1.add_data_field("Name", DataType.STRING)
+        t2 = model.add_data_table("TableB")
+        t2.add_data_field("Cost", DataType.DECIMAL)
+        t2.add_data_field("Name", DataType.INTEGER)  # incompatible with union field
+        union = model.add_union_table("Union", [t1, t2])
+        union.add_field("Cost", DataType.DECIMAL)
+        union.add_field("Name", DataType.STRING)
+        return union, t1, t2
+
+    def test_add_field_mapping_compatible_type_succeeds(self):
+        union, t1, t2 = self._make_union()
+        union.add_field_mapping(t1, "Cost", t1.get_field("Cost"))
+
+    def test_add_field_mapping_incompatible_type_raises(self):
+        union, t1, t2 = self._make_union()
+        # TableB.Name is INTEGER but UnionTable.Name is STRING — must be rejected
+        with pytest.raises(ValueError, match="Data type mismatch"):
+            union.add_field_mapping(t2, "Name", t2.get_field("Name"))
+
+    def test_add_field_mapping_unknown_union_field_raises(self):
+        union, t1, _ = self._make_union()
+        with pytest.raises(ValueError, match="does not exist in the UnionTable"):
+            union.add_field_mapping(t1, "NonExistent", t1.get_field("Cost"))
+
+    def test_add_field_mapping_unregistered_table_raises(self):
+        union, _, _ = self._make_union()
+        model = ModelBuilder()
+        outsider = model.add_data_table("Outsider")
+        outsider.add_data_field("Cost", DataType.DECIMAL)
+        with pytest.raises(ValueError, match="does not appear in the UnionTable"):
+            union.add_field_mapping(outsider, "Cost", outsider.get_field("Cost"))
+
+    def test_direct_field_mapping_compatible_types_succeeds(self):
+        model = ModelBuilder()
+        t1 = model.add_data_table("TableA")
+        t1.add_data_field("Cost", DataType.DECIMAL)
+        t2 = model.add_data_table("TableB")
+        t2.add_data_field("Cost", DataType.DECIMAL)
+        union = model.add_union_table("Union", [t1, t2])
+        union.add_field("Cost", DataType.DECIMAL)
+        union.direct_field_mapping()  # should not raise
+
+    def test_direct_field_mapping_incompatible_type_raises(self):
+        union, t1, t2 = self._make_union()
+        # t2.Name is INTEGER but union.Name is STRING — auto-mapping must raise
+        with pytest.raises(ValueError, match="Data type mismatch"):
+            union.direct_field_mapping()

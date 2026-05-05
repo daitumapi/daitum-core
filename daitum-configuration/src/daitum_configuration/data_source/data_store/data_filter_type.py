@@ -12,25 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the DataFilterType enumeration, which represents the types of
-data filtering operations that can be applied to a dataset. These types include
-equality, inequality, set membership, wildcard patterns, and regular expressions.
-"""
+""":class:`DataFilterType` discriminator enum for :class:`DataFilter`."""
 
 from enum import Enum
 
 
 class DataFilterType(Enum):
-    """
-    Enumeration of supported data filter types.
+    """Identifies the kind of row filter applied by :class:`DataFilter` subclasses.
 
-    Attributes:
-        EQUALITY: Filters data by exact match.
-        INEQUALITY: Filters data by non-equality.
-        SET: Filters data based on membership in a set of values.
-        WILDCARD: Filters data using wildcard patterns (e.g., '*' or '?').
-        REGEX: Filters data using regular expressions.
+    Values:
+        EQUALITY: Match rows whose value equals a source key.
+        INEQUALITY: Match rows whose value falls within a numeric range.
+        SET: Match rows whose value is in a set of source keys.
+        WILDCARD: Match rows whose value matches a glob pattern.
+        REGEX: Match rows whose value matches a regular expression.
     """
 
     EQUALITY = "equality"

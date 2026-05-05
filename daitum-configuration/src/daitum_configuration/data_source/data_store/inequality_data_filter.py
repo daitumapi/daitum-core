@@ -12,35 +12,31 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the InequalityDataFilter class, a concrete implementation of the
-DataFilter abstract base class. It filters rows based on inequality comparison with
-a specified source key at a given data path.
+""":class:`InequalityDataFilter` — a :class:`DataFilter` matching numeric range rows."""
 
-Classes:
-    InequalityDataFilter: A data filter that matches values at a path to a source key.
-"""
+from typing import Any
 
-from inspect import Parameter
-
-from daitum_model import Calculation
+from daitum_model import Calculation, Parameter
 from typeguard import typechecked
 
+from daitum_configuration._buildable import json_type_info
 from daitum_configuration.data_source.data_store.data_filter import DataFilter
 from daitum_configuration.data_source.data_store.data_filter_type import DataFilterType
 
 
 # pylint: disable=too-many-positional-arguments
+@json_type_info(DataFilterType.INEQUALITY.value)
 @typechecked
 class InequalityDataFilter(DataFilter):
     """
-    A data filter that matches rows where the value at the specified path falls within a
-        specified range.
+    Match rows whose numeric value at ``path`` falls within a range.
 
-    The range is defined by dynamic lower and upper bounds, provided via `Parameter` or
-        `Calculation` references.
-    Optional static fallback values for each bound can also be provided for display or
-        evaluation purposes.
+    Args:
+        path: Field path within each source row.
+        lower_key: Lower bound source — a literal or model named value.
+        upper_key: Upper bound source — a literal or model named value.
+        lower: Optional literal lower-bound value emitted alongside the key.
+        upper: Optional literal upper-bound value emitted alongside the key.
     """
 
     def __init__(
@@ -51,48 +47,25 @@ class InequalityDataFilter(DataFilter):
         lower: float | None = None,
         upper: float | None = None,
     ):
-        """
-        Initializes an InequalityDataFilter instance.
-
-        Args:
-            path (list[str]): The hierarchical path to the field being evaluated.
-            lower_key (float | Parameter | Calculation): A reference defining the dynamic
-                lower bound.
-            upper_key (float | Parameter | Calculation): A reference defining the dynamic
-                upper bound.
-            lower (float | None, optional): An optional static lower bound for display or
-                fallback.
-            upper (float | None, optional): An optional static upper bound for display or
-                fallback.
-        """
-        self._path = path
+        self.path = path
+        self.lower = lower
+        self.upper = upper
         self._lower_key = lower_key
         self._upper_key = upper_key
-        self._lower = lower
-        self._upper = upper
 
     @property
     def type(self) -> DataFilterType:
-        """
-        Returns the filter type.
-
-        Returns:
-            DataFilterType: The enum value for inequality filter.
-        """
         return DataFilterType.INEQUALITY
 
-    def to_dict(self) -> dict:
-        """
-        Serializes the instance into a dictionary representation for InequalityDataFilter.
+    def build(self) -> dict[str, Any]:
+        """Serialise to a JSON-compatible dict."""
+        result = super().build()
+        result["lowerKey"] = f"!!!{self._format(self._lower_key)}"
+        result["upperKey"] = f"!!!{self._format(self._upper_key)}"
+        return result
 
-        Returns:
-            dict: A dictionary representation of the InequalityDataFilter instance.
-        """
-        return {
-            "@type": self.type.value,
-            "path": self._path,
-            "lower": self._lower,
-            "upper": self._upper,
-            "lowerKey": f"!!!{self._lower_key}",
-            "upperKey": f"!!!{self._upper_key}",
-        }
+    @staticmethod
+    def _format(key: float | Parameter | Calculation) -> str:
+        if isinstance(key, (int, float)):
+            return str(key)
+        return key.to_string()

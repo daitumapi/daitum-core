@@ -13,41 +13,13 @@
 # limitations under the License.
 
 """
-Module for defining optimization algorithm configurations.
+Abstract :class:`Algorithm` base class for optimisation solver configurations.
 
-This module provides the base class and shared infrastructure for all optimization
-algorithm implementations in the Configuration Generator. It includes common parameters,
-validation logic, and serialization utilities that are inherited by specific algorithm
-implementations.
-
-Key Components：
-    - ``Algorithm``: Abstract base class providing shared parameters and functionality
-      for all optimization algorithms. Includes common settings like time limits,
-      evaluation budgets, convergence criteria, and random seed configuration.
-
-    - ``NamedValue``: Type alias representing values that can be either numeric expressions,
-      parameters, or calculations that will be resolved at runtime.
-
-    - Helper methods for creating quantitative and qualitative parameter dictionaries
-      that follow the standardized configuration format.
-
-**Serialization:**
-
-Algorithm configurations can be serialized to JSON-compatible dictionaries using the
-``to_dict()`` method. The resulting dictionary includes:
-
-    - ``algorithmKey``: Unique identifier for the algorithm type
-    - ``parameters``: Dictionary of algorithm parameters with type annotations
-      (quantitative or qualitative)
-
-Each parameter is wrapped with metadata indicating whether it's quantitative (numeric)
-or qualitative (categorical), along with the actual value.
-
-Notes：
-    - All numeric parameters can accept either concrete values or ``NamedValue`` instances
-      that will be resolved dynamically at runtime (e.g., based on problem dimensions)
-    - Parameter validation is performed in ``__post_init__`` via the ``_validate()`` method
-    - The module uses type unions (e.g., ``int | NamedValue``) requiring Python 3.10+
+Subclasses define their own ``key`` and parameter dict; common stopping criteria
+(evaluation budget, time limits, restart count, PRNG seed) live on the base.
+Numeric parameters accept a plain number, a
+:class:`~daitum_configuration.NumericExpression`, or a model
+:class:`~daitum_model.Parameter`/:class:`~daitum_model.Calculation`.
 """
 
 from abc import ABC, abstractmethod
@@ -56,39 +28,39 @@ from typing import Any
 
 from daitum_model import Calculation, Parameter
 
+from daitum_configuration._buildable import Buildable
 from daitum_configuration.algorithm_configuration.numeric_expression import NumericExpression
 
+# A numeric algorithm parameter that may be a plain expression or a model named value.
 NamedValue = NumericExpression | Parameter | Calculation
 
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-instance-attributes
 # pylint: disable=too-many-branches
 @dataclass
-class Algorithm(ABC):
-    """
-    Abstract base class for optimization algorithm configurations.
+class Algorithm(Buildable, ABC):
+    """Abstract base for optimisation algorithm configurations."""
 
-    Provides common parameters and functionality for all optimization algorithms.
-    This class should be inherited by specific algorithm implementations.
-
-    Note:
-        - Child classes should add algorithm-specific parameters via a 'config' attribute
-          that will be included when exporting to dictionary format.
-    """
-
+    #: Whether the solver emits per-iteration progress logs.
     log_info: bool = False
+    #: Maximum total evaluations before the run terminates.
     evaluations: int | NamedValue = 100000 * NumericExpression("NUM_VARIABLES")
+    #: Stop after this many consecutive evaluations with no improvement.
     max_evaluations_without_improvement: int | NamedValue = 10000 * NumericExpression(
         "NUM_VARIABLES"
     )
+    #: Stop after this many seconds with no improvement.
     max_time_without_improvement: int | NamedValue = 300
+    #: Smallest objective change counted as an improvement.
     min_improvement: float | NamedValue = 0.000001
+    #: Maximum number of restarts after stagnation.
     max_restart_count: int | NamedValue = 0
+    #: Optional fixed seed for deterministic runs.
     prng_seed: int | None = None
+    #: Hard wall-clock limit in seconds.
     time_limit: int | NamedValue = 60
 
     def __post_init__(self):
-        """Runs validation for all common fields."""
         self._validate()
 
     def _validate(self):
@@ -140,26 +112,21 @@ class Algorithm(ABC):
         if isinstance(self.time_limit, int) and self.time_limit < 0:
             raise ValueError("time_limit must be non-negative")
 
+    @property
     @abstractmethod
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Converts the algorithm configuration to a dictionary format.
+    def key(self) -> str:
+        """The algorithm key emitted as ``algorithmKey`` in the serialised output."""
 
-        Returns:
-            Dict[str, Any]: A dictionary with the algorithm key and its parameters.
-        """
+    @abstractmethod
+    def _build_parameters(self) -> dict[str, Any]:
+        """Return the display-name-keyed parameter dict for serialisation."""
+
+    def build(self) -> dict[str, Any]:
+        """Serialise to the ``{algorithmKey, parameters}`` shape."""
+        return {"algorithmKey": self.key, "parameters": self._build_parameters()}
 
     @staticmethod
-    def _create_quantitative(value: Any | None) -> dict[str, Any]:
-        """
-        Create a quantitative parameter dictionary.
-
-        Args:
-            value (Optional[Any]): The value to be converted into a quantitative dictionary.
-
-        Returns:
-            Dict[str, Any]: A dictionary representing a quantitative parameter.
-        """
+    def _quant(value: Any | None) -> dict[str, Any]:
         if isinstance(value, bool):
             return {"@type": "quantitative", "value": value}
         if isinstance(value, Parameter | Calculation):
@@ -167,20 +134,7 @@ class Algorithm(ABC):
         return {"@type": "quantitative", "value": str(value) if value is not None else None}
 
     @staticmethod
-    def _create_qualitative(
-        value: Any | None, parameters: dict[str, Any] | None = None
-    ) -> dict[str, Any]:
-        """
-        Create a qualitative parameter dictionary.
-
-        Args:
-            value (Any): The qualitative value.
-            parameters (Optional[Dict[str, Any]]): Additional parameters related to the
-                qualitative value.
-
-        Returns:
-            Dict[str, Any]: A dictionary representing a qualitative parameter.
-        """
+    def _qual(value: Any | None, parameters: dict[str, Any] | None = None) -> dict[str, Any]:
         if isinstance(value, bool):
             return {
                 "@type": "qualitative",

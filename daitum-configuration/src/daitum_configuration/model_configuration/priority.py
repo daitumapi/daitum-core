@@ -12,22 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines an enumeration for priority levels using Python's Enum class.
-It is intended to standardize the use of priority labels across the application,
-such as LOW, MEDIUM, and HIGH.
-
-Classes:
-    - Priority: An enumeration representing three levels of task or item priority.
-"""
+""":class:`Priority` enum used by objectives and constraints."""
 
 from enum import Enum
 
 
 class Priority(Enum):
-    """
-    Enum representing the priority levels.
-    """
+    """Lexicographic priority for an objective or constraint."""
 
     LOW = "LOW"
     MEDIUM = "MEDIUM"

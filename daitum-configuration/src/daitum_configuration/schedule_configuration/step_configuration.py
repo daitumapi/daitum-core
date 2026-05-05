@@ -12,42 +12,35 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the StepConfiguration class which represent the building blocks of
-algorithm execution schedules.
-
-The StepConfiguration class represents a single node in a schedule hierarchy, which can be
-either a single algorithm execution or a container for other steps (parallel or sequential).
-"""
+""":class:`StepConfiguration` — one node in a :class:`ScheduleConfiguration` tree."""
 
 from __future__ import annotations
 
-from typing import Any
-
 from typeguard import typechecked
 
+from daitum_configuration._buildable import Buildable
 from daitum_configuration.schedule_configuration.step_type import StepType
 
 
 # pylint: disable=too-few-public-methods
 @typechecked
-class StepConfiguration:
+class StepConfiguration(Buildable):
     """
-    Represents a configuration node in an algorithm execution schedule.
+    One node in a :class:`ScheduleConfiguration` execution tree.
 
-    Each StepConfiguration can be either:
-        - A single algorithm execution (SINGLE type)
-        - A container for parallel execution of steps (PARALLEL type)
-        - A container for sequential execution of steps (SEQUENCE type)
+    A node is either a leaf (:attr:`StepType.SINGLE` referencing an algorithm
+    by key) or a container (:attr:`StepType.PARALLEL` or
+    :attr:`StepType.SEQUENCE`) holding child steps.
 
-    The class includes validation to ensure proper configuration based on the step type.
+    Args:
+        step_type: :class:`StepType` of this node.
+        steps: Child steps. Required for container types, forbidden for SINGLE.
+        algorithm_config_key: Key into the schedule's algorithm map. Required
+            for SINGLE, forbidden for container types.
 
     Raises:
-        ValueError: If the configuration is invalid for the specified step type.
-
-    Notes:
-        - _parameter_overrides: Not sure how does this work: can not be overwritten for now.
-        - _step_performance_ratios: Not sure how does this work: can not be overwritten for now.
+        ValueError: If ``steps`` and ``algorithm_config_key`` do not match
+            ``step_type``.
     """
 
     def __init__(
@@ -56,21 +49,6 @@ class StepConfiguration:
         steps: list[StepConfiguration] | None = None,
         algorithm_config_key: str | None = None,
     ):
-        """
-        Initializes a StepConfiguration with the given parameters.
-
-        Args:
-            step_type: The type of step to create (SINGLE, PARALLEL, or SEQUENCE).
-            steps: Required for PARALLEL/SEQUENCE steps - the list of child steps.
-                Must be None for SINGLE steps.
-            algorithm_config_key: Required for SINGLE steps - the algorithm config key.
-                Must be None for PARALLEL/SEQUENCE steps.
-
-        Raises:
-            ValueError: If the inputs are incompatible with the specified step type or
-                if steps and step_performance_ratios have mismatched lengths.
-        """
-
         if step_type == StepType.SINGLE:
             if algorithm_config_key is None or steps is not None:
                 raise ValueError("Inputs are incompatible with the StepType.SINGLE.")
@@ -79,50 +57,22 @@ class StepConfiguration:
                 "Inputs are incompatible with the StepType.PARALLEL or StepType.SEQUENCE."
             )
 
-        # Not sure how does this work: can not be overwritten for now
-        self._parameter_overrides: dict[str, str] | None = None
-        self._step_performance_ratios: list[float] | None = None
+        self.step_performance_ratios: list[float] | None = None
+        self.parameter_overrides: dict[str, str] | None = None
 
-        self._step_type = step_type
-        self._steps: list[StepConfiguration] | None = None
-        self._algorithm_config_key = algorithm_config_key
+        self.type = step_type
+        self.steps: list[StepConfiguration] | None = None
+        self.algorithm_config_key = algorithm_config_key
 
-    def add_step(self, step_configuration: StepConfiguration) -> None:
-        """
-        Adds a step configuration to the current list of steps.
-
-        This method appends the given `step_configuration` to the internal list of steps
-        if the step type is not `StepType.SINGLE`. If the step type is `StepType.SINGLE`,
-        adding additional steps is not allowed, and a `ValueError` will be raised.
-
-        Args:
-            step_configuration (StepConfiguration): The step configuration to add.
+    def add_step(self, step_configuration: StepConfiguration) -> StepConfiguration:
+        """Append a child step to this container.
 
         Raises:
-            ValueError: If the current step type is `StepType.SINGLE`.
+            ValueError: If this node is :attr:`StepType.SINGLE`.
         """
-        if self._step_type == StepType.SINGLE:
+        if self.type == StepType.SINGLE:
             raise ValueError("Adding step is incompatible with the StepType.SINGLE.")
-        if self._steps is None:
-            self._steps = []
-        self._steps.append(step_configuration)
-
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Converts the step configuration to a dictionary representation.
-
-        Returns:
-
-        - "type": The step type as a string value
-        - "steps": List of child steps (None for SINGLE steps)
-        - "stepPerformanceRatios": Performance ratios if provided
-        - "parameterOverrides": Parameter overrides if provided
-        - "algorithmConfigKey": Algorithm config key for SINGLE steps
-        """
-        return {
-            "type": self._step_type.value,
-            "steps": [step.to_dict() for step in self._steps] if self._steps else None,
-            "stepPerformanceRatios": self._step_performance_ratios,
-            "parameterOverrides": self._parameter_overrides,
-            "algorithmConfigKey": self._algorithm_config_key,
-        }
+        if self.steps is None:
+            self.steps = []
+        self.steps.append(step_configuration)
+        return self

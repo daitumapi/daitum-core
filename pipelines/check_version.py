@@ -118,7 +118,7 @@ def main() -> None:
     if root_old is not None:
         if any_subpackage_changed:
             if root_current <= root_old:
-                print(f"FAIL  daitum-core: must bump when sub-packages changed")
+                print("FAIL  daitum-core: must bump when sub-packages changed")
                 failures.append("daitum-core")
             else:
                 print("PASS  daitum-core bumped correctly")

@@ -36,13 +36,12 @@ from typeguard import typechecked
 
 from ._buildable import Buildable
 from ._helpers import _validate_name
-from .data_types import MapDataType, ObjectDataType
-from .enums import SEVERITY_RANK, DataType, Severity
+from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType
 from .formula import Formula, Operand
 
 if TYPE_CHECKING:
     from .model import ModelBuilder
-    from .validator import Validator
+    from .validator import Severity, Validator
 
 
 @dataclass
@@ -86,6 +85,14 @@ class Calculation(Buildable, Operand):
         model_level: bool = False,
         model: ModelBuilder | None = None,
     ):
+        """
+        Args:
+            id: Unique identifier for this calculation. Must be a valid Python-style identifier.
+            formula: The formula that defines the calculated value.
+            model_level: If ``True``, the calculation is model-level; otherwise scenario-level.
+            model: The ``ModelBuilder`` this calculation belongs to. Can be set later via
+                ``ModelBuilder.add_calculation``.
+        """
         _validate_name(id, "named value id")
         self._id = id
         self.formula = formula
@@ -101,14 +108,17 @@ class Calculation(Buildable, Operand):
 
     @property
     def id(self) -> str:
+        """The unique identifier for this calculation."""
         return self._id
 
     @property
     def tracking_group(self) -> str | None:
+        """The tracking group identifier, or ``None`` if change tracking is not enabled."""
         return self._tracking_group
 
     @property
     def tracking_id(self) -> str:
+        """The ID of the corresponding tracking calculation, or an empty string if not tracked."""
         return "" if self._tracking_group is None else self._tracking_group + "_TRACKING_" + self.id
 
     def set_tracking_group(self, group: str | None) -> Calculation:
@@ -129,7 +139,7 @@ class Calculation(Buildable, Operand):
     def to_string(self) -> str:
         return self.id
 
-    def to_data_type(self) -> DataType | ObjectDataType | MapDataType:
+    def to_data_type(self) -> BaseDataType:
         return self.data_type
 
     def add_validator(self, validator: Validator) -> None:
@@ -172,6 +182,8 @@ class Calculation(Buildable, Operand):
             - A single ``ValidationValuesContainer`` if a validator matching ``severity`` is found.
             - ``None`` if no validators are attached, or if no validator matches the given severity.
         """
+        from .validator import SEVERITY_RANK  # pylint: disable=import-outside-toplevel
+
         if not self._validators:
             return None
 
@@ -245,10 +257,17 @@ class Parameter(Buildable, Operand):
     def __init__(
         self,
         id: str,
-        data_type: DataType | ObjectDataType | MapDataType,
+        data_type: BaseDataType,
         value: Any | None = None,
         model_level: bool = False,
     ):
+        """
+        Args:
+            id: Unique identifier for this parameter. Must be a valid Python-style identifier.
+            data_type: The data type of the parameter value.
+            value: The initial value of the parameter, or ``None`` if not yet set.
+            model_level: If ``True``, the parameter is model-level; otherwise scenario-level.
+        """
         _validate_name(id, "named value id")
         self.data_type = data_type
         self._id = id
@@ -264,14 +283,17 @@ class Parameter(Buildable, Operand):
 
     @property
     def id(self) -> str:
+        """The unique identifier for this parameter."""
         return self._id
 
     @property
     def tracking_group(self) -> str | None:
+        """The tracking group identifier, or ``None`` if change tracking is not enabled."""
         return self._tracking_group
 
     @property
     def tracking_id(self) -> str:
+        """The ID of the corresponding tracking parameter, or an empty string if not tracked."""
         return "" if self._tracking_group is None else self._tracking_group + "_TRACKING_" + self.id
 
     def set_tracking_group(self, group: str | None) -> Parameter:
@@ -280,6 +302,7 @@ class Parameter(Buildable, Operand):
         return self
 
     def set_model(self, model: ModelBuilder) -> Parameter:
+        """Attach this parameter to a ``ModelBuilder``. Returns self."""
         self._model = model
         return self
 
@@ -291,7 +314,7 @@ class Parameter(Buildable, Operand):
     def to_string(self) -> str:
         return self.id
 
-    def to_data_type(self) -> DataType | ObjectDataType | MapDataType:
+    def to_data_type(self) -> BaseDataType:
         return self.data_type
 
     def to_named_value_dict(self) -> dict[str, Any]:
@@ -306,6 +329,7 @@ class Parameter(Buildable, Operand):
             type_str = data_type_built["type"]
             table_id = data_type_built.get("tableId")
         else:
+            assert isinstance(self.data_type, DataType)
             type_str = self.data_type.value
             table_id = None
 
@@ -356,6 +380,8 @@ class Parameter(Buildable, Operand):
             - A single ``ValidationValuesContainer`` if a validator matching ``severity`` is found.
             - ``None`` if no validators are attached, or if no validator matches the given severity.
         """
+        from .validator import SEVERITY_RANK  # pylint: disable=import-outside-toplevel
+
         if not self._validators:
             return None
 
@@ -414,8 +440,26 @@ class Parameter(Buildable, Operand):
 
 # pylint: disable=protected-access
 def _create_combined_message_value(named_value: NamedValue) -> NamedValue | None:
+    """
+    Build (or return the cached) combined-message calculation for *named_value*.
+
+    Combines all per-severity message values into a single ``STRING_ARRAY`` calculation,
+    ordered from highest to lowest severity.  Blank entries are excluded.
+
+    Args:
+        named_value: The ``Calculation`` or ``Parameter`` whose validators' message values
+            should be combined.
+
+    Returns:
+        The combined-message ``Calculation``, or ``None`` if *named_value* has no validators.
+
+    Raises:
+        NotImplementedError: If *named_value* has not yet been attached to a model.
+    """
     # to avoid circular import
     from daitum_model import formulas  # pylint: disable=import-outside-toplevel
+
+    from .validator import SEVERITY_RANK  # pylint: disable=import-outside-toplevel
 
     if not named_value._validators:
         return None

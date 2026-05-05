@@ -19,13 +19,15 @@ daitum-model/
 ├── src/daitum_model/
 │   ├── __init__.py          # Public API — all user-facing classes re-exported here
 │   ├── model.py             # ModelBuilder — main entry point
-│   ├── tables.py            # DataTable, DerivedTable, JoinedTable, UnionTable
+│   ├── tables.py            # Table base + DataTable
+│   ├── derived_table.py     # DerivedTable, SortDirection, AggregationMethod
+│   ├── joined_table.py      # JoinedTable, JoinCondition, JoinType
+│   ├── union_table.py       # UnionTable, UnionSource
 │   ├── fields.py            # DataField, CalculatedField, ComboField
 │   ├── formula.py           # Formula class, CONST(), Operand base
 │   ├── named_values.py      # Calculation, Parameter
-│   ├── enums.py             # DataType, SortDirection, AggregationMethod, JoinType, Severity
-│   ├── data_types.py        # ObjectDataType, MapDataType
-│   ├── validator.py         # Validator hierarchy
+│   ├── data_types.py        # BaseDataType, DataType, ObjectDataType, MapDataType
+│   ├── validator.py         # Validator hierarchy + Severity, BoundType, SEVERITY_RANK
 │   ├── formulas.py          # 100+ formula functions (LOOKUP, IF, SUM, …) — separate module
 │   ├── _base_formulas.py    # Internal: low-level formula implementations
 │   ├── _helpers.py          # Internal: name validation, field replacement utilities
@@ -44,9 +46,10 @@ values; call `write_to_file()` to emit JSON.
 
 ```python
 model = ModelBuilder()
-table = model.add_data_table("Jobs", key_column="ID")
+table = model.add_data_table("Jobs")
+table.set_key_column("ID")
 calc  = model.add_calculation("TOTAL_COST", formulas.SUM(table["Cost"]), model_level=True)
-model.write_to_file("model.json")
+model.write_to_file("model")
 ```
 
 Factory methods: `add_data_table`, `add_derived_table`, `add_joined_table`, `add_union_table`,
@@ -136,5 +139,8 @@ only if the function has non-trivial logic that warrants it.
 
 ## Serialisation
 
-All objects expose `to_dict()`. `ModelBuilder.write_to_file(filename)` is the canonical way to
-produce the final JSON output. Do not add alternative serialisation paths.
+All objects inherit from a `Buildable` base class and expose `build()` for JSON-compatible
+dict serialisation. `ModelBuilder.write_to_file(model_directory)` is the canonical way to
+produce the final JSON output — it writes ``model-definition.json``,
+``scenarios/Initial/named-values.json`` and ``model-data/named-values.json`` into the given
+directory. Do not add alternative serialisation paths.

@@ -12,73 +12,38 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the OutputMatrix class and the Metric enumeration used to
-configure and represent distance or duration matrices in a spreadsheet-based
-distance matrix configuration.
-
-Classes:
-    - OutputMatrix: Represents a single output definition (e.g., driving distance or time)
-      associated with a sheet and named range.
-
-Enums:
-    Metric: Enumeration of supported metrics for the distance matrix output.
-"""
+""":class:`OutputMatrix` and :class:`Metric` for :class:`DistanceMatrixConfig` outputs."""
 
 from enum import Enum
 
 from typeguard import typechecked
 
+from daitum_configuration._buildable import Buildable
+
 
 class Metric(Enum):
-    """
-    Enumeration of possible distance matrix metrics.
-
-    Attributes:
-        DRIVING_DISTANCE: Represents distance traveled.
-        DRIVING_TIME: Represents travel time.
-    """
+    """Distance-matrix output metric."""
 
     DRIVING_DISTANCE = "DRIVING_DISTANCE"
+    """Driving distance along the route."""
+
     DRIVING_TIME = "DRIVING_TIME"
+    """Driving time along the route."""
 
 
 # pylint: disable=too-few-public-methods
 @typechecked
-class OutputMatrix:
+class OutputMatrix(Buildable):
     """
-    Represents a single output matrix configuration.
+    Where one metric of a :class:`DistanceMatrixConfig` is written.
 
-    Each OutputMatrix instance defines how a particular metric (distance or time)
-    will be stored in a spreadsheet, including the sheet name and the named range
-    where the output will be placed.
+    Args:
+        sheet_name: Target sheet name for the output matrix.
+        named_range: Named range within the sheet receiving the values.
+        metric: Which :class:`Metric` this output records.
     """
 
     def __init__(self, sheet_name: str, named_range: str, metric: Metric):
-        """
-        Initializes an OutputMatrix instance.
-
-        Args:
-            sheet_name (str): Target sheet name for the matrix.
-            named_range (str): Named range in the sheet to output values.
-            metric (Metric): Metric type to output.
-        """
-        self._sheet_name = sheet_name
-        self._named_range = named_range
-        self._metric = metric
-
-    def to_dict(self) -> dict:
-        """
-        Serializes the OutputMatrix instance into a dictionary format.
-
-        This is typically used for exporting configuration to JSON or
-        other serializable formats.
-
-        Returns:
-            dict: Dictionary representation of the OutputMatrix instance.
-        """
-        return {
-            "sheetName": self._sheet_name,
-            "namedRange": self._named_range,
-            "metric": self._metric.value,
-        }
+        self.sheet_name = sheet_name
+        self.named_range = named_range
+        self.metric = metric

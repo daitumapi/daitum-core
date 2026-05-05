@@ -481,6 +481,7 @@ class ObjectArrayValue(Value[list[dict]]):
     Represents an array of object row references.
 
     Each element must be either:
+
     - row_num -> {"rowUid": <int>}
     - string_key -> {"stringKey": <str>}
       Only valid if the referenced table has an id_field.

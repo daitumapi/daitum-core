@@ -13,10 +13,15 @@
 # limitations under the License.
 
 """
-TBD
+Low-level formula builder functions used internally by ``daitum_model.formulas``.
+
+Each function in this module wraps a single Daitum formula expression (e.g. ``LOOKUP``,
+``IF``, ``SUM``) by constructing a ``Formula`` with the appropriate data type and
+expression string.  These are private implementation details — public callers should
+use ``daitum_model.formulas`` instead.
 """
 
-from daitum_model import DataType, Formula, MapDataType, ObjectDataType
+from daitum_model import BaseDataType, DataType, Formula, MapDataType, ObjectDataType
 
 
 def _LOOKUP(
@@ -42,7 +47,7 @@ def _POWER(data_type: DataType, mantissa: str, exponent: str) -> Formula:
 
 
 def _IF(
-    data_type: DataType | ObjectDataType | MapDataType,
+    data_type: BaseDataType,
     condition: str,
     true_branch: str,
     false_branch: str,
@@ -72,11 +77,11 @@ def _RIGHT(data_type: DataType, input_string: str, index: str) -> Formula:
     return Formula(data_type, f"RIGHT({input_string}, {index})")
 
 
-def _PREV(data_type: DataType | ObjectDataType | MapDataType, field_id: str) -> Formula:
+def _PREV(data_type: BaseDataType, field_id: str) -> Formula:
     return Formula(data_type, f"PREV({field_id})")
 
 
-def _NEXT(data_type: DataType | ObjectDataType | MapDataType, field_id: str) -> Formula:
+def _NEXT(data_type: BaseDataType, field_id: str) -> Formula:
     return Formula(data_type, f"NEXT({field_id})")
 
 
@@ -85,7 +90,7 @@ def _TEXT(data_type: DataType, field: str, formatting: str | None = None) -> For
     return Formula(data_type, expression)
 
 
-def _BLANK(data_type: DataType | ObjectDataType | MapDataType) -> Formula:
+def _BLANK(data_type: BaseDataType) -> Formula:
     return Formula(data_type, "BLANK()")
 
 
@@ -94,7 +99,7 @@ def _ISBLANK(field_string: str) -> Formula:
 
 
 def _IFBLANK(
-    data_type: DataType | ObjectDataType | MapDataType,
+    data_type: BaseDataType,
     field: str,
     blank_branch: str,
 ) -> Formula:
@@ -102,7 +107,7 @@ def _IFBLANK(
 
 
 def _FILTER(
-    data_type: DataType | ObjectDataType | MapDataType,
+    data_type: BaseDataType,
     table: str,
     filter_condition: str,
 ) -> Formula:
@@ -173,9 +178,7 @@ def _MOD(data_type: DataType, field_1: str, field_2: str) -> Formula:
     return Formula(data_type, f"MOD({field_1}, {field_2})")
 
 
-def _IFERROR(
-    data_type: DataType | ObjectDataType | MapDataType, formula: str, error_branch: str
-) -> Formula:
+def _IFERROR(data_type: BaseDataType, formula: str, error_branch: str) -> Formula:
     return Formula(data_type, f"IFERROR({formula}, {error_branch})")
 
 
@@ -235,9 +238,7 @@ def _PLUSMINUTES(data_type: DataType, time: str, minutes: str) -> Formula:
     return Formula(data_type, f"PLUSMINUTES({time}, {minutes})")
 
 
-def _CHOOSE(
-    data_type: DataType | ObjectDataType | MapDataType, index: str, *fields: str
-) -> Formula:
+def _CHOOSE(data_type: BaseDataType, index: str, *fields: str) -> Formula:
     formula_str = f"CHOOSE({index}, {', '.join(fields)})"
     return Formula(data_type, formula_str)
 
@@ -259,15 +260,23 @@ def _EXP(data_type: DataType, value: str) -> Formula:
     return Formula(data_type, f"EXP({value})")
 
 
-def _INTERSECTION(
-    data_type: DataType | ObjectDataType | MapDataType, ignore_blanks: str, *arrays: str
-) -> Formula:
+def _LOG(data_type: DataType, value: str) -> Formula:
+    return Formula(data_type, f"LOG({value})")
+
+
+def _SIN(data_type: DataType, value: str) -> Formula:
+    return Formula(data_type, f"SIN({value})")
+
+
+def _COS(data_type: DataType, value: str) -> Formula:
+    return Formula(data_type, f"COS({value})")
+
+
+def _INTERSECTION(data_type: BaseDataType, ignore_blanks: str, *arrays: str) -> Formula:
     return Formula(data_type, f"INTERSECTION({ignore_blanks}, {', '.join(arrays)})")
 
 
-def _UNION(
-    data_type: DataType | ObjectDataType | MapDataType, ignore_blanks: str, *arrays: str
-) -> Formula:
+def _UNION(data_type: BaseDataType, ignore_blanks: str, *arrays: str) -> Formula:
     return Formula(data_type, f"UNION({ignore_blanks}, {', '.join(arrays)})")
 
 
@@ -417,3 +426,31 @@ def _FROMTIMEZONE(is_array: bool, date_time: str, time_zone: str) -> Formula:
 
 def _TOMAP(data_type: MapDataType, array: str, table: str) -> Formula:
     return Formula(data_type, f"TOMAP({array}, {table})")
+
+
+def _NORMDIST(
+    data_type: DataType, x: str, mean: str, standard_dev: str, cumulative: str
+) -> Formula:
+    return Formula(data_type, f"NORMDIST({x}, {mean}, {standard_dev}, {cumulative})")
+
+
+def _NORMINV(data_type: DataType, probability: str, mean: str, standard_dev: str) -> Formula:
+    return Formula(data_type, f"NORMINV({probability}, {mean}, {standard_dev})")
+
+
+def _BINOMDIST(
+    data_type: DataType, number_s: str, trials: str, probability_s: str, cumulative: str
+) -> Formula:
+    return Formula(data_type, f"BINOMDIST({number_s}, {trials}, {probability_s}, {cumulative})")
+
+
+def _BINOMINV(trials: str, probability_s: str, probability: str) -> Formula:
+    return Formula(DataType.INTEGER, f"BINOMINV({trials}, {probability_s}, {probability})")
+
+
+def _GAMMADIST(data_type: DataType, x: str, alpha: str, beta: str, cumulative: str) -> Formula:
+    return Formula(data_type, f"GAMMADIST({x}, {alpha}, {beta}, {cumulative})")
+
+
+def _GAMMAINV(data_type: DataType, probability: str, alpha: str, beta: str) -> Formula:
+    return Formula(data_type, f"GAMMAINV({probability}, {alpha}, {beta})")

@@ -122,6 +122,8 @@ class DataValidationRule(Buildable):
 
 
 class ModelVariableType(Enum):
+    """Discriminates between the three categories of model variable that can be referenced in UI."""
+
     FIELD = "FIELD"
     NAMED_VALUE = "NAMED_VALUE"
     CONTEXT_VARIABLE = "CONTEXT_VARIABLE"

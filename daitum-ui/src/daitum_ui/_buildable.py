@@ -12,6 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+"""
+Shared serialisation utilities for all Daitum UI objects.
+
+Provides the ``Buildable`` base class and helper utilities used across the UI package
+to convert Python objects into JSON-serialisable dicts.
+"""
+
 from datetime import date, datetime, time
 from enum import Enum
 from typing import TYPE_CHECKING, Union
@@ -40,11 +47,14 @@ BuildableValue = Union[
 
 
 def snake_to_camel(k: str) -> str:
+    """Convert a snake_case string to camelCase."""
     parts = k.split("_")
     return parts[0] + "".join(word.capitalize() for word in parts[1:])
 
 
 def json_type_info(name: str):
+    """Class decorator that attaches a ``@type`` discriminator value for JSON serialisation."""
+
     def decorator(cls):
         cls._type_name = name
         return cls
@@ -53,7 +63,30 @@ def json_type_info(name: str):
 
 
 class Buildable:
+    """
+    Base class for all objects that can be serialised to a JSON-compatible dict.
+
+    Subclasses expose their public, non-None instance attributes as camelCase keys.
+    An optional ``_type_name`` class attribute (set via ``@json_type_info``) is emitted
+    as the ``@type`` discriminator field.  ``TemplateBindingKey`` instances are serialised
+    via ``to_string()``.
+    """
+
     def build(self):
+        """
+        Serialise this object to a JSON-compatible dict.
+
+        Converts public, non-``None`` instance attributes to camelCase keys.
+        Recursively builds nested ``Buildable`` objects and handles ``Enum``,
+        ``TemplateBindingKey``, and date/time types.
+
+        Returns:
+            dict: The serialised representation.
+
+        Raises:
+            TypeError: If an attribute value is of an unsupported type.
+        """
+
         def convert(obj: BuildableValue):  # noqa: PLR0911
             if isinstance(obj, Buildable):
                 # Delegate to obj.build() so subclass overrides are respected

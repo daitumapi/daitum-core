@@ -13,44 +13,25 @@
 # limitations under the License.
 
 """
-This module defines the abstract base class `DataFilter`, which provides an interface for
-implementing specific row-filtering logic based on a data path. Subclasses must implement
-type identification and serialization to dictionary format.
+Abstract :class:`DataFilter` base class for row-level :class:`DataStoreConfig` filters.
 
-Classes:
-    DataFilter: Abstract base class for data filtering configurations.
+Concrete subclasses declare their ``@type`` discriminator via the
+``@json_type_info`` decorator, and implement :attr:`type`.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
 
 from typeguard import typechecked
 
+from daitum_configuration._buildable import Buildable
 from daitum_configuration.data_source.data_store.data_filter_type import DataFilterType
 
 
 @typechecked
-class DataFilter(ABC):
-    """
-    Abstract base class for defining data filters.
-
-    Data filters are used to select rows based on the value at a specified hierarchical path
-    (e.g., nested fields in JSON or structured data). This class provides the foundational
-    structure for implementing concrete filters with specific behaviors.
-    """
+class DataFilter(Buildable, ABC):
+    """Abstract base for typed data-store row filters."""
 
     @property
     @abstractmethod
     def type(self) -> DataFilterType:
-        """
-        Returns the type identifier for this data filter configuration.
-        """
-
-    @abstractmethod
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Converts the data filter configuration to a dictionary format.
-
-        Returns:
-            dict[str, Any]: A dictionary format of data filter configuration.
-        """
+        """The :class:`DataFilterType` discriminator for this filter."""

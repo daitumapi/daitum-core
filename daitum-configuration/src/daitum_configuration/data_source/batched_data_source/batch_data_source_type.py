@@ -12,28 +12,22 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the BatchDataSourceType enumeration, which is used to represent
-different stages of parallel batch data processing in a data pipeline. These stages
-help control and identify how data batches are handled across parallel tasks.
-"""
+""":class:`BatchDataSourceType` enum used to mark a step's parallelism stage."""
 
 from enum import Enum
 
 
 class BatchDataSourceType(Enum):
-    """
-    Enumeration for the type of data source in a batch processing pipeline,
-    particularly in scenarios involving parallel processing.
-
-    Attributes:
-        START_PARALLEL: Marks the beginning of a parallel batch process.
-        NEXT_PARALLEL: Represents subsequent steps in the parallel batch process.
-        END_PARALLEL: Marks the end of a parallel batch process.
-        NONE_PARALLEL: Indicates no parallel processing is applied.
-    """
+    """Position of a batched-data-source step in a parallel block."""
 
     START_PARALLEL = "START_PARALLEL"
+    """First step of a parallel block."""
+
     NEXT_PARALLEL = "NEXT_PARALLEL"
+    """Subsequent step inside a parallel block."""
+
     END_PARALLEL = "END_PARALLEL"
+    """Final step of a parallel block."""
+
     NONE_PARALLEL = "NONE_PARALLEL"
+    """Sequential step (no parallel block)."""

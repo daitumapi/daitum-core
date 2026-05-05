@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Validator framework for field validation in model generator.
+Validator framework for field validation.
 
 This module provides a flexible validation system that allows attaching validators
 to fields, combining validators with logical operators, and generating validation
@@ -25,19 +25,44 @@ from __future__ import annotations
 import operator
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Sequence
+from enum import Enum
 from typing import Any
 
 from typeguard import typechecked
 
-from daitum_model import formulas
 
-from .data_types import MapDataType, ObjectDataType
-from .enums import SEVERITY_RANK, BoundType, DataType, Severity
-from .fields import Field
-from .formula import CONST, Formula, Operand
-from .model import ModelBuilder
-from .named_values import NamedValue
-from .tables import Table
+class Severity(Enum):
+    """Enumeration of validation severity levels."""
+
+    INFO = "Info"
+    WARNING = "Warning"
+    ERROR = "Error"
+    CRITICAL = "Critical"
+
+
+SEVERITY_RANK = {
+    Severity.INFO: 1,
+    Severity.WARNING: 2,
+    Severity.ERROR: 3,
+    Severity.CRITICAL: 4,
+}
+
+
+class BoundType(Enum):
+    """Whether a range bound is inclusive or exclusive."""
+
+    INCLUSIVE = "Inclusive"
+    EXCLUSIVE = "Exclusive"
+
+
+from daitum_model import formulas  # noqa: E402
+
+from .data_types import BaseDataType, DataType, MapDataType  # noqa: E402
+from .fields import Field  # noqa: E402
+from .formula import CONST, Formula, Operand  # noqa: E402
+from .model import ModelBuilder  # noqa: E402
+from .named_values import NamedValue  # noqa: E402
+from .tables import Table  # noqa: E402
 
 
 @typechecked
@@ -88,7 +113,14 @@ class Validator(ABC):
         """
 
     def _attach_to_field(self, field: Field, table: Table):
+        """
+        Generate and register the ``__invalid__`` and ``__message__`` calculated fields
+        for *field* on *table*.
 
+        Args:
+            field: The field being validated.
+            table: The table that owns *field*.
+        """
         invalid = self.invalid(field, table)
         message = self.message(field, table)
         self.summary_message = self.get_summary_message(field)
@@ -102,7 +134,14 @@ class Validator(ABC):
         )
 
     def _attach_to_named_value(self, value: NamedValue, model: ModelBuilder):
+        """
+        Generate and register the ``__invalid__`` and ``__message__`` calculations
+        for *value* on *model*.
 
+        Args:
+            value: The named value being validated.
+            model: The ``ModelBuilder`` that owns *value*.
+        """
         invalid = self.invalid(value, None)
         message = self.message(value, None)
 
@@ -129,6 +168,13 @@ class Validator(ABC):
 
 @typechecked
 class _AndValidator(Validator):
+    """
+    Composite validator that is invalid when *either* of its two child validators is invalid.
+
+    Created by the ``&`` operator on ``Validator`` instances.  The message combines both
+    child messages when both fail, or shows only the relevant child message otherwise.
+    """
+
     def __init__(self, left: Validator, right: Validator):
         severity = (
             left.severity
@@ -166,6 +212,13 @@ class _AndValidator(Validator):
 
 @typechecked
 class _OrValidator(Validator):
+    """
+    Composite validator that is invalid only when *both* of its two child validators are invalid.
+
+    Created by the ``|`` operator on ``Validator`` instances.  The message always combines
+    both child messages with "or".
+    """
+
     def __init__(self, left: Validator, right: Validator):
         severity = (
             left.severity
@@ -275,9 +328,7 @@ class RangeValidator(Validator):  # pylint: disable=too-many-instance-attributes
         return cmp_fn(field, bound)
 
     @staticmethod
-    def _convert_bound_value(
-        value: Any, data_type: DataType | MapDataType | ObjectDataType
-    ) -> Operand | None:
+    def _convert_bound_value(value: Any, data_type: BaseDataType) -> Operand | None:
         if value is None or isinstance(value, Operand):
             return value
         primitive_type = data_type.data_type if isinstance(data_type, MapDataType) else data_type

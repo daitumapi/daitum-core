@@ -12,40 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-CMA-ES (Covariance Matrix Adaptation Evolution Strategy) Algorithm Configuration.
-
-This module implements the configuration for the CMA-ES optimisation algorithm.
-
-The CMAESAlgorithm class extends the base Algorithm class with CMA-ES specific parameters including:
-
-- Population size and evolution strategy parameters
-- Covariance matrix adaptation parameters
-- Step-size control parameters
-- Diagonalising parameters
-
-Key Features:
-
-- Configurable population size (can be expressed relative to problem dimension)
-- Adaptive covariance matrix and step-size control
-- Configurable diagonalising phase
-- Comprehensive parameter validation
-- Support for both numeric values and NumericExpressions for dynamic parameter calculation
-
-The configuration includes default values based on established CMA-ES heuristics, particularly
-for parameters that typically scale with the problem dimension (NUM_VARIABLES).
-
-Examples:
-
-.. code-block:: python
-
-    ca1 = CMAESAlgorithm(population_size=1000, min_improvement=1.2, sigma=0.1)
-    ca2 = CMAESAlgorithm(ccov=10.0 / NumericExpression("NUM_VARIABLES"))
-
-Note:
-    - The default values for many parameters are expressed as NumericExpressions involving
-      NUM_VARIABLES, which will be evaluated at runtime based on the actual problem dimension.
-"""
+""":class:`CMAESAlgorithm` configuration for Covariance Matrix Adaptation Evolution Strategy."""
 
 from dataclasses import dataclass
 from typing import Any
@@ -58,112 +25,59 @@ from daitum_configuration.algorithm_configuration.numeric_expression import Nume
 # pylint: disable=too-many-branches, duplicate-code
 @dataclass
 class CMAESAlgorithm(Algorithm):
-    """
-    CMA-ES (Covariance Matrix Adaptation Evolution Strategy) algorithm configuration.
+    """Covariance Matrix Adaptation Evolution Strategy."""
 
-    This is a discrete variant of the CMA-ES algorithm, adapted for combinatorial
-    optimisation problems. CMA-ES iteratively updates a probability distribution
-    over the solution space based on previous samples, learning correlations
-    between variables to guide the search. It is particularly suited for complex,
-    high-dimensional, and noisy discrete optimisation problems where gradients
-    are unavailable or unreliable.
-    """
-
+    #: Number of candidate solutions per generation.
     population_size: int | NamedValue = NumericExpression("NUM_VARIABLES")
-    """
-    Number of individuals in the population. Determines the size of the search pool. Note, as the
-    fitness function for each element of the population is computed parallel, it makes most sense to
-    set the population size to a multiple of the number of threads. For example, if running on 16
-    cpus, the population should be set to a multiple of 16. In general, higher dimension problems
-    work best with larger populations. However, if the fitness function is particularly expensive to
-    compute, smaller populations will be required.
-    """
-
+    #: Enable internal consistency assertions.
     consistency_check: bool = False
-    """
-    Flag to enable or disable consistency checks on the algorithm's results during optimisation.
-    If set to True, the algorithm ensures that the population is consistent in terms of fitness.
-    """
-
+    #: Covariance-matrix cumulation constant.
     cc: float | NamedValue = 4 / NumericExpression("NUM_VARIABLES")
-    """
-    Learning rate for the covariance matrix adaptation. Controls the influence of the
-    previous population on the covariance update, affecting how quickly the algorithm adapts.
-    """
-
+    #: Step-size cumulation constant.
     cs: float | NamedValue = 2 / NumericExpression("NUM_VARIABLES")
-    """
-    Step-size parameter for the distribution's mean update. Governs the size of the step
-    taken towards the new mean based on the current population.
-    """
-
+    #: Damping factor for step-size control.
     damps: float | NamedValue = 1 + 2 / NumericExpression("NUM_VARIABLES")
-    """
-    Damping factor that controls the adaptation of the learning rate. It is used to scale
-    the standard deviation during updates and prevents overly large steps in solution space.
-    """
-
+    #: Learning rate for the covariance-matrix update.
     ccov: float | NamedValue = 1 / NumericExpression("NUM_VARIABLES")
-    """
-    Learning rate for covariance matrix updates. Controls how much the covariance matrix
-    should adapt in each generation based on the current population and the objective function.
-    """
-
+    #: Learning rate for the separable update.
     ccovsep: float | NamedValue = 1 / (
         NumericExpression("NUM_VARIABLES") * NumericExpression("NUM_VARIABLES")
     )
-    """
-    Learning rate for covariance matrix updates when using separate covariance matrices for each
-    dimension of the solution space. Allows for more flexible adaptation of the covariance matrix.
-    """
-
+    #: Initial step size.
     sigma: float | NamedValue = 0.5
-    """
-    Initial standard deviation, which controls the step size for the mutation. It determines how
-    much variability is introduced into the population during mutation.
-    """
-
+    #: Iterations using the diagonal-only update before the full update.
     diagonal_iterations: int | NamedValue = NumericExpression("NUM_VARIABLES")
-    """
-    Number of iterations for diagonalising the covariance matrix. The higher the value,
-    the more time is spent on fine-tuning the covariance matrix, potentially leading to
-    better performance in high-dimensional problems.
-    """
 
     def __post_init__(self):
-
-        self.key = "daitum-cmaes"
-
-        self.config = {
-            "Log info": Algorithm._create_quantitative(self.log_info),
-            "Evaluations": Algorithm._create_quantitative(self.evaluations),
-            "Maximum evaluations without improvement": Algorithm._create_quantitative(
-                self.max_evaluations_without_improvement
-            ),
-            "Maximum time without improvement": Algorithm._create_quantitative(
-                self.max_time_without_improvement
-            ),
-            "Minimum improvement": Algorithm._create_quantitative(self.min_improvement),
-            "Maximum restart count": Algorithm._create_quantitative(self.max_restart_count),
-            "PRNG seed": Algorithm._create_quantitative(self.prng_seed),
-            "Time limit": Algorithm._create_quantitative(self.time_limit),
-            "Population size": Algorithm._create_quantitative(self.population_size),
-            "Consistency check": Algorithm._create_quantitative(self.consistency_check),
-            "CC": Algorithm._create_quantitative(self.cc),
-            "CS": Algorithm._create_quantitative(self.cs),
-            "Damps": Algorithm._create_quantitative(self.damps),
-            "CCOV": Algorithm._create_quantitative(self.ccov),
-            "CCOVSEP": Algorithm._create_quantitative(self.ccovsep),
-            "Sigma": Algorithm._create_quantitative(self.sigma),
-            "Diagonal iterations": Algorithm._create_quantitative(self.diagonal_iterations),
-        }
-
         super().__post_init__()
-
         self._validate_cmaes()
 
-    def to_dict(self) -> dict[str, Any]:
-        return {"algorithmKey": self.key, "parameters": self.config}
+    @property
+    def key(self) -> str:
+        return "daitum-cmaes"
+
+    def _build_parameters(self) -> dict[str, Any]:
+        return {
+            "Log info": Algorithm._quant(self.log_info),
+            "Evaluations": Algorithm._quant(self.evaluations),
+            "Maximum evaluations without improvement": Algorithm._quant(
+                self.max_evaluations_without_improvement
+            ),
+            "Maximum time without improvement": Algorithm._quant(self.max_time_without_improvement),
+            "Minimum improvement": Algorithm._quant(self.min_improvement),
+            "Maximum restart count": Algorithm._quant(self.max_restart_count),
+            "PRNG seed": Algorithm._quant(self.prng_seed),
+            "Time limit": Algorithm._quant(self.time_limit),
+            "Population size": Algorithm._quant(self.population_size),
+            "Consistency check": Algorithm._quant(self.consistency_check),
+            "CC": Algorithm._quant(self.cc),
+            "CS": Algorithm._quant(self.cs),
+            "Damps": Algorithm._quant(self.damps),
+            "CCOV": Algorithm._quant(self.ccov),
+            "CCOVSEP": Algorithm._quant(self.ccovsep),
+            "Sigma": Algorithm._quant(self.sigma),
+            "Diagonal iterations": Algorithm._quant(self.diagonal_iterations),
+        }
 
     def _validate_cmaes(self):
         self._validate_cmaes_population()

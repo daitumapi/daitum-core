@@ -12,7 +12,10 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-# pylint: disable=missing-module-docstring,missing-function-docstring
+"""
+Internal helpers for name validation and formula string manipulation.
+"""
+
 # mypy: ignore-errors
 import re
 
@@ -20,6 +23,17 @@ _VALID_NAME_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
 
 
 def _validate_name(name: str, label: str) -> None:
+    """
+    Raise ``ValueError`` if *name* is not a valid identifier.
+
+    Args:
+        name: The name to validate.
+        label: A human-readable label for the name (used in the error message).
+
+    Raises:
+        ValueError: If *name* contains characters other than alphanumerics/underscores,
+            or begins with a digit.
+    """
     if not _VALID_NAME_RE.match(name):
         raise ValueError(
             f"Invalid {label} '{name}': names may only contain alphanumeric characters and "
@@ -28,6 +42,18 @@ def _validate_name(name: str, label: str) -> None:
 
 
 def replace_field(formula: str, field: str, replacement: str) -> str:
+    """
+    Replace all occurrences of ``[field]`` with ``[replacement]`` in a formula string,
+    leaving double-quoted string literals unchanged.
+
+    Args:
+        formula: The formula expression string.
+        field: The field identifier to replace (without brackets).
+        replacement: The replacement field identifier (without brackets).
+
+    Returns:
+        The formula string with all out-of-string occurrences substituted.
+    """
     result = []
     pattern = re.compile(r'"[^"]*"')  # Match double-quoted strings
 
@@ -54,6 +80,21 @@ def replace_field(formula: str, field: str, replacement: str) -> str:
 
 
 def replace_named_value(formula: str, named_value: str, replacement: str) -> str:
+    """
+    Replace all bare occurrences of *named_value* with *replacement* in a formula string,
+    skipping double-quoted string literals and bracket-enclosed field references.
+
+    The match is word-boundary-aware: the identifier must not be immediately preceded by
+    a letter, nor immediately followed by a letter or ``(``.
+
+    Args:
+        formula: The formula expression string.
+        named_value: The named-value identifier to replace.
+        replacement: The replacement identifier.
+
+    Returns:
+        The formula string with all eligible occurrences substituted.
+    """
     skip_regions = []
 
     for m in re.finditer(r'"[^"\\]*(?:\\.[^"\\]*)*"', formula):

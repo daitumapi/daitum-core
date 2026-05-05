@@ -139,6 +139,7 @@ class RosterColumn(Buildable):
     def add_model_event_mapping(self, key: TemplateBindingKey, event: ModelEvent):
         """
         Associates a template placeholder key with a `ModelEvent`.
+
         Args:
             key:
                 The placeholder key in the template representing an

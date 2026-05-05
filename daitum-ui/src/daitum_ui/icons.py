@@ -50,11 +50,11 @@ Icon Categories
     - Communication icons (COMMENT, CIRCLE_INFO)
 
 **FontAwesome 6 - Regular Icons (Outlined):**
-    Outlined variants of FontAwesome icons, prefixed with REG_:
+    Outlined variants of FontAwesome icons, prefixed with ``REG_``:
 
-    - REG_STAR, REG_BELL, REG_CLOCK
-    - REG_CIRCLE, REG_COMMENT
-    - REG_BURGER, REG_GAMING, REG_ACCOMMODATION
+    - ``REG_STAR``, ``REG_BELL``, ``REG_CLOCK``
+    - ``REG_CIRCLE``, ``REG_COMMENT``
+    - ``REG_BURGER``, ``REG_GAMING``, ``REG_ACCOMMODATION``
     - Useful for lighter visual weight or inactive states
 
 **Daitum Validation Icons:**
@@ -274,7 +274,7 @@ class Icon(Enum):
 
     **FontAwesome 6 Icons:**
         - Standard icons (solid variants)
-        - Regular (outlined) variants prefixed with REG_
+        - Regular (outlined) variants prefixed with ``REG_``
 
     **Daitum Application Icons:**
         - Rostering and child care specific icons

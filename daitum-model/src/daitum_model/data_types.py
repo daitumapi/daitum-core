@@ -13,21 +13,124 @@
 # limitations under the License.
 
 """
-Module defining the composite data types:
+Module defining all data types used in the model:
 
-- `ObjectDataType`: A composite data type for referencing other tables.
-- `MapDataType`: A composite data type representing key-value maps in tables.
+- ``BaseDataType``: Structural protocol shared by every data type.
+- ``DataType``: Enumeration of primitive and array data types.
+- ``ObjectDataType``: A composite data type for referencing other tables.
+- ``MapDataType``: A composite data type representing key-value maps in tables.
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
+from enum import Enum
+from typing import Protocol, runtime_checkable
 
 from typeguard import typechecked
 
 from ._buildable import Buildable
-from .enums import DataType
+
+
+@runtime_checkable
+class BaseDataType(Protocol):
+    """
+    Structural protocol shared by every data type used in the model:
+    :class:`DataType`, :class:`ObjectDataType` and :class:`MapDataType`.
+
+    ``isinstance`` checks against this protocol are supported, but production
+    code should generally prefer the concrete classes when behaviour differs.
+    """
+
+    def is_array(self) -> bool: ...
+
+    def to_array(self) -> BaseDataType: ...
+
+    def from_array(self) -> BaseDataType: ...
+
+    def __str__(self) -> str: ...
+
+
+class DataType(Enum):
+    """
+    Enumeration representing various data types.
+
+    This enumeration is used to specify different data types that can be used in calculations,
+    parameters, or tables within a model.
+    """
+
+    INTEGER = "INTEGER"
+    """Integer data type."""
+
+    DECIMAL = "DECIMAL"
+    """Decimal data type."""
+
+    STRING = "STRING"
+    """String data type."""
+
+    BOOLEAN = "BOOLEAN"
+    """Boolean data type."""
+
+    DATE = "DATE"
+    """Date data type."""
+
+    DATETIME = "DATETIME"
+    """Datetime data type."""
+
+    TIME = "TIME"
+    """Time data type."""
+
+    INTEGER_ARRAY = "INTEGER_ARRAY"
+    """Array of `INTEGER` data type."""
+
+    DECIMAL_ARRAY = "DECIMAL_ARRAY"
+    """Array of `DECIMAL` data type."""
+
+    STRING_ARRAY = "STRING_ARRAY"
+    """Array of `STRING` data type."""
+
+    BOOLEAN_ARRAY = "BOOLEAN_ARRAY"
+    """Array of `BOOLEAN` data type."""
+
+    DATE_ARRAY = "DATE_ARRAY"
+    """Array of `DATE` data type."""
+
+    DATETIME_ARRAY = "DATETIME_ARRAY"
+    """Array of `DATETIME` data type."""
+
+    TIME_ARRAY = "TIME_ARRAY"
+    """Array of `TIME` data type."""
+
+    NULL = "NULL"
+    """ Used to identify BLANK() formulae. **Should never be used** explicitly in models """
+
+    def is_array(self) -> bool:
+        return self.name.endswith("_ARRAY")
+
+    def to_array(self) -> DataType:
+        if self.is_array():
+            raise ValueError(f"Cannot convert {self.name} to an array type")
+        return DataType[self.name + "_ARRAY"]
+
+    def from_array(self) -> DataType:
+        if not self.is_array():
+            raise ValueError(f"Cannot convert {self.name} from an array type")
+        return DataType[self.name.replace("_ARRAY", "")]
+
+    def __str__(self) -> str:
+        return self.name
+
+
+PRIMITIVE_DATA_TYPES = {
+    DataType.INTEGER,
+    DataType.DECIMAL,
+    DataType.STRING,
+    DataType.BOOLEAN,
+    DataType.DATE,
+    DataType.DATETIME,
+    DataType.TIME,
+}
 
 
 @typechecked
@@ -49,7 +152,7 @@ class _FieldBase(ABC):
 
     # pylint: disable=missing-function-docstring
     @abstractmethod
-    def to_data_type(self) -> DataType | ObjectDataType | MapDataType:
+    def to_data_type(self) -> BaseDataType:
         pass
 
 
@@ -79,6 +182,11 @@ class ObjectDataType(Buildable):
     """
 
     def __init__(self, source_table: _TableBase, is_array: bool = False):
+        """
+        Args:
+            source_table: The table this data type references.
+            is_array: Whether this is an ``OBJECT_ARRAY`` type rather than a singular ``OBJECT``.
+        """
         self._source_table = source_table
         self._is_array = is_array
         self.type = "OBJECT_ARRAY" if is_array else "OBJECT"
@@ -131,6 +239,9 @@ class ObjectDataType(Buildable):
     def __hash__(self):
         return hash((self._is_array, self._source_table.id))
 
+    def __str__(self) -> str:
+        return f"{self.type}:{self.table_id}"
+
 
 @typechecked
 class MapDataType(Buildable):
@@ -142,6 +253,14 @@ class MapDataType(Buildable):
     """
 
     def __init__(self, data_type: DataType, source_table: _TableBase):
+        """
+        Args:
+            data_type: The primitive value type stored in the map. Must not be an array type.
+            source_table: The table whose rows act as keys for this map.
+
+        Raises:
+            TypeError: If *data_type* is an array variant.
+        """
         if data_type.is_array():
             raise TypeError(f"Cannot create map field with data type {data_type.name}")
         self._source_table = source_table
@@ -169,6 +288,16 @@ class MapDataType(Buildable):
         """
         return False
 
+    def to_array(self) -> MapDataType:
+        """
+        Always raises. Mirrors :meth:`from_array` so callers can treat ``MapDataType`` uniformly
+        with ``DataType`` and ``ObjectDataType`` without isinstance checks.
+
+        Raises:
+            ValueError: Always — map data types cannot be arrays.
+        """
+        raise ValueError("Map data type cannot be an array")
+
     def from_array(self) -> MapDataType:
         """
         Always raises an error. Used to simplify array checks without having to check if a data
@@ -180,7 +309,7 @@ class MapDataType(Buildable):
         Raises:
             ValueError: Always, as map data types cannot be an array.
         """
-        raise ValueError("Object data type is not an array")
+        raise ValueError("Map data type is not an array")
 
     def __eq__(self, other):
         if not isinstance(other, MapDataType):
@@ -191,3 +320,6 @@ class MapDataType(Buildable):
 
     def __hash__(self):
         return hash((self._data_type, self._source_table.id))
+
+    def __str__(self) -> str:
+        return f"{self.type}:{self.table_id}"

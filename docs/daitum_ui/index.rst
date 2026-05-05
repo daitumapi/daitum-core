@@ -1,15 +1,18 @@
 daitum-ui
 =========
 
-The ``daitum_ui`` package provides a fluent builder API for defining UI screens, navigation
-groups, and components for the Daitum platform.
-
-.. code-block:: python
-
-   import daitum_ui
+.. automodule:: daitum_ui
+    :no-index:
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
+    :caption: Getting Started
 
-   views
-   ui_actions
+    quickstart
+
+.. toctree::
+    :maxdepth: 2
+    :caption: API Reference
+
+    views
+    ui_builder

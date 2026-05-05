@@ -21,6 +21,7 @@ from typing import Any, cast
 from typeguard import typechecked
 
 from daitum_model import (
+    BaseDataType,
     DataType,
     Formula,
     MapDataType,
@@ -34,6 +35,8 @@ from daitum_model._base_formulas import (
     _ARRAYMAX,
     _ARRAYMIN,
     _AVERAGE,
+    _BINOMDIST,
+    _BINOMINV,
     _BITAND,
     _BITMASK,
     _BITMASKSTRING,
@@ -43,6 +46,7 @@ from daitum_model._base_formulas import (
     _CHAR,
     _CHOOSE,
     _CONTAINS,
+    _COS,
     _COUNT,
     _COUNTBLANKS,
     _COUNTDUPLICATES,
@@ -59,6 +63,8 @@ from daitum_model._base_formulas import (
     _FINDDUPLICATES,
     _FLOOR,
     _FROMTIMEZONE,
+    _GAMMADIST,
+    _GAMMAINV,
     _GET,
     _HOUR,
     _HOURSBETWEEN,
@@ -72,6 +78,7 @@ from daitum_model._base_formulas import (
     _ISERROR,
     _LEFT,
     _LEN,
+    _LOG,
     _LOOKUP,
     _LOOKUPARRAY,
     _LOWER,
@@ -84,6 +91,8 @@ from daitum_model._base_formulas import (
     _MONTH,
     _MONTHSBETWEEN,
     _NEXT,
+    _NORMDIST,
+    _NORMINV,
     _NOT,
     _OR,
     _PLUSDAYS,
@@ -97,6 +106,7 @@ from daitum_model._base_formulas import (
     _ROWVECTOR,
     _SECOND,
     _SETTIME,
+    _SIN,
     _SIZE,
     _STDEV,
     _SUM,
@@ -1271,7 +1281,7 @@ def TEXT(value: Operand, formatting: Operand | str | None = None) -> Formula:
 
 
 def BLANK(
-    data_type: DataType | ObjectDataType | MapDataType | None = None,
+    data_type: BaseDataType | None = None,
 ) -> Formula:
     """
     Returns a blank value of the specified data type.
@@ -1281,7 +1291,7 @@ def BLANK(
     cases.
 
     Arguments:
-        data_type (DataType | ObjectDataType | MapDataType):
+        data_type (BaseDataType):
             Optional. The data type of the blank value. Defaults to NULL if not specified.
 
     Returns:
@@ -2358,7 +2368,9 @@ def INDEX(array: Table | Operand, index: Operand | int) -> Formula:
         raise data_type_exception
 
     ret_data_type = array_data_type if is_array else array_data_type.from_array()
-    return _INDEX(ret_data_type, array.to_string(), index.to_string())
+    return _INDEX(
+        cast("DataType | ObjectDataType", ret_data_type), array.to_string(), index.to_string()
+    )
 
 
 def SIZE(array: Operand) -> Formula:
@@ -4343,6 +4355,216 @@ def EXP(value: int | float | Operand) -> Formula:
     return _EXP(data_type, value.to_string())
 
 
+def LOG(value: int | float | Operand) -> Formula:
+    """
+    Computes the natural logarithm (ln) of a given number or numeric array.
+
+    This function calculates the natural logarithm (base e) of a given number or array of numbers.
+    If an array of numbers is provided, the natural logarithm is calculated for each element
+    individually. The input must be strictly positive; if the input is zero, negative, blank, or
+    in an error state, the formula will evaluate to an error.
+
+    Arguments:
+        value:
+            The numeric input whose natural logarithm is to be computed.
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+    Returns:
+        A `Formula` object representing the computed natural logarithm.
+
+        *Supported types*:
+
+        .. container:: supported-types
+
+            - DECIMAL
+            - DECIMAL_ARRAY
+
+    Raises:
+        ValueError: If `value` is not a numeric type or a numeric array.
+
+    Examples:
+        Basic usage with a scalar:
+
+        .. code-block:: python
+
+            LOG(1)
+            # Returns 0.0
+
+        Usage with a model object:
+
+        .. code-block:: python
+
+            LOG(my_numeric_field)
+            # Returns a formula representing the natural logarithm of `my_numeric_field`
+
+        Usage with an array:
+
+        .. code-block:: python
+
+            LOG([1, 2.718281828, 7.389056099])
+            # Returns [0.0, 1.0, 2.0] approximately
+    """
+    if isinstance(value, int | float):
+        return LOG(CONST(value))
+
+    data_type = value.to_data_type()
+
+    if data_type not in NUMERIC_AND_ARRAY_TYPES or not isinstance(data_type, DataType):
+        raise ValueError(f"LOG invalid with data type {data_type}")
+
+    ret_data_type = DataType.DECIMAL_ARRAY if data_type.is_array() else DataType.DECIMAL
+
+    return _LOG(ret_data_type, value.to_string())
+
+
+def SIN(value: int | float | Operand) -> Formula:
+    """
+    Computes the sine of a given number or numeric array.
+
+    This function calculates the trigonometric sine of a given number or array of numbers, where
+    the input is interpreted in radians. If an array of numbers is provided, the sine is
+    calculated for each element individually. If the input is blank or in an error state, the
+    formula will evaluate to an error.
+
+    Arguments:
+        value:
+            The numeric input, in radians, whose sine is to be computed.
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+    Returns:
+        A `Formula` object representing the computed sine.
+
+        *Supported types*:
+
+        .. container:: supported-types
+
+            - DECIMAL
+            - DECIMAL_ARRAY
+
+    Raises:
+        ValueError: If `value` is not a numeric type or a numeric array.
+
+    Examples:
+        Basic usage with a scalar:
+
+        .. code-block:: python
+
+            SIN(0)
+            # Returns 0.0
+
+        Usage with a model object:
+
+        .. code-block:: python
+
+            SIN(my_numeric_field)
+            # Returns a formula representing the sine of `my_numeric_field` (in radians)
+
+        Usage with an array:
+
+        .. code-block:: python
+
+            SIN([0, 1.5707963, 3.1415927])
+            # Returns [0.0, 1.0, 0.0] approximately
+    """
+    if isinstance(value, int | float):
+        return SIN(CONST(value))
+
+    data_type = value.to_data_type()
+
+    if data_type not in NUMERIC_AND_ARRAY_TYPES or not isinstance(data_type, DataType):
+        raise ValueError(f"SIN invalid with data type {data_type}")
+
+    ret_data_type = DataType.DECIMAL_ARRAY if data_type.is_array() else DataType.DECIMAL
+
+    return _SIN(ret_data_type, value.to_string())
+
+
+def COS(value: int | float | Operand) -> Formula:
+    """
+    Computes the cosine of a given number or numeric array.
+
+    This function calculates the trigonometric cosine of a given number or array of numbers,
+    where the input is interpreted in radians. If an array of numbers is provided, the cosine is
+    calculated for each element individually. If the input is blank or in an error state, the
+    formula will evaluate to an error.
+
+    Arguments:
+        value:
+            The numeric input, in radians, whose cosine is to be computed.
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+    Returns:
+        A `Formula` object representing the computed cosine.
+
+        *Supported types*:
+
+        .. container:: supported-types
+
+            - DECIMAL
+            - DECIMAL_ARRAY
+
+    Raises:
+        ValueError: If `value` is not a numeric type or a numeric array.
+
+    Examples:
+        Basic usage with a scalar:
+
+        .. code-block:: python
+
+            COS(0)
+            # Returns 1.0
+
+        Usage with a model object:
+
+        .. code-block:: python
+
+            COS(my_numeric_field)
+            # Returns a formula representing the cosine of `my_numeric_field` (in radians)
+
+        Usage with an array:
+
+        .. code-block:: python
+
+            COS([0, 1.5707963, 3.1415927])
+            # Returns [1.0, 0.0, -1.0] approximately
+    """
+    if isinstance(value, int | float):
+        return COS(CONST(value))
+
+    data_type = value.to_data_type()
+
+    if data_type not in NUMERIC_AND_ARRAY_TYPES or not isinstance(data_type, DataType):
+        raise ValueError(f"COS invalid with data type {data_type}")
+
+    ret_data_type = DataType.DECIMAL_ARRAY if data_type.is_array() else DataType.DECIMAL
+
+    return _COS(ret_data_type, value.to_string())
+
+
 def INTERSECTION(ignore_blanks: Operand | bool, *arrays: Operand) -> Formula:
     """
     Returns the intersection of one or more arrays, optionally ignoring blank values.
@@ -4760,7 +4982,7 @@ def DISTINCT(array: Operand) -> Formula:
     if not array_data_type.is_array():
         raise ValueError(f"DISTINCT is not compatible with data type {array_data_type}")
 
-    return _DISTINCT(array_data_type, array.to_string())
+    return _DISTINCT(cast("DataType | ObjectDataType", array_data_type), array.to_string())
 
 
 def HOUR(
@@ -5283,7 +5505,7 @@ def LOOKUPARRAY(source_array: Operand, match_array: Operand, result_array: Opera
         )
 
     return _LOOKUPARRAY(
-        result_array_data_type,
+        cast("DataType | ObjectDataType", result_array_data_type),
         source_array.to_string(),
         match_array.to_string(),
         result_array.to_string(),
@@ -6114,6 +6336,787 @@ def WEIBULL(x: Operand, shape: Operand, scale: Operand, cumulative: Operand) -> 
 
     return _WEIBULL(
         ret_data_type, x.to_string(), shape.to_string(), scale.to_string(), cumulative.to_string()
+    )
+
+
+def NORMDIST(
+    x: Operand | int | float,
+    mean: Operand | int | float,
+    standard_dev: Operand | int | float,
+    cumulative: Operand | bool,
+) -> Formula:
+    """
+    Calculates the normal distribution probability density (PDF) or cumulative distribution (CDF).
+
+    NORMDIST evaluates either the probability density function (PDF) or the cumulative
+    distribution function (CDF) of the normal distribution for the given input(s).
+
+    Arguments:
+        x:
+            The input value(s) at which to evaluate the distribution.
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        mean:
+            The arithmetic mean of the distribution.
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        standard_dev:
+            The standard deviation of the distribution (must be > 0).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        cumulative:
+            Boolean flag to determine calculation type:
+
+            - False / 0: PDF
+            - True / 1: CDF
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - BOOLEAN
+                - BOOLEAN_ARRAY
+
+    Returns:
+        A formula object evaluating to the normal distribution value(s).
+
+        - Returns DECIMAL if all inputs are scalar
+        - Returns DECIMAL_ARRAY if any input is an array
+
+        *Supported types*:
+
+        .. container:: supported-types
+
+            - DECIMAL
+            - DECIMAL_ARRAY
+
+    Raises:
+        ValueError: If `x`, `mean`, or `standard_dev` are not numeric types
+        ValueError: If `cumulative` is not boolean-compatible
+
+    Examples:
+        Probability density function (PDF):
+
+        .. code-block:: python
+
+            NORMDIST(1.0, 0.0, 1.0, False)
+            # Returns the PDF at x=1 for a standard normal distribution
+
+        Cumulative distribution function (CDF):
+
+        .. code-block:: python
+
+            NORMDIST(1.0, 0.0, 1.0, True)
+            # Returns the CDF at x=1 for a standard normal distribution
+
+        Array inputs:
+
+        .. code-block:: python
+
+            NORMDIST(my_table["value"], 0.0, 1.0, True)
+            # Returns an array of CDF values for each row
+    """
+    if isinstance(x, (int, float)):
+        return NORMDIST(CONST(x), mean, standard_dev, cumulative)
+    if isinstance(mean, (int, float)):
+        return NORMDIST(x, CONST(mean), standard_dev, cumulative)
+    if isinstance(standard_dev, (int, float)):
+        return NORMDIST(x, mean, CONST(standard_dev), cumulative)
+    if isinstance(cumulative, bool):
+        return NORMDIST(x, mean, standard_dev, CONST(cumulative))
+
+    x_data_type = x.to_data_type()
+    mean_data_type = mean.to_data_type()
+    standard_dev_data_type = standard_dev.to_data_type()
+    cumulative_data_type = cumulative.to_data_type()
+
+    if (
+        x_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or mean_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or standard_dev_data_type not in NUMERIC_AND_ARRAY_TYPES
+    ):
+        raise ValueError(
+            f"NORMDIST invalid with the arguments {x_data_type}, "
+            f"{mean_data_type} and {standard_dev_data_type}"
+        )
+
+    if cumulative_data_type not in BOOLEANISH_AND_ARRAY_TYPES:
+        raise ValueError(f"NORMDIST invalid with the argument {cumulative_data_type}")
+
+    ret_data_type = DataType.DECIMAL
+    if (
+        x_data_type.is_array()
+        or mean_data_type.is_array()
+        or standard_dev_data_type.is_array()
+        or cumulative_data_type.is_array()
+    ):
+        ret_data_type = DataType.DECIMAL_ARRAY
+
+    return _NORMDIST(
+        ret_data_type,
+        x.to_string(),
+        mean.to_string(),
+        standard_dev.to_string(),
+        cumulative.to_string(),
+    )
+
+
+def NORMINV(
+    probability: Operand | int | float,
+    mean: Operand | int | float,
+    standard_dev: Operand | int | float,
+) -> Formula:
+    """
+    Calculates the inverse of the normal cumulative distribution.
+
+    NORMINV returns the value x such that the normal CDF evaluated at x equals the given
+    probability, for the specified mean and standard deviation.
+
+    Arguments:
+        probability:
+            The probability value(s) for which to find the inverse (must be between 0 and 1).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        mean:
+            The arithmetic mean of the distribution.
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        standard_dev:
+            The standard deviation of the distribution (must be > 0).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+    Returns:
+        A formula object evaluating to the inverse normal distribution value(s).
+
+        - Returns DECIMAL if all inputs are scalar
+        - Returns DECIMAL_ARRAY if any input is an array
+
+        *Supported types*:
+
+        .. container:: supported-types
+
+            - DECIMAL
+            - DECIMAL_ARRAY
+
+    Raises:
+        ValueError: If `probability`, `mean`, or `standard_dev` are not numeric types
+
+    Examples:
+        Scalar inverse:
+
+        .. code-block:: python
+
+            NORMINV(0.975, 0.0, 1.0)
+            # Returns ~1.96 (the 97.5th percentile of the standard normal distribution)
+
+        Array inputs:
+
+        .. code-block:: python
+
+            NORMINV(my_table["probability"], 0.0, 1.0)
+            # Returns an array of inverse normal values for each row
+    """
+    if isinstance(probability, (int, float)):
+        return NORMINV(CONST(probability), mean, standard_dev)
+    if isinstance(mean, (int, float)):
+        return NORMINV(probability, CONST(mean), standard_dev)
+    if isinstance(standard_dev, (int, float)):
+        return NORMINV(probability, mean, CONST(standard_dev))
+
+    probability_data_type = probability.to_data_type()
+    mean_data_type = mean.to_data_type()
+    standard_dev_data_type = standard_dev.to_data_type()
+
+    if (
+        probability_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or mean_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or standard_dev_data_type not in NUMERIC_AND_ARRAY_TYPES
+    ):
+        raise ValueError(
+            f"NORMINV invalid with the arguments {probability_data_type}, "
+            f"{mean_data_type} and {standard_dev_data_type}"
+        )
+
+    ret_data_type = DataType.DECIMAL
+    if (
+        probability_data_type.is_array()
+        or mean_data_type.is_array()
+        or standard_dev_data_type.is_array()
+    ):
+        ret_data_type = DataType.DECIMAL_ARRAY
+
+    return _NORMINV(
+        ret_data_type,
+        probability.to_string(),
+        mean.to_string(),
+        standard_dev.to_string(),
+    )
+
+
+def BINOMDIST(
+    number_s: Operand | int | float,
+    trials: Operand | int | float,
+    probability_s: Operand | int | float,
+    cumulative: Operand | bool,
+) -> Formula:
+    """
+    Calculates the binomial distribution probability mass (PMF) or cumulative distribution (CDF).
+
+    BINOMDIST evaluates either the probability mass function (PMF) or the cumulative
+    distribution function (CDF) of the binomial distribution for the given input(s).
+
+    Arguments:
+        number_s:
+            The number of successes in the trials.
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        trials:
+            The number of independent trials.
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        probability_s:
+            The probability of success on each trial (must be between 0 and 1).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        cumulative:
+            Boolean flag to determine calculation type:
+
+            - False / 0: PMF
+            - True / 1: CDF
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - BOOLEAN
+                - BOOLEAN_ARRAY
+
+    Returns:
+        A formula object evaluating to the binomial distribution value(s).
+
+        - Returns DECIMAL if all inputs are scalar
+        - Returns DECIMAL_ARRAY if any input is an array
+
+        *Supported types*:
+
+        .. container:: supported-types
+
+            - DECIMAL
+            - DECIMAL_ARRAY
+
+    Raises:
+        ValueError: If `number_s`, `trials`, or `probability_s` are not numeric types
+        ValueError: If `cumulative` is not boolean-compatible
+
+    Examples:
+        Probability mass function (PMF):
+
+        .. code-block:: python
+
+            BINOMDIST(3, 10, 0.5, False)
+            # Returns the probability of exactly 3 successes in 10 trials
+
+        Cumulative distribution function (CDF):
+
+        .. code-block:: python
+
+            BINOMDIST(3, 10, 0.5, True)
+            # Returns the probability of at most 3 successes in 10 trials
+
+        Array inputs:
+
+        .. code-block:: python
+
+            BINOMDIST(my_table["successes"], 10, 0.5, True)
+            # Returns an array of CDF values for each row
+    """
+    if isinstance(number_s, (int, float)):
+        return BINOMDIST(CONST(number_s), trials, probability_s, cumulative)
+    if isinstance(trials, (int, float)):
+        return BINOMDIST(number_s, CONST(trials), probability_s, cumulative)
+    if isinstance(probability_s, (int, float)):
+        return BINOMDIST(number_s, trials, CONST(probability_s), cumulative)
+    if isinstance(cumulative, bool):
+        return BINOMDIST(number_s, trials, probability_s, CONST(cumulative))
+
+    number_s_data_type = number_s.to_data_type()
+    trials_data_type = trials.to_data_type()
+    probability_s_data_type = probability_s.to_data_type()
+    cumulative_data_type = cumulative.to_data_type()
+
+    if (
+        number_s_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or trials_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or probability_s_data_type not in NUMERIC_AND_ARRAY_TYPES
+    ):
+        raise ValueError(
+            f"BINOMDIST invalid with the arguments {number_s_data_type}, "
+            f"{trials_data_type} and {probability_s_data_type}"
+        )
+
+    if cumulative_data_type not in BOOLEANISH_AND_ARRAY_TYPES:
+        raise ValueError(f"BINOMDIST invalid with the argument {cumulative_data_type}")
+
+    ret_data_type = DataType.DECIMAL
+    if (
+        number_s_data_type.is_array()
+        or trials_data_type.is_array()
+        or probability_s_data_type.is_array()
+        or cumulative_data_type.is_array()
+    ):
+        ret_data_type = DataType.DECIMAL_ARRAY
+
+    return _BINOMDIST(
+        ret_data_type,
+        number_s.to_string(),
+        trials.to_string(),
+        probability_s.to_string(),
+        cumulative.to_string(),
+    )
+
+
+def BINOMINV(
+    trials: Operand | int | float,
+    probability_s: Operand | int | float,
+    probability: Operand | int | float,
+) -> Formula:
+    """
+    Calculates the inverse of the binomial cumulative distribution.
+
+    BINOMINV returns the smallest integer k such that the binomial CDF evaluated at k is
+    greater than or equal to the given criterion probability.
+
+    Arguments:
+        trials:
+            The number of independent trials.
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        probability_s:
+            The probability of success on each trial (must be between 0 and 1).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        probability:
+            The criterion probability (must be between 0 and 1).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+    Returns:
+        A formula object evaluating to the inverse binomial distribution value(s).
+
+        - Returns INTEGER if all inputs are scalar
+        - Returns INTEGER_ARRAY if any input is an array
+
+        *Supported types*:
+
+        .. container:: supported-types
+
+            - INTEGER
+            - INTEGER_ARRAY
+
+    Raises:
+        ValueError: If `trials`, `probability_s`, or `probability` are not numeric types
+
+    Examples:
+        Scalar inverse:
+
+        .. code-block:: python
+
+            BINOMINV(10, 0.5, 0.9)
+            # Returns the smallest k where P(X <= k) >= 0.9 for X ~ Binomial(10, 0.5)
+
+        Array inputs:
+
+        .. code-block:: python
+
+            BINOMINV(my_table["trials"], 0.5, 0.9)
+            # Returns an array of inverse binomial values for each row
+    """
+    if isinstance(trials, (int, float)):
+        return BINOMINV(CONST(trials), probability_s, probability)
+    if isinstance(probability_s, (int, float)):
+        return BINOMINV(trials, CONST(probability_s), probability)
+    if isinstance(probability, (int, float)):
+        return BINOMINV(trials, probability_s, CONST(probability))
+
+    trials_data_type = trials.to_data_type()
+    probability_s_data_type = probability_s.to_data_type()
+    probability_data_type = probability.to_data_type()
+
+    if (
+        trials_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or probability_s_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or probability_data_type not in NUMERIC_AND_ARRAY_TYPES
+    ):
+        raise ValueError(
+            f"BINOMINV invalid with the arguments {trials_data_type}, "
+            f"{probability_s_data_type} and {probability_data_type}"
+        )
+
+    is_array = (
+        trials_data_type.is_array()
+        or probability_s_data_type.is_array()
+        or probability_data_type.is_array()
+    )
+
+    if is_array:
+        ret_formula = _BINOMINV(
+            trials.to_string(), probability_s.to_string(), probability.to_string()
+        )
+        return Formula(DataType.INTEGER_ARRAY, ret_formula.formula_string)
+
+    return _BINOMINV(trials.to_string(), probability_s.to_string(), probability.to_string())
+
+
+def GAMMADIST(
+    x: Operand | int | float,
+    alpha: Operand | int | float,
+    beta: Operand | int | float,
+    cumulative: Operand | bool,
+) -> Formula:
+    """
+    Calculates the gamma distribution probability density (PDF) or cumulative distribution (CDF).
+
+    GAMMADIST evaluates either the probability density function (PDF) or the cumulative
+    distribution function (CDF) of the gamma distribution for the given input(s).
+
+    Arguments:
+        x:
+            The input value(s) at which to evaluate the distribution (must be ≥ 0).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        alpha:
+            The shape parameter α of the distribution (must be > 0).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        beta:
+            The scale parameter β of the distribution (must be > 0).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        cumulative:
+            Boolean flag to determine calculation type:
+
+            - False / 0: PDF
+            - True / 1: CDF
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - BOOLEAN
+                - BOOLEAN_ARRAY
+
+    Returns:
+        A formula object evaluating to the gamma distribution value(s).
+
+        - Returns DECIMAL if all inputs are scalar
+        - Returns DECIMAL_ARRAY if any input is an array
+
+        *Supported types*:
+
+        .. container:: supported-types
+
+            - DECIMAL
+            - DECIMAL_ARRAY
+
+    Raises:
+        ValueError: If `x`, `alpha`, or `beta` are not numeric types
+        ValueError: If `cumulative` is not boolean-compatible
+
+    Examples:
+        Probability density function (PDF):
+
+        .. code-block:: python
+
+            GAMMADIST(2.0, 3.0, 1.0, False)
+            # Returns the PDF at x=2 for a gamma distribution with shape=3, scale=1
+
+        Cumulative distribution function (CDF):
+
+        .. code-block:: python
+
+            GAMMADIST(2.0, 3.0, 1.0, True)
+            # Returns the CDF at x=2 for a gamma distribution with shape=3, scale=1
+
+        Array inputs:
+
+        .. code-block:: python
+
+            GAMMADIST(my_table["value"], 3.0, 1.0, True)
+            # Returns an array of CDF values for each row
+    """
+    if isinstance(x, (int, float)):
+        return GAMMADIST(CONST(x), alpha, beta, cumulative)
+    if isinstance(alpha, (int, float)):
+        return GAMMADIST(x, CONST(alpha), beta, cumulative)
+    if isinstance(beta, (int, float)):
+        return GAMMADIST(x, alpha, CONST(beta), cumulative)
+    if isinstance(cumulative, bool):
+        return GAMMADIST(x, alpha, beta, CONST(cumulative))
+
+    x_data_type = x.to_data_type()
+    alpha_data_type = alpha.to_data_type()
+    beta_data_type = beta.to_data_type()
+    cumulative_data_type = cumulative.to_data_type()
+
+    if (
+        x_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or alpha_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or beta_data_type not in NUMERIC_AND_ARRAY_TYPES
+    ):
+        raise ValueError(
+            f"GAMMADIST invalid with the arguments {x_data_type}, "
+            f"{alpha_data_type} and {beta_data_type}"
+        )
+
+    if cumulative_data_type not in BOOLEANISH_AND_ARRAY_TYPES:
+        raise ValueError(f"GAMMADIST invalid with the argument {cumulative_data_type}")
+
+    ret_data_type = DataType.DECIMAL
+    if (
+        x_data_type.is_array()
+        or alpha_data_type.is_array()
+        or beta_data_type.is_array()
+        or cumulative_data_type.is_array()
+    ):
+        ret_data_type = DataType.DECIMAL_ARRAY
+
+    return _GAMMADIST(
+        ret_data_type,
+        x.to_string(),
+        alpha.to_string(),
+        beta.to_string(),
+        cumulative.to_string(),
+    )
+
+
+def GAMMAINV(
+    probability: Operand | int | float,
+    alpha: Operand | int | float,
+    beta: Operand | int | float,
+) -> Formula:
+    """
+    Calculates the inverse of the gamma cumulative distribution.
+
+    GAMMAINV returns the value x such that the gamma CDF evaluated at x equals the given
+    probability, for the specified shape and scale parameters.
+
+    Arguments:
+        probability:
+            The probability value(s) for which to find the inverse (must be between 0 and 1).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        alpha:
+            The shape parameter α of the distribution (must be > 0).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+        beta:
+            The scale parameter β of the distribution (must be > 0).
+
+            *Supported types*:
+
+            .. container:: supported-types
+
+                - INTEGER
+                - DECIMAL
+                - INTEGER_ARRAY
+                - DECIMAL_ARRAY
+
+    Returns:
+        A formula object evaluating to the inverse gamma distribution value(s).
+
+        - Returns DECIMAL if all inputs are scalar
+        - Returns DECIMAL_ARRAY if any input is an array
+
+        *Supported types*:
+
+        .. container:: supported-types
+
+            - DECIMAL
+            - DECIMAL_ARRAY
+
+    Raises:
+        ValueError: If `probability`, `alpha`, or `beta` are not numeric types
+
+    Examples:
+        Scalar inverse:
+
+        .. code-block:: python
+
+            GAMMAINV(0.9, 3.0, 1.0)
+            # Returns the 90th percentile of a gamma distribution with shape=3, scale=1
+
+        Array inputs:
+
+        .. code-block:: python
+
+            GAMMAINV(my_table["probability"], 3.0, 1.0)
+            # Returns an array of inverse gamma values for each row
+    """
+    if isinstance(probability, (int, float)):
+        return GAMMAINV(CONST(probability), alpha, beta)
+    if isinstance(alpha, (int, float)):
+        return GAMMAINV(probability, CONST(alpha), beta)
+    if isinstance(beta, (int, float)):
+        return GAMMAINV(probability, alpha, CONST(beta))
+
+    probability_data_type = probability.to_data_type()
+    alpha_data_type = alpha.to_data_type()
+    beta_data_type = beta.to_data_type()
+
+    if (
+        probability_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or alpha_data_type not in NUMERIC_AND_ARRAY_TYPES
+        or beta_data_type not in NUMERIC_AND_ARRAY_TYPES
+    ):
+        raise ValueError(
+            f"GAMMAINV invalid with the arguments {probability_data_type}, "
+            f"{alpha_data_type} and {beta_data_type}"
+        )
+
+    ret_data_type = DataType.DECIMAL
+    if probability_data_type.is_array() or alpha_data_type.is_array() or beta_data_type.is_array():
+        ret_data_type = DataType.DECIMAL_ARRAY
+
+    return _GAMMAINV(
+        ret_data_type,
+        probability.to_string(),
+        alpha.to_string(),
+        beta.to_string(),
     )
 
 

@@ -1,26 +1,19 @@
 Fields
 ======
 
-.. autoclass:: daitum_model.fields.Field
-   :members:
+Fields are the columns of a table. Every field has an id, a data type, and
+optional :class:`~daitum_model.validator.Validator` instances. Three concrete
+field types differ in where the value comes from:
 
-.. autoclass:: daitum_model.enums.DataType
-   :members:
+- :class:`~daitum_model.fields.DataField` — imported data, with an optional
+  default value.
+- :class:`~daitum_model.fields.CalculatedField` — value computed by a
+  :class:`~daitum_model.Formula`.
+- :class:`~daitum_model.fields.ComboField` — carries both a formula and a
+  stored value; the :attr:`~daitum_model.fields.ComboField.calculate_in_optimiser`
+  flag decides whether the optimiser evaluates the formula
+  (``True``) or reads the stored value (``False``). The opposite mode is used
+  outside optimisation, e.g. when the field is rendered in the UI.
 
-.. autoclass:: daitum_model.enums.Severity
-   :members:
-
-.. autoclass:: daitum_model.enums.AggregationMethod
-   :members:
-
-.. autoclass:: daitum_model.enums.SortDirection
-   :members:
-
-.. autoclass:: daitum_model.enums.JoinType
-   :members:
-
-.. autoclass:: daitum_model.data_types.MapDataType
-   :members:
-
-.. autoclass:: daitum_model.data_types.ObjectDataType
-   :members:
+.. automodule:: daitum_model.fields
+   :exclude-members: ValidationFieldsContainer

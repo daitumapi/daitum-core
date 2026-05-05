@@ -608,7 +608,7 @@ class TableView(BaseTableView):
     cell formatting, and interactive editing.
 
     Attributes:
-        filter_mode (Optional[ui_generator.data.FilterMode]): An optional filtering strategy
+        filter_mode (Optional[daitum_ui.data.FilterMode]): An optional filtering strategy
             applied to the table.
     """
 

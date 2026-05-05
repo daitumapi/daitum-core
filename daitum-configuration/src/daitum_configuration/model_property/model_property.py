@@ -12,22 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the ModelProperty class, a container for storing arbitrary properties
-that should be tracked at a model level, including calculation flags and configurations.
-"""
+""":class:`ModelProperty` — model-level UI/calculation flags and import options."""
 
 from typeguard import typechecked
 
+from daitum_configuration._buildable import Buildable
 from daitum_configuration.model_property.model_import_options import ModelImportOptions
 from daitum_configuration.model_property.overlay_config import OverlayConfig
 
 
 # pylint: disable=too-few-public-methods,too-many-positional-arguments
 @typechecked
-class ModelProperty:
+class ModelProperty(Buildable):
     """
-    Data model representing model-level properties and configurations.
+    Model-level UI and calculation flags.
+
+    Args:
+        calculate_on_load: Run formulas immediately after a model loads.
+        calculation_enabled: Master toggle for all formula calculations.
+        ignore_formula: Skip formulas during evaluation (data passes through
+            untransformed).
+        import_options: Default :class:`ModelImportOptions` applied to imports.
+        overlay_config: :class:`OverlayConfig` controlling solver-result overlays.
     """
 
     def __init__(
@@ -38,46 +44,8 @@ class ModelProperty:
         import_options: ModelImportOptions | None = None,
         overlay_config: OverlayConfig | None = None,
     ):
-        """
-        Initialize ModelProperties instance with values.
-        """
-        self._calculate_on_load = calculate_on_load
-        self._calculation_enabled = calculation_enabled
-        self._ignore_formula = ignore_formula
-        self._import_options = import_options
-        self._overlay_config = overlay_config
-
-    def import_options(self) -> ModelImportOptions:
-        """Initialise ModelImportOptions() if it has not been initialised."""
-        return self._import_options if self._import_options is not None else ModelImportOptions()
-
-    def overlay_config(self) -> OverlayConfig:
-        """Initialise OverlayConfig() if it has not been initialised."""
-        return self._overlay_config if self._overlay_config is not None else OverlayConfig()
-
-    def has_defined_import_options(self) -> bool:
-        """Check if import options have been explicitly set."""
-        return self._import_options is not None
-
-    def has_defined_overlay_config(self) -> bool:
-        """Check if overlay config has been explicitly set."""
-        return self._overlay_config is not None
-
-    def to_dict(self) -> dict:
-        """
-        Serializes the ModelProperties instance to a dictionary.
-
-        Returns:
-            dict: A dictionary representation of the ModelProperties instance.
-        """
-        return {
-            "calculateOnLoad": self._calculate_on_load,
-            "calculationEnabled": self._calculation_enabled,
-            "ignoreFormula": self._ignore_formula,
-            "importOptions": (
-                self._import_options.to_dict() if self._import_options is not None else None
-            ),
-            "overlayConfig": (
-                self._overlay_config.to_dict() if self._overlay_config is not None else None
-            ),
-        }
+        self.calculate_on_load = calculate_on_load
+        self.calculation_enabled = calculation_enabled
+        self.ignore_formula = ignore_formula
+        self.import_options = import_options
+        self.overlay_config = overlay_config

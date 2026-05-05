@@ -26,6 +26,25 @@ def _add_validation_formatting(
     validation_value: ValidationFieldsContainer | ValidationValuesContainer,
     combined_message_value: str,
 ):
+    """
+    Apply severity-coloured conditional formatting to a ``ViewField`` or ``Cell``.
+
+    Looks up the foreground and background colours for the validator's severity level and
+    registers a conditional formatting rule on *view_value* using the corresponding
+    ``__invalid__`` field or calculation as the trigger condition.
+
+    Args:
+        view_value: The UI field or cell to format.
+        validation_value: The validation container holding the invalid field/value and severity.
+        combined_message_value: The ID of the combined-message field/calculation to show as
+            a tooltip.
+
+    Returns:
+        The updated *view_value* (for chaining).
+
+    Raises:
+        ValueError: If *view_value* and *validation_value* types are incompatible.
+    """
     colour = VALIDATION_COLOURS.get(validation_value.severity)
     bg_colour = VALIDATION_BACKGROUND_COLOURS.get(validation_value.severity)
 

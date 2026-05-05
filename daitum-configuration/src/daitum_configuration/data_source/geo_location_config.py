@@ -12,17 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the GeoLocationConfig class, a configuration model for enabling
-geocoding functionality in spreadsheet-based data sources. It supports automatic
-conversion of addresses into geographic coordinates (latitude and longitude), with
-optional parameters to control geocoding behavior such as data preservation,
-bounds, and regional targeting.
-
-Classes:
-    - GeoLocationConfig: Represents a geolocation configuration for address-to-coordinate
-      transformation.
-"""
+""":class:`GeoLocationConfig` — geocoding data source for address rows."""
 
 from typeguard import typechecked
 
@@ -35,12 +25,13 @@ from daitum_configuration.data_source.data_source_type import DataSourceType
 @typechecked
 class GeoLocationConfig(DataSourceConfig):
     """
-    Configuration class for enabling geolocation in data sources.
+    Geocodes address rows and writes longitude/latitude back into the same sheet.
 
-    This class configures how addresses in a spreadsheet should be geocoded to
-    geographic coordinates. It includes the source sheet, address column, and
-    target columns for latitude and longitude, along with optional features like
-    bounding boxes, region specification, and runtime behavior control.
+    Args:
+        sheet_name: Source sheet containing the address rows.
+        address_column: Column name supplying the free-text address.
+        longitude_column: Column receiving the geocoded longitude.
+        latitude_column: Column receiving the geocoded latitude.
     """
 
     def __init__(
@@ -50,100 +41,58 @@ class GeoLocationConfig(DataSourceConfig):
         longitude_column: str,
         latitude_column: str,
     ):
-        """
-        Initializes a GeoLocationConfig instance.
-
-        Args:
-            sheet_name (str): Worksheet name where geolocation data resides.
-            address_column (str): Column name with address values to geocode.
-            longitude_column (str): Target column for storing longitude results.
-            latitude_column (str): Target column for storing latitude results.
-        """
-        self._sheet_name = sheet_name
-        self._table_name: str | None = None
-        self._address_column = address_column
-        self._longitude_column = longitude_column
-        self._latitude_column = latitude_column
-        self._latitude_bound: str | None = None
-        self._latitude_bound_upper: str | None = None
-        self._longitude_bound: str | None = None
-        self._longitude_bound_upper: str | None = None
-        self._preserve_existing_data = False
-        self._region: str | None = None
-        self._live_update = False
-        self._run_on_data_import = False
+        self.sheet_name = sheet_name
+        self.table_name: str | None = None
+        self.address_column = address_column
+        self.longitude_column = longitude_column
+        self.latitude_column = latitude_column
+        self.longitude_bound: str | None = None
+        self.longitude_bound_upper: str | None = None
+        self.latitude_bound: str | None = None
+        self.latitude_bound_upper: str | None = None
+        self.preserve_existing_data = False
+        self.region: str | None = None
+        self.live_update = False
+        self.run_on_data_import = False
         super().__init__()
 
     def set_table_name(self, table_name: str) -> "GeoLocationConfig":
-        """Sets the optional structured table name."""
-        self._table_name = table_name
+        """Use a structured table rather than a sheet for the source rows."""
+        self.table_name = table_name
         return self
 
     def set_preserve_existing_data(self, preserve: bool) -> "GeoLocationConfig":
-        """Sets whether to preserve preexisting coordinates."""
-        self._preserve_existing_data = preserve
+        """Skip geocoding rows that already have coordinates."""
+        self.preserve_existing_data = preserve
         return self
 
     def set_latitude_bounds(self, lower: str | None, upper: str | None) -> "GeoLocationConfig":
-        """Sets the optional latitude bounding constraints."""
-        self._latitude_bound = lower
-        self._latitude_bound_upper = upper
+        """Reject geocoded latitudes outside the given bounds."""
+        self.latitude_bound = lower
+        self.latitude_bound_upper = upper
         return self
 
     def set_longitude_bounds(self, lower: str | None, upper: str | None) -> "GeoLocationConfig":
-        """Sets the optional longitude bounding constraints."""
-        self._longitude_bound = lower
-        self._longitude_bound_upper = upper
+        """Reject geocoded longitudes outside the given bounds."""
+        self.longitude_bound = lower
+        self.longitude_bound_upper = upper
         return self
 
     def set_region(self, region: str) -> "GeoLocationConfig":
-        """Sets the optional region hint for geocoding (e.g., 'AU')."""
-        self._region = region
+        """Bias the geocoder towards a region (e.g., ``"AU"``)."""
+        self.region = region
         return self
 
     def set_live_update(self, live_update: bool) -> "GeoLocationConfig":
-        """Sets whether to enable live updates on address change."""
-        self._live_update = live_update
+        """Re-geocode immediately when the address column changes in the UI."""
+        self.live_update = live_update
         return self
 
     def set_run_on_data_import(self, run: bool) -> "GeoLocationConfig":
-        """Sets whether to run geocoding on data import."""
-        self._run_on_data_import = run
+        """Run geocoding automatically as part of data import."""
+        self.run_on_data_import = run
         return self
 
     @property
     def type(self) -> DataSourceType:
-        """
-        Returns the type identifier for this data source configuration.
-
-        Returns:
-            DataSourceType: Enum indicating this is a GEOLOCATION type configuration.
-        """
         return DataSourceType.GEOLOCATION
-
-    def to_dict(self) -> dict:
-        """
-        Serializes the GeoLocationConfig instance into a dictionary suitable for
-        configuration export or runtime execution.
-
-        Returns:
-            - A dictionary representation of the GeoLocationConfig instance,
-              including all relevant settings.
-        """
-        return {
-            "type": self.type.value,
-            "sheetName": self._sheet_name,
-            "tableName": self._table_name,
-            "addressColumn": self._address_column,
-            "longitudeColumn": self._longitude_column,
-            "latitudeColumn": self._latitude_column,
-            "longitudeBound": self._longitude_bound,
-            "longitudeBoundUpper": self._longitude_bound_upper,
-            "latitudeBound": self._latitude_bound,
-            "latitudeBoundUpper": self._latitude_bound_upper,
-            "preserveExistingData": self._preserve_existing_data,
-            "region": self._region,
-            "liveUpdate": self._live_update,
-            "runOnDataImport": self._run_on_data_import,
-            "trackChangesSupported": self._track_changes_supported,
-        }

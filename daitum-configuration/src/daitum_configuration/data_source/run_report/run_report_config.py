@@ -12,12 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the RunReportConfig class.
-
-Classes:
-    RunReportConfig: Represents configuration for running a report as a data source.
-"""
+""":class:`RunReportConfig` — re-runs a previously-generated report as a data source."""
 
 from typeguard import typechecked
 
@@ -28,28 +23,19 @@ from daitum_configuration.data_source.data_source_type import DataSourceType
 @typechecked
 class RunReportConfig(DataSourceConfig):
     """
-    Configuration class for running reports as a data source.
+    Reads input rows from a previously-generated report.
+
+    Args:
+        report_name: Name of the report whose rows feed this data source.
     """
 
     def __init__(
         self,
         report_name: str,
     ):
-        self._report_name = report_name
+        self.report_name = report_name
         super().__init__()
 
     @property
     def type(self) -> DataSourceType:
-        """
-        Returns the type identifier for this data source configuration.
-        """
         return DataSourceType.RUN_REPORT
-
-    def to_dict(self) -> dict:
-        """
-        Serializes the instance into a dictionary representation for RunReportConfig.
-
-        Returns:
-            dict: A dictionary representation of the RunReportConfig instance.
-        """
-        return {"type": self.type.value, "reportName": self._report_name}

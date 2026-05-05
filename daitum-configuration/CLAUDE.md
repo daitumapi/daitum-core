@@ -10,7 +10,7 @@ apply here too. Read it first.
 `daitum-configuration` is a builder library for constructing optimisation model configuration for
 the Daitum platform. A configuration specifies the algorithm, decision variables, objectives,
 constraints, data sources, and schedule. The final output is produced via
-`Configuration.write_to_file()` → JSON.
+`ConfigurationBuilder.write_to_file()` → JSON.
 
 The package depends on `daitum-model` because decision variables, objectives, and constraints
 reference model objects (`Parameter`, `Calculation`, `DataField`, `Table`).
@@ -22,7 +22,7 @@ reference model objects (`Parameter`, `Calculation`, `DataField`, `Table`).
 daitum-configuration/
 ├── src/daitum_configuration/
 │   ├── __init__.py                         # Public API
-│   ├── configuration.py                    # Configuration — main entry point
+│   ├── configuration.py                    # ConfigurationBuilder — main entry point
 │   │
 │   ├── algorithm_configuration/
 │   │   ├── algorithm.py                    # Abstract Algorithm base
@@ -75,16 +75,16 @@ daitum-configuration/
 
 ## Key Abstractions
 
-### Configuration
+### ConfigurationBuilder
 The single top-level entry point. Use setter and `add_*` methods to compose a complete
 configuration, then call `write_to_file()`.
 
 ```python
-config = Configuration()
+config = ConfigurationBuilder()
 config.set_algorithm(GeneticAlgorithm(population_size=100))
 config.set_model_configuration(model_cfg)
 config.add_excel_transform("Inputs", ExcelTransformConfig(...))
-config.write_to_file("configuration.json")
+config.write_to_file("model")
 ```
 
 **Setter methods:** `set_algorithm`, `set_model_configuration`, `set_schedule_configuration`,
@@ -127,9 +127,23 @@ Accumulates decision variables, objectives, and constraints that define the opti
 
 ```python
 model_cfg = ModelConfiguration()
-model_cfg.add_decision_variable(field, dv_min=0, dv_max=100, dv_type=DVType.RANGE)
+
+# Decision-variable bounds are set with chained .set_min()/.set_max() —
+# pass numeric literals (or a Parameter/Calculation) for a model-level
+# Parameter DV, or Field references for a per-row DataField DV.
+(
+    model_cfg.add_decision_variable(field, dv_table=table, dv_type=DVType.RANGE)
+    .set_min(min_field).set_max(max_field)
+)
+
 model_cfg.add_objective(total_cost_calc, maximise=False, priority=Priority.HIGH)
-model_cfg.add_constraint(capacity_calc, constraint_type=ConstraintType.INEQUALITY, upper_bound=500)
+
+# Constraint type and bounds are set with chained .set_*() methods.
+(
+    model_cfg.add_constraint(capacity_calc)
+    .set_type(ConstraintType.INEQUALITY)
+    .set_upper_bound(500.0)
+)
 ```
 
 **DVType:** `RANGE` (discrete int), `LIST` (discrete int from list), `REAL` (continuous float).
@@ -140,7 +154,7 @@ model_cfg.add_constraint(capacity_calc, constraint_type=ConstraintType.INEQUALIT
 All data source configs inherit from the abstract `DataSourceConfig`. A `DataSource` wrapper
 adds metadata (display name, hidden flag, `post_optimise`, notification flags).
 
-`Configuration.add_*` methods accept the config directly and handle wrapping internally.
+`ConfigurationBuilder.add_*` methods accept the config directly and handle wrapping internally.
 
 **Filter types for `DataStoreConfig`:** `EqualityDataFilter`, `InequalityDataFilter`,
 `RegexDataFilter`, `SetDataFilter`, `WildcardDataFilter`.
@@ -166,7 +180,7 @@ has a `StepType` (`SINGLE`, `PARALLEL`, `SEQUENCE`) and references an `Algorithm
 ## Import Conventions
 
 ```python
-from daitum_configuration import Configuration, GeneticAlgorithm, CMAESAlgorithm
+from daitum_configuration import ConfigurationBuilder, GeneticAlgorithm, CMAESAlgorithm
 from daitum_configuration import ModelConfiguration, DVType, Priority, ConstraintType
 from daitum_configuration import NumericExpression
 from daitum_configuration import ExcelTransformConfig, DataStoreConfig
@@ -179,5 +193,8 @@ internal submodules directly.
 
 ## Serialisation
 
-All objects expose `to_dict()`. `Configuration.write_to_file(filename)` is the canonical
-output method. Do not add alternative serialisation paths.
+All objects inherit from a `Buildable` base class and expose `build()` for JSON-compatible
+dict serialisation; public, non-`None` attributes are emitted as camelCase keys (snake_case
+attribute names are converted automatically). `ConfigurationBuilder.write_to_file(model_directory)` is the canonical
+output method — it writes ``model-configuration.json`` into the given directory. Do not add
+alternative serialisation paths.

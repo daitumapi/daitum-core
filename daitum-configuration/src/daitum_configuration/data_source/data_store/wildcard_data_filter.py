@@ -12,73 +12,49 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Defines WildcardDataFilter, a concrete implementation of DataFilter that applies a wildcard
-pattern to filter values at a specified data path.
-"""
+""":class:`WildcardDataFilter` — a :class:`DataFilter` matching rows by glob pattern."""
 
+from typing import Any
+
+from daitum_model import Calculation, Parameter
 from typeguard import typechecked
 
+from daitum_configuration._buildable import json_type_info
 from daitum_configuration.data_source.data_store.data_filter import DataFilter
 from daitum_configuration.data_source.data_store.data_filter_type import DataFilterType
 
 
+@json_type_info(DataFilterType.WILDCARD.value)
 @typechecked
 class WildcardDataFilter(DataFilter):
     """
-    A data filter that matches rows where the value at the specified path
-    satisfies a wildcard pattern.
+    Match rows whose value at ``path`` matches the glob pattern resolved from ``source_key``.
 
-    This filter traverses the data structure using the given path and applies
-    a wildcard pattern (provided by `source_key`) to the value found. Optionally,
-    a static value can be provided for comparison instead of extracting it from the data.
+    Args:
+        path: Field path within each source row.
+        source_key: Model named value supplying the glob pattern.
+        value: Optional literal pattern emitted alongside the key.
+        case_sensitive: Whether matching is case sensitive.
     """
 
     def __init__(
         self,
         path: list[str],
-        source_key,
+        source_key: Parameter | Calculation,
         value: str | None = None,
         case_sensitive: bool = False,
     ):
-        """
-        Initializes a WildcardDataFilter.
-
-        Args:
-            path (list[str]): A list representing the path to the value in the data.
-            source_key: The wildcard pattern used to match the target value.
-            value (str | None, optional): A static value to match instead of extracting
-                it from the data. Defaults to None.
-            case_sensitive (bool, optional): If True, matching is case-sensitive.
-                Defaults to False.
-        """
-
-        self._path = path
+        self.path = path
+        self.value = value
+        self.case_sensitive = case_sensitive
         self._source_key = source_key
-        self._value = value
-        self._case_sensitive = case_sensitive
 
     @property
     def type(self) -> DataFilterType:
-        """
-        Returns the type identifier for this data filter.
-
-        Returns:
-            DataFilterType: The enum value representing a wildcard filter.
-        """
         return DataFilterType.WILDCARD
 
-    def to_dict(self) -> dict:
-        """
-        Serializes the filter configuration into a dictionary format.
-
-        Returns:
-            dict: A dictionary with type, path, and wildcard source key information.
-        """
-        return {
-            "@type": self.type.value,
-            "path": self._path,
-            "value": self._value,
-            "caseSensitive": self._case_sensitive,
-            "sourceKey": f"!!!{self._source_key}",
-        }
+    def build(self) -> dict[str, Any]:
+        """Serialise to a JSON-compatible dict."""
+        result = super().build()
+        result["sourceKey"] = f"!!!{self._source_key.to_string()}"
+        return result

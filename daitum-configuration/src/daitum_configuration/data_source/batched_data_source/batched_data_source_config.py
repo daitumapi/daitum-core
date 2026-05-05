@@ -12,11 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Defines the BatchedDataSourceConfig class, which represents a configuration for a batched
-data source composed of multiple individual data sources. This configuration supports
-change tracking and can be serialized for further processing or storage.
-"""
+""":class:`BatchedDataSourceConfig` — bundles other data sources into a single import."""
 
 from typeguard import typechecked
 
@@ -32,17 +28,16 @@ from daitum_configuration.data_source.data_source_type import DataSourceType
 @typechecked
 class BatchedDataSourceConfig(DataSourceConfig):
     """
-    Configuration class for a batched data source, which aggregates multiple data sources
-    into a single unit of configuration. Useful in scenarios where data is processed in
-    parallel or grouped batches.
+    A data source that runs other data sources in a configured order.
+
+    Args:
+        run_after_import_sheet: Optional sheet name whose import triggers this
+            batch.
     """
 
     def __init__(self, run_after_import_sheet: str | None = None) -> None:
-        """
-        Initializes an empty BatchedDataSourceConfig with no data sources.
-        """
-        self._data_sources: list[DataSourceInfo] = []
-        self._run_after_import_sheet: str | None = run_after_import_sheet
+        self.data_sources: list[DataSourceInfo] = []
+        self.run_after_import_sheet: str | None = run_after_import_sheet
         super().__init__(track_changes_supported=True)
 
     def add_data_source(
@@ -50,41 +45,18 @@ class BatchedDataSourceConfig(DataSourceConfig):
         data_source: DataSource,
         order: int,
         batch_data_source_type: BatchDataSourceType = BatchDataSourceType.NONE_PARALLEL,
-    ) -> None:
-        """
-        Creates and adds a DataSourceInfo object to the batched data source configuration.
-
-        Args:
-            data_source (DataSource): The data source to be included in the batch.
-            order (int): The execution order of the data source within the batch.
-            batch_data_source_type (BatchDataSourceType, optional): Defines how the data source
-                participates in the batch. Defaults to NONE_PARALLEL.
-        """
-        data_source_info = DataSourceInfo(
-            data_source=data_source, order=order, batch_data_source_type=batch_data_source_type
+    ) -> "BatchedDataSourceConfig":
+        """Add ``data_source`` to this batch with the given execution ``order`` and
+        :class:`BatchDataSourceType`."""
+        self.data_sources.append(
+            DataSourceInfo(
+                data_source=data_source,
+                order=order,
+                batch_data_source_type=batch_data_source_type,
+            )
         )
-        self._data_sources.append(data_source_info)
+        return self
 
     @property
     def type(self) -> DataSourceType:
-        """
-        Returns the type identifier for this data source configuration.
-
-        Returns:
-            DataSourceType: Enum value indicating this is a batched data source.
-        """
         return DataSourceType.BATCHED_DATA_SOURCE
-
-    def to_dict(self) -> dict:
-        """
-        Serializes the instance into a dictionary representation for BatchedDataSourceConfig.
-
-        Returns:
-            dict: A dictionary representation of the BatchedDataSourceConfig instance.
-        """
-        return {
-            "type": self.type.value,
-            "dataSources": [data_source.to_dict() for data_source in self._data_sources],
-            "trackChangesSupported": self._track_changes_supported,
-            "runAfterImportSheet": self._run_after_import_sheet,
-        }

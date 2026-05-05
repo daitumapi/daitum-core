@@ -72,7 +72,8 @@ table_view = builder.add_table_view(table=jobs, display_name="Jobs")
 nav_group  = builder.add_navigation_group("Data")
 nav_group.views.append(table_view)
 
-ui_def = builder.build()   # → dict, serialise to JSON
+ui_def = builder.build()           # → dict, serialise to JSON
+builder.write_to_file("model")     # → writes ui-definition.json into the directory
 ```
 
 **Factory methods:** `add_table_view`, `add_tree_view`, `add_form_view`, `add_chart_view`,

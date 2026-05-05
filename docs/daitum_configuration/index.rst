@@ -1,19 +1,23 @@
 daitum-configuration
 ====================
 
-The ``daitum_configuration`` package provides a fluent builder API for configuring a Daitum
-optimisation model: algorithms, decision variables, objectives, constraints, processors, reports,
-and data sources.
-
-.. code-block:: python
-
-   import daitum_configuration
+.. automodule:: daitum_configuration
+    :no-index:
 
 .. toctree::
-   :maxdepth: 2
+    :maxdepth: 2
+    :caption: Getting Started
 
-   algorithm
-   decision_variables
-   objectives_and_constraints
-   data_sources
-   reports
+    quickstart
+
+.. toctree::
+    :maxdepth: 2
+    :caption: API Reference
+
+    configuration
+    model_configuration/index
+    algorithms/index
+    schedule
+    data_sources/index
+    model_properties
+    reports

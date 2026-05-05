@@ -12,23 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the ReportExportFormat enumeration, which represents
-the supported file formats for report exports.
-
-Each export format is associated with its corresponding file extension.
-"""
+""":class:`ReportExportFormat` — file format for a :class:`ReportProperty` export."""
 
 from enum import Enum
 
 
 class ReportExportFormat(Enum):
-    """
-    Enumeration of supported report export formats.
-
-    Each member represents a specific file format that can be used to export
-    reports, along with its corresponding file extension.
-    """
+    """File format produced when a report is exported."""
 
     XLSX = "XLSX"
     CSV = "CSV"

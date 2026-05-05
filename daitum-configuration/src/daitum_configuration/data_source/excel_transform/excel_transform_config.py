@@ -12,20 +12,13 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-This module defines the ExcelTransformConfig class, a concrete implementation of
-DataSourceConfig for Excel-based data sources that require sheet mappings and
-optional import behaviours. It supports customisation of sheet naming, object
-reference handling, and per-sheet import options.
-
-Classes:
-    ExcelTransformConfig: Represents configuration for transforming Excel data.
-"""
+""":class:`ExcelTransformConfig` — Excel-based data source with sheet mappings."""
 
 from typing import Any
 
 from typeguard import typechecked
 
+from daitum_configuration._buildable import Buildable
 from daitum_configuration.data_source.data_source_config import DataSourceConfig
 from daitum_configuration.data_source.data_source_type import DataSourceType
 from daitum_configuration.data_source.excel_transform.import_option_overrides import (
@@ -33,11 +26,26 @@ from daitum_configuration.data_source.excel_transform.import_option_overrides im
 )
 
 
-# pylint: disable=too-few-public-methods
+# pylint: disable=too-few-public-methods,too-many-instance-attributes
+@typechecked
+class _SheetMapping(Buildable):
+    """Single source-to-target sheet pairing used inside :class:`ExcelTransformConfig`."""
+
+    def __init__(self, source_sheet: str, target_sheet: str):
+        self.source_sheet = source_sheet
+        self.target_sheet = target_sheet
+
+
+# pylint: disable=too-few-public-methods,too-many-instance-attributes
 @typechecked
 class ExcelTransformConfig(DataSourceConfig):
     """
-    Configuration class for Excel-based data sources requiring transformation and mapping.
+    Data source that imports rows from an Excel workbook.
+
+    Args:
+        file_key: Internal storage key identifying the workbook file.
+        file_name: Display-facing file name shown in the UI.
+        sheet_mapping: ``(source_sheet, target_sheet)`` pairs feeding model tables.
     """
 
     def __init__(
@@ -46,127 +54,46 @@ class ExcelTransformConfig(DataSourceConfig):
         file_name: str,
         sheet_mapping: list[tuple[str, str]],
     ):
-        """
-        Initialises an ExcelTransformConfig instance.
-
-        Args:
-            file_key (str): Identifier used to locate the file internally.
-            file_name (str): Display or user-facing file name.
-            sheet_mapping (list[tuple[str, str]]): List of (source_sheet, destination_sheet)
-                tuples.
-        """
-        self._file_key = file_key
-        self._file_name = file_name
-        self._sheet_mapping = sheet_mapping
-        self._debug_file: bool = False
-        self._manual_sheet_names: bool = False
-        self._import_object_references_as_keys: bool = False
-        self._per_sheet_overrides: dict[str, ImportOptionOverrides] = {}
+        self.file_key = file_key
+        self.file_name = file_name
+        self.debug_file: bool = False
+        self.sheet_names: list[str] = []
+        self.manual_sheet_names: bool = False
+        self.sheet_mapping: list[_SheetMapping] = [
+            _SheetMapping(source, target) for source, target in sheet_mapping
+        ]
+        self.import_object_references_as_keys: bool = False
+        self.per_sheet_overrides: dict[str, ImportOptionOverrides] = {}
         super().__init__()
 
     def set_debug_file(self, debug_file: bool) -> "ExcelTransformConfig":
-        """
-        Enables or disables debugging output.
-
-        Args:
-            debug_file (bool): If True, enables debugging output.
-
-        Returns:
-            ExcelTransformConfig: self, for method chaining.
-        """
-        self._debug_file = debug_file
+        """Emit a debug copy of the imported workbook."""
+        self.debug_file = debug_file
         return self
 
     def set_manual_sheet_names(self, manual_sheet_names: bool) -> "ExcelTransformConfig":
-        """
-        Enables or disables manual sheet naming.
-
-        Args:
-            manual_sheet_names (bool): If True, enables manual sheet naming.
-
-        Returns:
-            ExcelTransformConfig: self, for method chaining.
-        """
-        self._manual_sheet_names = manual_sheet_names
+        """Resolve sheet names manually rather than via the configured mapping."""
+        self.manual_sheet_names = manual_sheet_names
         return self
 
     def set_import_object_references_as_keys(
         self, import_object_references_as_keys: bool
     ) -> "ExcelTransformConfig":
-        """
-        Sets whether object references are imported as keys.
-
-        Args:
-            import_object_references_as_keys (bool): If True, imports object references
-                as keys.
-
-        Returns:
-            ExcelTransformConfig: self, for method chaining.
-        """
-        self._import_object_references_as_keys = import_object_references_as_keys
+        """Treat object-reference cells as raw keys instead of resolved objects."""
+        self.import_object_references_as_keys = import_object_references_as_keys
         return self
 
     def set_per_sheet_overrides(
         self, per_sheet_overrides: dict[str, ImportOptionOverrides]
     ) -> "ExcelTransformConfig":
-        """
-        Sets per-sheet import option overrides.
-
-        Args:
-            per_sheet_overrides (dict[str, ImportOptionOverrides]): Dictionary of
-                overrides for specific sheets.
-
-        Returns:
-            ExcelTransformConfig: self, for method chaining.
-        """
-        self._per_sheet_overrides = per_sheet_overrides
+        """Override import options per source sheet name."""
+        self.per_sheet_overrides = per_sheet_overrides
         return self
-
-    def _per_sheet_overrides_dict(self) -> dict[str, dict[str, Any]]:
-        """
-        Converts per-sheet overrides into a serialisable dictionary.
-
-        This is useful when exporting the configuration or preparing it for
-        transformation processing engines.
-
-        Returns:
-            dict[str, dict[str, Any]]: A dictionary mapping sheet names to their
-            respective import override settings.
-        """
-        sheet_overrides_dict = {}
-        for key, value in self._per_sheet_overrides.items():
-            sheet_overrides_dict[key] = value.to_dict()
-
-        return sheet_overrides_dict
 
     @property
     def type(self) -> DataSourceType:
-        """
-        Returns the type identifier for this data source configuration.
-        """
         return DataSourceType.EXCEL_TRANSFORM
 
-    def to_dict(self) -> dict:
-        """
-        Serialises the instance into a dictionary representation for ExcelTransformConfig.
-
-        Returns:
-            dict: A dictionary representation of the ExcelTransformConfig instance.
-        """
-        return {
-            "type": self.type.value,
-            "fileKey": self._file_key,
-            "fileName": self._file_name,
-            "debugFile": self._debug_file,
-            "sheetNames": [],
-            "manualSheetNames": self._manual_sheet_names,
-            "sheetMapping": [
-                {"sourceSheet": source, "targetSheet": target}
-                for source, target in self._sheet_mapping
-            ],
-            "trackChangesSupported": self._track_changes_supported,
-            "importObjectReferencesAsKeys": self._import_object_references_as_keys,
-            "perSheetOverrides": (
-                self._per_sheet_overrides_dict() if self._per_sheet_overrides else {}
-            ),
-        }
+    def build(self) -> dict[str, Any]:
+        """Serialise to a JSON-compatible dict."""
+        return super().build()

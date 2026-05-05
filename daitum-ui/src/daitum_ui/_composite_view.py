@@ -28,12 +28,25 @@ from daitum_ui.elements import get_model_variable
 @dataclass
 @typechecked
 class ScrollSync(Buildable):
+    """Controls whether child views within a ``CompositeView`` scroll in sync."""
+
     enabled: bool
 
 
 @dataclass
 @typechecked
 class ViewConfig(Buildable):
+    """
+    Configuration for a child view within a ``CompositeView``.
+
+    Wraps a view reference with element-level style overrides and optional
+    hidden conditions.
+
+    Attributes:
+        element_styles: CSS-style overrides keyed by element identifier.
+        view_id: The ID of the child view this config applies to.
+        exclude_default_styling: If ``True``, the platform's default styles are suppressed.
+    """
 
     element_styles: dict[str, str]
     view_id: str
@@ -84,6 +97,7 @@ class ViewConfig(Buildable):
 
     @property
     def hidden_conditions(self):
+        """The serialised hidden conditions list, or ``None`` if none have been added."""
         return (
             [condition.build() for condition in self._hidden_conditions]
             if self._hidden_conditions is not None
@@ -91,6 +105,7 @@ class ViewConfig(Buildable):
         )
 
     def build(self):
+        """Serialise this config, injecting the ``hiddenConditions`` key."""
         view_definition = super().build()
         view_definition["hiddenConditions"] = self.hidden_conditions
         return view_definition
@@ -99,6 +114,12 @@ class ViewConfig(Buildable):
 @json_type_info("composite")
 @typechecked
 class CompositeView(BaseView):
+    """
+    A view that contains multiple child views arranged side-by-side or in a configurable layout.
+
+    Each child is represented by a ``ViewConfig`` that pairs a view reference with its
+    element-level styles and hidden conditions.
+    """
 
     def __init__(
         self,
@@ -107,6 +128,13 @@ class CompositeView(BaseView):
         parent_styles: dict[str, str] | None = None,
         scroll_sync_enabled: bool = False,
     ):
+        """
+        Args:
+            display_name: Optional display name for the composite view.
+            hidden: If ``True``, the view is not visible in the UI.
+            parent_styles: CSS-style overrides for the composite container element.
+            scroll_sync_enabled: If ``True``, child views scroll together.
+        """
         super().__init__(hidden)
         if display_name is not None:
             self._display_name = display_name

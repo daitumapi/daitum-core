@@ -13,44 +13,38 @@
 # limitations under the License.
 
 """
-This module defines the abstract base class for all data source configuration types.
-It enforces a consistent interface for converting configuration objects to a dictionary
-and specifying the configuration type. Subclasses are expected to implement the abstract
-methods and can override the default behavior for change tracking.
+Abstract :class:`DataSourceConfig` base class for typed data-source configurations.
 
-Classes:
-    DataSourceConfig: Abstract base class for data source configuration.
+Each concrete subclass corresponds to a :class:`DataSourceType` value and is
+serialised with a ``type`` discriminator key.
 """
 
 from abc import ABC, abstractmethod
 from typing import Any
 
+from daitum_configuration._buildable import Buildable
 from daitum_configuration.data_source.data_source_type import DataSourceType
 
 
-class DataSourceConfig(ABC):
+class DataSourceConfig(Buildable, ABC):
     """
-    Abstract base class representing a configuration for a data source.
+    Abstract base for typed data-source configurations.
 
-    Subclasses must define the `type` property and implement the `to_dict` method.
-    They may also override `is_track_changes_supported` if change tracking is supported.
+    Args:
+        track_changes_supported: Whether the data source supports
+            change-detection between imports.
     """
 
     def __init__(self, track_changes_supported: bool = False):
-        self._track_changes_supported = track_changes_supported
+        self.track_changes_supported = track_changes_supported
 
     @property
     @abstractmethod
     def type(self) -> DataSourceType:
-        """
-        Returns the type identifier for this data source configuration.
-        """
+        """The :class:`DataSourceType` discriminator for this configuration."""
 
-    @abstractmethod
-    def to_dict(self) -> dict[str, Any]:
-        """
-        Converts the data source configuration to a dictionary format.
-
-        Returns:
-            dict[str, Any]: A dictionary format of data source configuration.
-        """
+    def build(self) -> dict[str, Any]:
+        """Serialise to a JSON-compatible dict with a leading ``type`` key."""
+        result = {"type": self.type.value}
+        result.update(super().build())
+        return result

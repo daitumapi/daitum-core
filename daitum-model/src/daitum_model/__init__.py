@@ -30,8 +30,8 @@ A **model** consists of three main parts: the **model definition**, **model conf
 - The **UI definition** specifies the user interface components and functionality that
   will be visible when the model is uploaded to the platform.
 
-This package covers the **model definition**, and also provides all formula functions (previously
-in ``formula_generator``) via :mod:`daitum_model.formulas`.
+This package covers the **model definition**, and also provides all formula functions via
+:mod:`daitum_model.formulas`.
 
 Usage::
 
@@ -43,23 +43,27 @@ Usage::
     is_valid = formulas.NOT(formulas.ISBLANK(cost))
 """
 
-from .data_types import MapDataType, ObjectDataType
-from .enums import AggregationMethod, DataType, JoinType, Severity, SortDirection
+from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType
+from .derived_table import AggregationMethod, DerivedTable, SortDirection
 from .fields import Field
 from .formula import Formula
+from .joined_table import JoinCondition, JoinedTable, JoinType
 from .model import ModelBuilder
 from .named_values import Calculation, Parameter
-from .tables import Table, UnionSource, UnionTable
+from .tables import Table
+from .union_table import UnionSource, UnionTable
 from .validator import (
     LengthValidator,
     ListValidator,
     NonBlankValidator,
     RangeValidator,
+    Severity,
     UniqueValidator,
     Validator,
 )
 
 __all__ = [
+    "BaseDataType",
     "DataType",
     "ObjectDataType",
     "MapDataType",
@@ -81,6 +85,9 @@ __all__ = [
     "UniqueValidator",
     "ListValidator",
     "LengthValidator",
+    "DerivedTable",
+    "JoinedTable",
+    "JoinCondition",
 ]
 
 FieldMapping = UnionTable.FieldMapping

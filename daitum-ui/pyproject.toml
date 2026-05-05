@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daitum-ui"
-version = "0.1.1"
+version = "1.0.0"
 description = "UI definition generation library for the Daitum platform"
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -20,7 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-dependencies = ["daitum-model>=0.1.1", "typeguard>=4.4,<5"]
+dependencies = ["daitum-model>=1.0.0", "typeguard>=4.4,<5"]
 
 [project.urls]
 Homepage = "https://daitum.com"

@@ -273,6 +273,14 @@ class ContextVariable(Buildable):
         default_value: bool | int | float | str | Parameter | Calculation | None = None,
         is_array: bool = False,
     ):
+        """
+        Args:
+            id: Unique identifier for this context variable.
+            type: The data type of the variable value.
+            default_value: Initial value, or a ``Parameter``/``Calculation`` whose ID is used
+                as a calculated default.
+            is_array: If ``True``, the variable holds a list of values rather than a scalar.
+        """
         self.id = id
         self.type = type
         self.is_array = is_array

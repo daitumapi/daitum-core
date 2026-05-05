@@ -13,11 +13,11 @@
 # limitations under the License.
 
 """
-Form view components for the UI Generator framework.
+Form view components for the Daitum UI framework.
 
 This module provides comprehensive form-building capabilities through the FormView class
 and a rich collection of form elements. Forms are structured layouts for data entry,
-editing, and display, organized in a flexible grid-based system with powerful data
+editing, and display, organised in a flexible grid-based system with powerful data
 binding and validation features.
 
 Enums:
@@ -86,8 +86,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, TypeVar, cast
 
-from daitum_model import Calculation, DataType, Field, ObjectDataType, Parameter, Table
-from daitum_model.enums import Severity
+from daitum_model import Calculation, DataType, Field, ObjectDataType, Parameter, Severity, Table
 from daitum_model.formula import Operand
 from daitum_model.named_values import NamedValue
 from typeguard import typechecked
@@ -234,7 +233,7 @@ class FormElement(BaseElement):
         column_span (int):
             Number of columns the element spans.
 
-        horizontal_alignment (HorizontalAlignment):
+        horizontal_alignment (daitum_ui.styles.HorizontalAlignment):
             Horizontal alignment of the element within its grid cell.
 
         size (Optional[FormSize]):
@@ -525,6 +524,7 @@ class FormDateTimePicker(FormElement):
 @json_type_info("formDropdown")
 class FormDropdown(FormElement):
     is_searchable: bool = False
+    is_nullable: bool = False
     default_value: ObjectValue | None = None
     choices: ModelVariable | None = None
     object_reference_display_field: str | None = None
@@ -537,6 +537,11 @@ class FormDropdown(FormElement):
     def set_searchable(self, searchable: bool) -> "FormDropdown":
         """Sets whether the dropdown is searchable."""
         self.is_searchable = searchable
+        return self
+
+    def set_nullable(self, nullable: bool) -> "FormDropdown":
+        """Sets whether the dropdown is nullable."""
+        self.is_nullable = nullable
         return self
 
     def set_choices(self, choices: ModelVariable) -> "FormDropdown":

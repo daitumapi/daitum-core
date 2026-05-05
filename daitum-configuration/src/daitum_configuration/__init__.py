@@ -13,17 +13,12 @@
 # limitations under the License.
 
 """
-daitum_configuration — Model configuration generation for the Daitum platform.
+Builder library for the Daitum platform's model-configuration JSON.
 
-This package provides a structured framework for building ``Configuration`` objects, which
-encapsulate algorithm settings, optimisation parameters (objectives, decisions, constraints),
-and data sources. Configurations can be converted to dictionaries and serialised to JSON.
-
-Usage::
-
-    from daitum_configuration import Configuration
-
-    config = Configuration(...)
+A :class:`ConfigurationBuilder` composes an algorithm, a model configuration
+(decision variables, objectives, constraints), data sources, schedule, and
+report/model properties; :meth:`ConfigurationBuilder.write_to_file` emits
+``model-configuration.json``.
 """
 
 from .algorithm_configuration.cmaes_algorithm import CMAESAlgorithm
@@ -40,7 +35,7 @@ from .algorithm_configuration.genetic_algorithm import (
 )
 from .algorithm_configuration.numeric_expression import NumericExpression
 from .algorithm_configuration.vns_algorithm import VariableNeighbourhoodSearch
-from .configuration import Configuration
+from .configuration import ConfigurationBuilder
 from .data_source.batched_data_source.batch_data_source_type import BatchDataSourceType
 from .data_source.batched_data_source.batched_data_source_config import BatchedDataSourceConfig
 from .data_source.batched_data_source.data_source_info import DataSourceInfo
@@ -80,7 +75,7 @@ from .schedule_configuration.step_configuration import StepConfiguration
 from .schedule_configuration.step_type import StepType
 
 __all__ = [
-    "Configuration",
+    "ConfigurationBuilder",
     "GeneticAlgorithm",
     "RecombinatorType",
     "ComparatorType",

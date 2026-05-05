@@ -452,6 +452,13 @@ class Modal(Buildable):
         width: str,
         title: str | ContextVariable | None = None,
     ):
+        """
+        Args:
+            view: The view displayed inside this modal.
+            height: CSS height value (e.g. ``"500px"`` or ``"80vh"``).
+            width: CSS width value (e.g. ``"700px"`` or ``"90%"``).
+            title: Static title string, a ``ContextVariable`` for a dynamic title, or ``None``.
+        """
         self.id: str = "".join(random.choices(string.ascii_letters, k=16))
         self.view_id = view.id
         self.height = height
@@ -494,7 +501,7 @@ class Modal(Buildable):
 
         Args:
             element:
-                A `ui_generator.elements.Element` instance to append to the modal footer.
+                A `daitum_ui.elements.Element` instance to append to the modal footer.
         """
         self.footer.append(element)
 

@@ -36,4 +36,5 @@ class TemplateBindingKey:
     key: str
 
     def to_string(self):
+        """Return the raw binding key string used in template expressions."""
         return self.key

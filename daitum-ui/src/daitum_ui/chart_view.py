@@ -133,6 +133,17 @@ class ChartView(BaseView, FilterableView):
         display_name: str | None = None,
         hidden: bool = False,
     ):
+        """
+        Args:
+            primary_series: The primary data series for the chart.
+            chart_type: The chart type to render.
+            table: The source data table.
+            display_name: Optional display name for this view.
+            hidden: If ``True``, the view is not visible in the UI.
+
+        Raises:
+            ValueError: If any series references a field not present in *table*.
+        """
         # Initialise BaseView fields
         BaseView.__init__(self, hidden)
         if display_name is not None:
@@ -266,6 +277,14 @@ class CombinationChartView(ChartView):
         display_name: str | None = None,
         hidden: bool = False,
     ):
+        """
+        Args:
+            primary_series: The primary data series for the chart.
+            chart_type: The default chart type for new components.
+            table: The source data table.
+            display_name: Optional display name for this view.
+            hidden: If ``True``, the view is not visible in the UI.
+        """
         super().__init__(primary_series, chart_type, table, display_name, hidden)
         self.chart_components: list[CombinationChartComponent] = []
 

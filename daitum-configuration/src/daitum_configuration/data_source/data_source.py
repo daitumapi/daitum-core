@@ -13,118 +13,59 @@
 # limitations under the License.
 
 """
-This module defines the DataSource class used to encapsulate information and
-configuration related to a data source for optimisation.
-It includes tracking fields for metadata like visibility, post-processing,
-data update notifications, and a temporary export ID for internal use.
-
-Classes:
-    DataSource: Represents a configured data source with serialisation support.
+:class:`DataSource` — wraps a :class:`DataSourceConfig` with metadata (display name,
+visibility, behaviour flags).
 """
 
 from typeguard import typechecked
 
+from daitum_configuration._buildable import Buildable
 from daitum_configuration.data_source.data_source_config import DataSourceConfig
 
 
 # pylint: disable=too-few-public-methods
 @typechecked
-class DataSource:
+class DataSource(Buildable):
     """
-    Represents a data source configuration with relevant metadata and control flags.
+    Wraps a :class:`DataSourceConfig` with display metadata and behaviour flags.
+
+    ``ConfigurationBuilder.add_*`` methods construct this wrapper for you and
+    return it so you can chain ``set_*`` methods to customise behaviour.
     """
 
-    # Class-level static variable for tracking ID
-    _temp_export_id = 0
+    # Class-level static counter for assigning ``temp_export_id``.
+    _temp_export_id_counter = 0
 
     def __init__(
         self,
         name: str,
         config: DataSourceConfig,
     ):
-        """
-        Initialises a new instance of DataSource.
-
-        Args:
-            name (str): Name of the data source.
-            config (DataSourceConfig): Configuration object.
-        """
-        self._temp_export_id = DataSource._temp_export_id
-        DataSource._temp_export_id += 1
-        self._name = name
-        self._config = config
-        self._hidden: bool = False
-        self._post_optimise: bool = False
-        self._notify_on_new_data: bool = False
-        self._update_new_data: bool = False
+        self.name = name
+        self.config = config
+        self.hidden: bool = False
+        self.temp_export_id = DataSource._temp_export_id_counter
+        DataSource._temp_export_id_counter += 1
+        self.post_optimise: bool = False
+        self.notify_on_new_data: bool = False
+        self.update_new_data: bool = False
 
     def set_hidden(self, hidden: bool) -> "DataSource":
-        """
-        Sets whether the data source is hidden.
-
-        Args:
-            hidden (bool): If True, the data source will be marked as hidden.
-
-        Returns:
-            DataSource: self, for method chaining.
-        """
-        self._hidden = hidden
+        """Hide this data source from the UI's data menu."""
+        self.hidden = hidden
         return self
 
     def set_post_optimise(self, post_optimise: bool) -> "DataSource":
-        """
-        Sets whether post-optimisation is triggered after data import.
-
-        Args:
-            post_optimise (bool): If True, triggers post-optimisation after data import.
-
-        Returns:
-            DataSource: self, for method chaining.
-        """
-        self._post_optimise = post_optimise
+        """The data source will run automatically after optimisation has completed."""
+        self.post_optimise = post_optimise
         return self
 
     def set_notify_on_new_data(self, notify_on_new_data: bool) -> "DataSource":
-        """
-        Sets whether notifications are sent when new data is detected.
-
-        Args:
-            notify_on_new_data (bool): If True, notifications will be sent when new data
-                is detected.
-
-        Returns:
-            DataSource: self, for method chaining.
-        """
-        self._notify_on_new_data = notify_on_new_data
+        """Send a UI notification when new data arrives."""
+        self.notify_on_new_data = notify_on_new_data
         return self
 
     def set_update_new_data(self, update_new_data: bool) -> "DataSource":
-        """
-        Sets whether updates are triggered when new data is available.
-
-        Args:
-            update_new_data (bool): If True, updates will be triggered when new data
-                is available.
-
-        Returns:
-            DataSource: self, for method chaining.
-        """
-        self._update_new_data = update_new_data
+        """Auto-apply incoming updates without operator confirmation."""
+        self.update_new_data = update_new_data
         return self
-
-    def to_dict(self) -> dict:
-        """
-        Serialises the instance into a dictionary representation for data source.
-
-        Returns:
-            dict: A dictionary formatted for use in data source.
-        """
-        return {
-            "name": self._name,
-            "config": self._config.to_dict(),
-            "hidden": self._hidden,
-            "tempExportId": self._temp_export_id,
-            "postOptimise": self._post_optimise,
-            "notifyOnNewData": self._notify_on_new_data,
-            "updateNewData": self._update_new_data,
-        }

@@ -1,0 +1,66 @@
+dd ul li strong,
+dl.field-list dd > p > strong {
+    color: #1f77b4;
+    font-weight: bold;
+    font-size: 1.1em !important;
+    font-family: 'Fira Code', monospace !important;
+}
+
+/* Style for supported types */
+.supported-types {
+    margin-left: 20px;       /* indent nicely */
+    font-style: italic;      /* optional */
+    color: #2a7ae2;          /* blue */
+    background-color: #f5f7ff;
+    border-left: 3px solid #2a7ae2;
+    padding: 0 10px;
+}
+
+.supported-types li {
+    margin-bottom: 2px;      /* space between items */
+}
+
+/* Full function signature styling for Sphinx autodoc */
+.sig.sig-object.py {
+    background: none !important;           /* remove background */
+    padding: 0 !important;                /* remove padding */
+    font-size: 1.1em !important;          /* make signature larger */
+    font-family: 'Fira Code', monospace !important; /* monospace font */
+    border: none !important;          /* remove top border */
+    padding-bottom: 0.5em !important;     /* extra padding below */
+}
+
+.sig-name.descname {
+    /*color: #1f77b4 !important;*/
+    font-weight: bold !important;
+}
+
+.sig-param .n {
+    color: #1f77b4 !important;
+    font-weight: bold !important;
+    font-style: normal !important;
+}
+
+.default_value .pre {
+    color: red !important;
+    font-style: italic !important;
+}
+
+.sig-paren,
+.sig .o {
+    color: #000 !important;
+}
+
+.wy-nav-content {
+    max-width: 960px !important;
+    /*padding-left: 2em;   !* optional padding *!*/
+    /*padding-right: 2em;  !* optional padding *!*/
+}
+
+.wy-side-nav-search .wy-dropdown > a img.logo,
+.wy-side-nav-search > a img.logo {
+    height: 150px;
+    width: auto;
+    max-width: 100%;
+    padding: 0.5em 0;
+}

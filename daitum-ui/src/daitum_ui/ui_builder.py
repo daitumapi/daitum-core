@@ -55,6 +55,9 @@ Example:
     >>> ui_definition = builder.build()
 """
 
+import json
+import os
+import pathlib
 import random
 import string
 
@@ -771,17 +774,17 @@ class UiBuilder(Buildable):
         Creates and adds a TabbedView definition to this view builder.
 
         Args:
-        display_name:
-           Optional display name for the tabbed view.
-        hidden:
-           Whether the tabbed view should initially be hidden.
-        use_full_width_tabs:
-           If True, tabs stretch across the full width of the container.
-        headless_context_variable:
-           Context variable controlling which tab is active when
-           headless mode is enabled.
-        tab_padding:
-           Optional padding applied around the tab headers.
+            display_name:
+                Optional display name for the tabbed view.
+            hidden:
+                Whether the tabbed view should initially be hidden.
+            use_full_width_tabs:
+                If True, tabs stretch across the full width of the container.
+            headless_context_variable:
+                Context variable controlling which tab is active when
+                headless mode is enabled.
+            tab_padding:
+                Optional padding applied around the tab headers.
 
         Returns:
             TabbedView: The newly created tabbed view definition.
@@ -1231,3 +1234,15 @@ class UiBuilder(Buildable):
         built = super().build()
         built["views"] = [view.build() for view in self._views]
         return built
+
+    def write_to_file(self, model_directory: str | os.PathLike[str]) -> None:
+        """
+        Serialises the UI definition into ``ui-definition.json`` under the given directory.
+
+        Args:
+            model_directory: Directory to write the UI definition into. Created if missing.
+        """
+        path = pathlib.Path(model_directory) / "ui-definition.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("w", encoding="utf-8") as fp:
+            json.dump(self.build(), fp, indent=4, sort_keys=False)

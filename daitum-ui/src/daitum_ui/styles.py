@@ -435,7 +435,7 @@ class CellStyle(BaseStyle):
 
         map_key_reference_field (Optional[str]):
             For cells representing map-type fields, this refers to another field in the same
-             row whose value is used as the key to extract from the map. Typically this
+            row whose value is used as the key to extract from the map. Typically this
             is a reference to a field holding the key dynamically.
 
         can_filter (Optional[bool]):
@@ -444,6 +444,11 @@ class CellStyle(BaseStyle):
 
         tooltip_field (Optional[str]):
             The field ID or named value ID containing the value to display in the tooltip.
+
+        time_interval (Optional[int]):
+            If provided, sets the time interval of the time picker in
+            minutes for times and date times. Not valid for date pickers. Defaults to 30 minutes
+            if not provided.
     """
 
     display_format: str | None = None
@@ -451,6 +456,7 @@ class CellStyle(BaseStyle):
     map_key_reference_field: str | None = None
     can_filter: bool | None = None
     tooltip_field: str | None = None
+    time_interval: int | None = None
 
 
 @dataclass

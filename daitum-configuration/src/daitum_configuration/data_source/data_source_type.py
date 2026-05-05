@@ -12,27 +12,23 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Defines the enumeration of supported data source types used to configure various
-data-loading mechanisms.
-"""
+""":class:`DataSourceType` discriminator enum for :class:`DataSourceConfig`."""
 
 from enum import Enum
 
 
 class DataSourceType(Enum):
-    """
-    Enumeration of the supported data source types.
+    """Identifies the kind of data source emitted in the JSON output.
 
     Values:
-        - GEOLOCATION: Geolocation-based data source
-        - DISTANCE_MATRIX: Distance matrix calculation source
-        - EXCEL_TRANSFORM: Excel file transformation source
-        - DATA_STORE: External or internal data store source
-        - SET_FEATURES: Feature-setting transformation
-        - BATCHED_DATA_SOURCE: Batch together multiple different data sources
-        - RUN_REPORT: Run a report as a data source
-        - MODEL_TRANSFORM: Run a v3 modelling language based data source
+        GEOLOCATION: Geocoding of address rows.
+        DISTANCE_MATRIX: Computed distance/duration matrix.
+        EXCEL_TRANSFORM: Spreadsheet-driven transform.
+        DATA_STORE: External or internal data store.
+        SET_FEATURES: Feature-flag toggles.
+        BATCHED_DATA_SOURCE: Group of other data sources run together.
+        RUN_REPORT: Run a report. Useful to batch reports with other data sources.
+        MODEL_TRANSFORM: Secondary model used to transform data.
     """
 
     GEOLOCATION = "GEOLOCATION"

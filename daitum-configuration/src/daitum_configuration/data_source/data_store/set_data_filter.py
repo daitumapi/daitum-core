@@ -12,25 +12,28 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""
-Defines SetDataFilter, a concrete implementation of DataFilter that matches rows where the
-value at a specified path is contained in a set of source keys.
-"""
+""":class:`SetDataFilter` — a :class:`DataFilter` matching rows by set membership."""
 
-from inspect import Parameter
+from typing import Any
 
-from daitum_model import Calculation
+from daitum_model import Calculation, Parameter
 from typeguard import typechecked
 
+from daitum_configuration._buildable import json_type_info
 from daitum_configuration.data_source.data_store.data_filter import DataFilter
 from daitum_configuration.data_source.data_store.data_filter_type import DataFilterType
 
 
+@json_type_info(DataFilterType.SET.value)
 @typechecked
 class SetDataFilter(DataFilter):
     """
-    A data filter that includes rows where the value at the specified path is found within
-    a defined set of values, either provided directly or resolved from source keys.
+    Match rows whose value at ``path`` is in a set of values resolved from ``source_keys``.
+
+    Args:
+        path: Field path within each source row.
+        source_keys: Model named values supplying the allowed values.
+        values: Optional literal value set emitted alongside the keys.
     """
 
     def __init__(
@@ -39,40 +42,16 @@ class SetDataFilter(DataFilter):
         source_keys: list[Parameter | Calculation],
         values: set[str] | None = None,
     ):
-        """
-        Initializes a SetDataFilter instance.
-
-        Args:
-            path (list[str]): The hierarchical path to the field in the data row to be evaluated.
-            source_keys (list[Parameter | Calculation]): A list of data sources (e.g., parameters
-                or calculations) whose values will be used to construct the filtering set.
-            values (set[str] | None, optional): An optional static set of values to compare
-                against.
-        """
-        self._path = path
+        self.path = path
+        self.values = list(values) if values is not None else None
         self._source_keys = source_keys
-        self._values = values
 
     @property
     def type(self) -> DataFilterType:
-        """
-        Returns the filter type.
-
-        Returns:
-            DataFilterType: The enum value representing a set-based filter.
-        """
         return DataFilterType.SET
 
-    def to_dict(self) -> dict:
-        """
-        Serializes the filter configuration to a dictionary format.
-
-        Returns:
-            dict: A dictionary including the filter type, path, and set of source keys.
-        """
-        return {
-            "@type": self.type.value,
-            "path": self._path,
-            "values": self._values,
-            "sourceKey": [f"!!!{key}" for key in self._source_keys],
-        }
+    def build(self) -> dict[str, Any]:
+        """Serialise to a JSON-compatible dict."""
+        result = super().build()
+        result["sourceKey"] = [f"!!!{key.to_string()}" for key in self._source_keys]
+        return result

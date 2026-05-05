@@ -115,6 +115,88 @@ class TestFormulaExpression:
         assert "ISBLANK" in result.formula_string
 
 
+class TestProbabilityReturnTypes:
+    def test_normdist_returns_decimal(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.NORMDIST(CONST(0.0), CONST(0.0), CONST(1.0), CONST(True))
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.DECIMAL
+
+    def test_norminv_returns_decimal(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.NORMINV(CONST(0.5), CONST(0.0), CONST(1.0))
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.DECIMAL
+
+    def test_binomdist_returns_decimal(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.BINOMDIST(CONST(2), CONST(10), CONST(0.5), CONST(True))
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.DECIMAL
+
+    def test_binominv_returns_integer(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.BINOMINV(CONST(10), CONST(0.5), CONST(0.9))
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.INTEGER
+
+    def test_gammadist_returns_decimal(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.GAMMADIST(CONST(1.0), CONST(2.0), CONST(1.0), CONST(True))
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.DECIMAL
+
+    def test_gammainv_returns_decimal(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.GAMMAINV(CONST(0.5), CONST(2.0), CONST(1.0))
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.DECIMAL
+
+
+class TestProbabilitySerialisation:
+    def test_normdist_expression(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.NORMDIST(CONST(0.0), CONST(0.0), CONST(1.0), CONST(True))
+        assert "NORMDIST" in result.formula_string
+
+    def test_norminv_expression(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.NORMINV(CONST(0.5), CONST(0.0), CONST(1.0))
+        assert "NORMINV" in result.formula_string
+
+    def test_binomdist_expression(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.BINOMDIST(CONST(2), CONST(10), CONST(0.5), CONST(True))
+        assert "BINOMDIST" in result.formula_string
+
+    def test_binominv_expression(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.BINOMINV(CONST(10), CONST(0.5), CONST(0.9))
+        assert "BINOMINV" in result.formula_string
+
+    def test_gammadist_expression(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.GAMMADIST(CONST(1.0), CONST(2.0), CONST(1.0), CONST(True))
+        assert "GAMMADIST" in result.formula_string
+
+    def test_gammainv_expression(self):
+        from daitum_model.formula import CONST
+
+        result = formulas.GAMMAINV(CONST(0.5), CONST(2.0), CONST(1.0))
+        assert "GAMMAINV" in result.formula_string
+
+
 class TestChangeCalculator:
     def test_change_calculator_importable(self):
         from daitum_model import change_calculator
