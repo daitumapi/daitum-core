@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daitum-core"
-version = "0.3.0"
+version = "1.0.0"
 description = "Meta-package installing daitum-model, daitum-ui, and daitum-configuration"
 readme = "README.md"
 license = { file = "LICENSE" }
