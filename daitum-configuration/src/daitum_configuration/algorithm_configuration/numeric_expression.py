@@ -19,7 +19,7 @@ Use this where an algorithm parameter should scale with the problem dimension; t
 ``NUM_VARIABLES`` token is replaced at runtime with the number of decision variables.
 """
 
-from typing import Union
+from __future__ import annotations
 
 
 class NumericExpression:
@@ -36,11 +36,11 @@ class NumericExpression:
 
     NUM_VARIABLES: str = "NUM_VARIABLES"
 
-    def __init__(self, value: Union[int, float, str, "NumericExpression"]):
+    def __init__(self, value: int | float | str | NumericExpression):
         if isinstance(value, (int, float)):
             self.expr = str(value)
         elif isinstance(value, str):
-            if value in {NumericExpression.NUM_VARIABLES or value == "NUM_VARIABLES"}:
+            if value == NumericExpression.NUM_VARIABLES:
                 self.expr = value
             else:
                 raise ValueError(f"Only {NumericExpression.NUM_VARIABLES} is allowed as a variable")
@@ -52,32 +52,28 @@ class NumericExpression:
     def __str__(self) -> str:
         return self.expr
 
-    def __add__(self, other: Union[int, float, str, "NumericExpression"]) -> "NumericExpression":
+    def __add__(self, other: int | float | str | NumericExpression) -> NumericExpression:
         return NumericExpression._from_expr(f"({self.expr} + {NumericExpression(other).expr})")
 
-    def __radd__(self, other: Union[int, float, str, "NumericExpression"]) -> "NumericExpression":
+    def __radd__(self, other: int | float | str | NumericExpression) -> NumericExpression:
         return NumericExpression._from_expr(f"({NumericExpression(other).expr} + {self.expr})")
 
-    def __sub__(self, other: Union[int, float, str, "NumericExpression"]) -> "NumericExpression":
+    def __sub__(self, other: int | float | str | NumericExpression) -> NumericExpression:
         return NumericExpression._from_expr(f"({self.expr} - {NumericExpression(other).expr})")
 
-    def __rsub__(self, other: Union[int, float, str, "NumericExpression"]) -> "NumericExpression":
+    def __rsub__(self, other: int | float | str | NumericExpression) -> NumericExpression:
         return NumericExpression._from_expr(f"({NumericExpression(other).expr} - {self.expr})")
 
-    def __mul__(self, other: Union[int, float, str, "NumericExpression"]) -> "NumericExpression":
+    def __mul__(self, other: int | float | str | NumericExpression) -> NumericExpression:
         return NumericExpression._from_expr(f"({self.expr} * {NumericExpression(other).expr})")
 
-    def __rmul__(self, other: Union[int, float, str, "NumericExpression"]) -> "NumericExpression":
+    def __rmul__(self, other: int | float | str | NumericExpression) -> NumericExpression:
         return NumericExpression._from_expr(f"({NumericExpression(other).expr} * {self.expr})")
 
-    def __truediv__(
-        self, other: Union[int, float, str, "NumericExpression"]
-    ) -> "NumericExpression":
+    def __truediv__(self, other: int | float | str | NumericExpression) -> NumericExpression:
         return NumericExpression._from_expr(f"({self.expr} / {NumericExpression(other).expr})")
 
-    def __rtruediv__(
-        self, other: Union[int, float, str, "NumericExpression"]
-    ) -> "NumericExpression":
+    def __rtruediv__(self, other: int | float | str | NumericExpression) -> NumericExpression:
         return NumericExpression._from_expr(f"({NumericExpression(other).expr} / {self.expr})")
 
     def to_string(self) -> str:
@@ -107,22 +103,22 @@ class NumericExpression:
         return False
 
     @classmethod
-    def _from_expr(cls, expr: str) -> "NumericExpression":
+    def _from_expr(cls, expr: str) -> NumericExpression:
         obj = cls.__new__(cls)
         obj.expr = expr
         return obj
 
     @classmethod
-    def from_str(cls, expr: str) -> "NumericExpression":
+    def from_str(cls, expr: str) -> NumericExpression:
         """Construct from a numeric or ``NUM_VARIABLES`` string."""
         return cls(expr)
 
     @classmethod
-    def from_number(cls, num: int | float) -> "NumericExpression":
+    def from_number(cls, num: int | float) -> NumericExpression:
         """Construct from an int or float literal."""
         return cls(num)
 
     @classmethod
-    def variable(cls, name: str) -> "NumericExpression":
+    def variable(cls, name: str) -> NumericExpression:
         """Construct from a variable name. Currently only ``NUM_VARIABLES`` is supported."""
         return cls(name)

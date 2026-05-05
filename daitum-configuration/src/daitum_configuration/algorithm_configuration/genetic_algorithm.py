@@ -88,7 +88,7 @@ class Mutation:
     def mutation(
         cls,
         name: MutationType | None = None,
-        variation_range: float | None | NumericExpression | None = None,
+        variation_range: float | NumericExpression | None = None,
     ) -> "Mutation":
         """Construct a :class:`Mutation` with default operator parameters.
 
@@ -121,7 +121,7 @@ class Selection:
     def selection(
         cls,
         name: SelectionType | None = None,
-        pool_size: int | None | NumericExpression | None = None,
+        pool_size: int | NumericExpression | None = None,
     ) -> "Selection":
         """Construct a :class:`Selection` with default operator parameters.
 

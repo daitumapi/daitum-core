@@ -49,24 +49,22 @@ Example:
     >>> # Create and register a bar chart
     >>> builder = UiBuilder()
     >>> chart_view = builder.add_chart_view(
-    ...     chart_title="Monthly Revenue",
     ...     primary_series=primary_series,
-    ...     secondary_series=secondary_series,
     ...     chart_type=ChartType.BAR,
     ...     table=sales_table,
     ...     display_name="Sales Dashboard"
     ... )
     >>>
     >>> # Configure chart properties
-    >>> chart_view.x_axis_label = "Month"
-    >>> chart_view.y_axis_label = "Revenue ($)"
+    >>> chart_view.set_chart_title("Monthly Revenue")
+    >>> chart_view.set_secondary_series(secondary_series)
+    >>> chart_view.xaxis_label = "Month"
+    >>> chart_view.yaxis_label = "Revenue ($)"
     >>> chart_view.orientation = ChartViewOrientation.VERTICAL
     >>>
     >>> # Add additional data series for comparison
     >>> chart_view.add_data_series(
     ...     source_field=Field("target_revenue", DataType.DECIMAL),
-    ...     name="Target",
-    ...     color="#FF5733"
     ... )
 """
 
@@ -107,22 +105,22 @@ class ChartView(BaseView, FilterableView):
             Type of chart to render (line, bar, pie, scatter, etc.).
         stacking (ChartViewStacking):
             Stacking behaviour for multi-series charts (normal or percent).
-        x_axis_label (Optional[str]):
+        xaxis_label (str | None):
             Label text displayed along the X-axis.
-        y_axis_label (Optional[str]):
+        yaxis_label (str | None):
             Label text displayed along the Y-axis.
-        x_axis_type (Optional[str]):
+        xaxis_type (str | None):
             Defines how x-axis values are interpreted (e.g., numeric, category, datetime).
         ignore_empty_series (bool):
             Whether to hide or skip rendering for data series with no values.
-        point_label (Optional[str]):
+        point_label (str | None):
             Custom label displayed on individual data points (if supported).
-        tooltip (Optional[str]):
+        tooltip (str | None):
             Tooltip text or template for hover interactions.
-        data_series (List[ChartSeries]):
+        data_series (list[ChartSeries]):
             A list of additional chart data series beyond the primary and secondary series.
-        series_colors (List[str]):
-            Optional color overrides applied to series in rendering order.
+        series_colors (list[str] | None):
+            Optional colour overrides applied to series in rendering order.
     """
 
     def __init__(

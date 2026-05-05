@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.0.1]
+
+### Fixed
+- `NumericExpression.__init__` — replaced an accidentally short-circuited
+  ``value in {NUM_VARIABLES or value == "NUM_VARIABLES"}`` check with a
+  direct equality test against ``NUM_VARIABLES``.
+- `Mutation.mutation` and `Selection.selection` parameter annotations no
+  longer contain a duplicate ``| None`` (``float | None | NumericExpression
+  | None`` → ``float | NumericExpression | None``; same for ``int``).
+
+### Changed
+- `numeric_expression` migrated from ``typing.Union[...]`` to PEP 604
+  ``X | Y`` syntax, matching the rest of the package.
+- `ConfigurationBuilder.model_topic_mapping` and `tooltips` typed as
+  ``list[Any]`` instead of bare ``list``.
+
 ## [1.0.0]
 
 ### Added

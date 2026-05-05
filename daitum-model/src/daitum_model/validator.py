@@ -375,7 +375,7 @@ class RangeValidator(Validator):  # pylint: disable=too-many-instance-attributes
         the valid range.
 
         Args:
-            field: The field or name valued to validate.
+            field: The field or named value to validate.
             table: The table containing the field. Optional.
 
         Returns:

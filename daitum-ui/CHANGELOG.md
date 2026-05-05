@@ -1,5 +1,17 @@
 # Changelog
 
+## [1.0.1]
+
+### Fixed
+- `ChartView` module docstring example now references real attributes
+  (``xaxis_label``/``yaxis_label``) and a valid `add_chart_view` /
+  `add_data_series` signature, so the example is runnable as written.
+
+### Changed
+- Tidied docstrings in `chart_view`, `base_view`, and `named_value_view`:
+  ``Optional[X]``/``List[X]`` → ``X | None``/``list[X]`` and Australian
+  English (``labelled``, ``organised``, ``colour``).
+
 ## [1.0.0]
 
 ### Added

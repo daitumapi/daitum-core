@@ -24,6 +24,7 @@ serialises the result into ``model-configuration.json``.
 import json
 import os
 import pathlib
+from typing import Any
 
 from typeguard import typechecked
 
@@ -79,8 +80,8 @@ class ConfigurationBuilder(Buildable):
         self.solution_view_enabled: bool = False
         self.report_properties: dict[str, ReportProperty] | None = None
         self.model_properties: ModelProperty | None = None
-        self.model_topic_mapping: list = []
-        self.tooltips: list = []
+        self.model_topic_mapping: list[Any] = []
+        self.tooltips: list[Any] = []
 
     def set_algorithm(self, algorithm: Algorithm) -> "ConfigurationBuilder":
         """Set the top-level algorithm. Mutually exclusive with a schedule."""
@@ -112,12 +113,12 @@ class ConfigurationBuilder(Buildable):
         self.solution_view_enabled = solution_view_enabled
         return self
 
-    def set_model_topic_mapping(self, model_topic_mapping: list) -> "ConfigurationBuilder":
+    def set_model_topic_mapping(self, model_topic_mapping: list[Any]) -> "ConfigurationBuilder":
         """Set the model-topic mapping list emitted alongside the configuration."""
         self.model_topic_mapping = model_topic_mapping
         return self
 
-    def set_tooltips(self, tooltips: list) -> "ConfigurationBuilder":
+    def set_tooltips(self, tooltips: list[Any]) -> "ConfigurationBuilder":
         """Set the tooltip definitions emitted alongside the configuration."""
         self.tooltips = tooltips
         return self

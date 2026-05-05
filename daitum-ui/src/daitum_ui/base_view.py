@@ -77,23 +77,23 @@ class BaseView(ABC, Buildable):
     Abstract base class for all view definitions. Handles common elements such as title.
 
     Args:
-        display_name (Optional[str]): Optional name for display.
+        display_name (str | None): Optional name for display.
             Defaults to the ID of the underlying table.
         hidden (bool): If True, the view is not visible in the UI. Defaults to False
-        navigation_group (Optional[str]): Stores the navigation group to which the
+        navigation_group (str | None): Stores the navigation group to which the
             TableView is added, if any.
         navigation_item (bool): Check if the TableView is added to a navigation item.
 
     Attributes:
-        title (Optional[Title]): The title to be displayed for the view, including
+        title (Title | None): The title to be displayed for the view, including
             optional styling and position (above or below content). Set via
             ``set_title()``.
-        action_bar_definition (Optional[ActionBar]): The action bar containing
+        action_bar_definition (ActionBar | None): The action bar containing
             interactive UI elements for this view. Lazily instantiated when the
             first element is added via ``add_action_element()``.
-        show_filter (Optional[str]): The name of the filter definition to display
+        show_filter (str | None): The name of the filter definition to display
             alongside this view. Set via ``set_show_filter()``.
-        nav_view_id (Optional[str]): The ID of the associated navigation view, if
+        nav_view_id (str | None): The ID of the associated navigation view, if
             this view is linked to a navigation item.
     """
 

@@ -111,16 +111,17 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
         self._display_name = name
         return self
 
-    def set_export_as_key_column(self, export_as_key=True):
+    def set_export_as_key_column(self, export_as_key: bool = True) -> Table:
         """
         Configures the table to export its key column instead of the row number when generating
-            reports.
+            reports. Returns self.
 
         Args:
             export_as_key (bool, optional): If True, the table's key column is exported.
             If False, the row number is exported instead. Defaults to True.
         """
         self.export_as_key_column = export_as_key
+        return self
 
     def _add_field(self, field: Field):
         if field.id in self.field_definitions:
@@ -249,9 +250,9 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
         Args:
             id (str): The ID of the calculated field.
             formula (Formula): The formula used to compute the field value.
-            order_index (Optional[int]): The order index of the field.
-            description (Optional[str]): Description of the field.
-            tracking_group (Optional[str]): Group identifier for change tracking.
+            order_index (int | None): The order index of the field.
+            description (str | None): Description of the field.
+            tracking_group (str | None): Group identifier for change tracking.
 
         Returns:
             CalculatedField: The created `CalculatedField` object.

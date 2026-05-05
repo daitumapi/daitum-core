@@ -4,18 +4,15 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daitum-configuration"
-version = "1.0.0"
+version = "1.0.1"
 description = "Model configuration generation library for the Daitum platform"
 readme = "README.md"
-license = { file = "LICENSE" }
+license = "Apache-2.0"
 authors = [{ name = "Daitum" }]
 requires-python = ">=3.10"
 keywords = ["optimisation", "modelling", "daitum"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "License :: OSI Approved :: Apache Software License",
-    "Programming Language :: Python :: 3",
+    "Development Status :: 4 - Beta",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",

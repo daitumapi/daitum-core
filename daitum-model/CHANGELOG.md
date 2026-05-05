@@ -1,5 +1,14 @@
 # Changelog
 
+## [1.0.1]
+
+### Changed
+- `Table.set_export_as_key_column` now returns ``self`` and has explicit type
+  hints, matching the other ``Table.set_*`` methods for fluent chaining.
+- Tidied docstrings in `formula`, `tables`, and `validator` (typos and
+  ``Optional[X]`` → ``X | None`` in the ``add_calculated_field`` parameter
+  descriptions).
+
 ## [1.0.0]
 
 ### Added

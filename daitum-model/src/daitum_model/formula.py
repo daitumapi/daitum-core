@@ -14,7 +14,7 @@
 
 """
 This module provides classes and functions to represent and manipulate formulas
-used in calculations or data processing. The core components includes `Formula`,
+used in calculations or data processing. The core components include `Formula`,
 which encapsulates the logic for creating and managing formulas involving operations on various
 data types.
 """
