@@ -20,14 +20,7 @@ from typing import Any, cast
 
 from typeguard import typechecked
 
-from daitum_model import (
-    BaseDataType,
-    DataType,
-    Formula,
-    MapDataType,
-    ObjectDataType,
-    Table,
-)
+from daitum_model import BaseDataType, DataType, Formula, MapDataType, ObjectDataType, Table
 from daitum_model._base_formulas import (
     _ABS,
     _AND,

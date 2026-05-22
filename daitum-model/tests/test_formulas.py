@@ -3,7 +3,6 @@ Tests for daitum_model.formulas: formula functions, types, and serialisation.
 """
 
 import pytest
-
 from daitum_model import DataType, Formula, ModelBuilder, formulas
 
 

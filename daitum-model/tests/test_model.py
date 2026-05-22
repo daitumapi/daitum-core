@@ -2,9 +2,8 @@
 Tests for daitum_model: ModelBuilder, Table, Field, Formula, validators, and named values.
 """
 
-import pytest
-
 import daitum_model
+import pytest
 from daitum_model import (
     DataType,
     Formula,

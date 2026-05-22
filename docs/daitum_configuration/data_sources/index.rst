@@ -19,6 +19,7 @@ the matching ``add_*`` method.
     set_features
     model_transform
     run_report
+    run_external_model
 
 Data source wrapper
 -------------------

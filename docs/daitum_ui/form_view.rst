@@ -1,76 +1,55 @@
 Form View
 =========
 
-Form view components for the UI Generator framework.
+Form view components for the Daitum UI framework.
 
-This module provides comprehensive form-building capabilities through the FormView class
+This module provides comprehensive form-building capabilities through the ``FormView`` class
 and a rich collection of form elements. Forms are structured layouts for data entry,
-editing, and display, organized in a flexible grid-based system with powerful data
+editing, and display, organised in a flexible grid-based system with powerful data
 binding and validation features.
 
 Enums:
-    - FormSize: Element sizing (EXTRA_SMALL, SMALL, MEDIUM, LARGE, EXTRA_LARGE, FIT_WIDTH)
-    - FormVariant: Label styling variants (REGULAR, HEADER)
-    - FormResize: Text area resize behavior (NONE, BOTH, HORIZONTAL, VERTICAL)
-    - FormIconSet: Icon catalogue for icon pickers (ALL, DAITUM, FONT_AWESOME, FA_PRO)
+    - ``FormSize``: Element sizing (EXTRA_SMALL, SMALL, MEDIUM, LARGE, EXTRA_LARGE, FIT_WIDTH)
+    - ``FormVariant``: Label styling variants (REGULAR, HEADER)
+    - ``FormResize``: Text area resize behaviour (NONE, BOTH, HORIZONTAL, VERTICAL)
+    - ``FormIconSet``: Icon catalogue for icon pickers (ALL, DAITUM, FONT_AWESOME, FA_PRO)
 
 Classes:
-    - FormElement: Base class for all form elements with layout and validation
-    - FormView: Container view managing form layout and elements
-    - FormLabel, FormTextInput, FormNumberInput, FormBasicTextArea: Text elements
-    - FormCheckbox, FormSlider, FormIconCheckbox: Boolean input elements
-    - FormDropdown: Object selection element
-    - FormDatePicker, FormTimePicker, FormDateTimePicker: Date/time elements
-    - FormButton: Action button element
-    - FormReviewRating: Rating input element
-    - FormColourPickerInput: Colour (hex) picker
-    - FormIconPicker: Icon selection picker
+    - ``FormElement``: Base class for all form elements with layout and validation
+    - ``FormView``: Container view managing form layout and elements
+    - ``FormLabel``, ``FormTextInput``, ``FormNumberInput``, ``FormBasicTextArea``: Text elements
+    - ``FormCheckbox``, ``FormSlider``, ``FormIconCheckbox``: Boolean input elements
+    - ``FormDropdown``: Object selection element
+    - ``FormDatePicker``, ``FormTimePicker``, ``FormDateTimePicker``: Date/time elements
+    - ``FormButton``: Action button element
+    - ``FormReviewRating``: Rating input element
+    - ``FormColourPickerInput``: Colour (hex) picker element
+    - ``FormIconPicker``: Icon selection picker element
+    - ``FormLink``: Hyperlink element navigating to an external destination (e.g. model editor)
 
-Example:
-    >>> # Define data source
-    >>> customers_table = Table("customers")
-    >>>
-    >>> # Create form view
-    >>> builder = UiBuilder()
-    >>> form = builder.add_form_view(
-    ...     display_name="Customer Details",
-    ...     total_rows=6,
-    ...     table=customers_table,
-    ...     match_row=MatchRowFilterMode.FIRST_ROW
-    ... )
-    >>>
-    >>> # Configure form columns
-    >>> form.set_columns(num_columns=2, width="250px")
-    >>>
-    >>> # Add form elements
-    >>> # Header label
-    >>> form.add_label(
-    ...     text="Customer Information",
-    ...     row=1, column=1, column_span=2,
-    ...     variant=FormVariant.HEADER,
-    ...     size=FormSize.LARGE
-    ... )
-    >>>
-    >>> # Text inputs
-    >>> name_label = form.add_label("Name:", row=2, column=1)
-    >>> name_input = form.add_text_input(
-    ...     text=Field("customer_name", DataType.STRING),
-    ...     row=2, column=2
-    ... )
-    >>>
-    >>> email_label = form.add_label("Email:", row=3, column=1)
-    >>> email_input = form.add_text_input(
-    ...     text=Field("email", DataType.STRING),
-    ...     row=3, column=2
-    ... )
-    >>>
-    >>> # Number input with validation
-    >>> age_label = form.add_label("Age:", row=4, column=1)
-    >>> age_input = form.add_number_input(
-    ...     value=Field("age", DataType.INTEGER),
-    ...     row=4, column=2
-    ... )
-    >>> age_input.set_range_validation(min_value=18, max_value=120)
+Example::
+
+    builder = UiBuilder()
+    form = builder.add_form_view(
+        display_name="Customer Details",
+        total_rows=6,
+        table=customers_table,
+        match_row=MatchRowFilterMode.FIRST_ROW,
+    )
+    form.set_columns(num_columns=2, width="250px")
+
+    # Header label spanning both columns
+    header = form.add_label("Customer Information", row=1, column=1)
+    header.set_column_span(2).set_variant(FormVariant.HEADER).set_size(FormSize.LARGE)
+
+    # Text inputs
+    form.add_label("Name:", row=2, column=1)
+    form.add_text_input(customers_table.name_field, row=2, column=2)
+
+    # Number input with range validation
+    form.add_label("Age:", row=3, column=1)
+    age_input = form.add_number_input(customers_table.age_field, row=3, column=2)
+    age_input.set_range_validation(min_value=IntegerValue(18), max_value=IntegerValue(120))
 
 .. autoclass:: daitum_ui.form_view.FormView
     :no-index:
@@ -183,3 +162,7 @@ Form elements are interactive components that can be placed inside a
     :members:
     :show-inheritance:
 
+.. autoclass:: daitum_ui.form_view.FormLink
+    :no-index:
+    :members:
+    :show-inheritance:

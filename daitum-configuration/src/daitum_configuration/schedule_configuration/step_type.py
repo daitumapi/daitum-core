@@ -20,10 +20,17 @@ from enum import Enum
 class StepType(Enum):
     """Kind of node in a :class:`ScheduleConfiguration` execution tree.
 
+    A :class:`StepConfiguration`'s type determines whether it executes an
+    algorithm (leaf) or composes child steps (container).
+
     Values:
-        PARALLEL: Run child steps concurrently.
-        SEQUENCE: Run child steps one after another.
-        SINGLE: Run a single algorithm referenced by key.
+        SINGLE: Leaf node — runs the algorithm registered under
+            ``algorithm_config_key`` against the current best solution.
+            Carries no children.
+        SEQUENCE: Container — runs child steps one after another, each
+            seeded with the previous step's best solution.
+        PARALLEL: Container — runs child steps concurrently from the same
+            seed and merges their results.
     """
 
     PARALLEL = "PARALLEL"

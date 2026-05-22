@@ -408,14 +408,21 @@ class ViewField(Buildable):
                 raise AttributeError(f"{type(style_obj).__name__} has no attribute '{key}'")
 
 
+class _NullViewField(Buildable):
+    """Placeholder for a tree child level with no field — serialises as ``{"fieldId": null}``."""
+
+    def build(self):
+        return {"fieldId": None}
+
+
 class TreeViewField(ViewField):
     """
     Extends ViewField to support hierarchical/tree structures.
 
     Attributes:
-        children (List[str]):
+        children (List[str | None]):
             Field definitions for each level of the hierarchy.
-            If a child is None or has a null name, it will be skipped for that level.
+            A ``None`` entry means no field at that level (serialises as ``{"fieldId": null}``).
 
         dynamic (bool):
             If True, this column is dynamic and will be duplicated based on values
@@ -438,9 +445,11 @@ class TreeViewField(ViewField):
         self.default_display_value: Any | None = None
         self.override_type: DataType | None = None
 
-    def set_children(self, children: list[str]) -> "TreeViewField":
+    def set_children(self, children: list[str | None]) -> "TreeViewField":
         """Sets the child field names for each level of the hierarchy."""
-        self.children = [ViewField(child) for child in children]
+        self.children = [
+            _NullViewField() if child is None else ViewField(child) for child in children
+        ]
         return self
 
     def set_dynamic(self, dynamic: bool) -> "TreeViewField":
@@ -772,7 +781,7 @@ class TreeView(BaseTableView):
     def add_field(
         self,
         field_id,
-        children: list[str] | str | None = None,
+        children: list[str | None] | str | None = None,
         read_only: bool = False,
         allow_reset: bool = False,
     ) -> TreeViewField:
@@ -803,6 +812,8 @@ class TreeView(BaseTableView):
             children = [children]
 
         for index, child in enumerate(children, start=1):
+            if child is None:
+                continue
             table = self._tables[index]
             if not any(table_field.id == child for table_field in table.get_fields()):
                 raise ValueError(f"The field {child} does not exist in the table {table.id}")
@@ -810,11 +821,19 @@ class TreeView(BaseTableView):
         view_field = TreeViewField(field_id, read_only)
         view_field.set_children(children)
 
-        deepest_child = self._tables[-1].get_field(children[-1])
+        deepest_child_id = children[-1]
+        deepest_child = (
+            self._tables[-1].get_field(deepest_child_id) if deepest_child_id is not None else None
+        )
 
-        self.fields.append(_validation_view_field(deepest_child, view_field))
+        if deepest_child is not None:
+            self.fields.append(_validation_view_field(deepest_child, view_field))
+        else:
+            self.fields.append(view_field)
 
         if allow_reset:
+            if deepest_child is None:
+                raise ValueError("allow_reset is not supported for fields with null children")
             if deepest_child.tracking_group is None:
                 raise ValueError("allow_reset invalid on fields without change tracking set")
             tracked_field = self._table.get_field(deepest_child.tracking_id)

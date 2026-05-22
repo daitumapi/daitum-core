@@ -418,7 +418,7 @@ class GanttTaskDefinition(Buildable):
             self.drag_drop_x_source_field = None
 
         if on_click_source_field:
-            _validate_field(on_click_source_field, DataType.DECIMAL)
+            _validate_field(on_click_source_field, DataType.STRING)
             self.on_click_source_field: str | None = on_click_source_field.id
         else:
             self.on_click_source_field = None

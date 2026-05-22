@@ -29,6 +29,7 @@ class DataSourceType(Enum):
         BATCHED_DATA_SOURCE: Group of other data sources run together.
         RUN_REPORT: Run a report. Useful to batch reports with other data sources.
         MODEL_TRANSFORM: Secondary model used to transform data.
+        RUN_EXTERNAL_MODEL: Run the model's configured external evaluator.
     """
 
     GEOLOCATION = "GEOLOCATION"
@@ -39,3 +40,4 @@ class DataSourceType(Enum):
     BATCHED_DATA_SOURCE = "BATCHED_DATA_SOURCE"
     RUN_REPORT = "RUN_REPORT"
     MODEL_TRANSFORM = "MODEL_TRANSFORM"
+    RUN_EXTERNAL_MODEL = "RUN_EXTERNAL_MODEL"

@@ -23,7 +23,8 @@ binding and validation features.
 Enums:
     - FormSize: Element sizing (EXTRA_SMALL, SMALL, MEDIUM, LARGE, EXTRA_LARGE, FIT_WIDTH)
     - FormVariant: Label styling variants (REGULAR, HEADER)
-    - FormResize: Text area resize behavior (NONE, BOTH, HORIZONTAL, VERTICAL)
+    - FormResize: Text area resize behaviour (NONE, BOTH, HORIZONTAL, VERTICAL)
+    - FormIconSet: Icon catalogue for icon pickers (ALL, DAITUM, FONT_AWESOME, FA_PRO)
 
 Classes:
     - FormElement: Base class for all form elements with layout and validation
@@ -34,12 +35,11 @@ Classes:
     - FormDatePicker, FormTimePicker, FormDateTimePicker: Date/time elements
     - FormButton: Action button element
     - FormReviewRating: Rating input element
+    - FormColourPickerInput: Colour (hex) picker element
+    - FormIconPicker: Icon selection picker element
+    - FormLink: Hyperlink element for external navigation (e.g. model editor)
 
 Example:
-    >>> # Define data source
-    >>> customers_table = Table("customers")
-    >>>
-    >>> # Create form view
     >>> builder = UiBuilder()
     >>> form = builder.add_form_view(
     ...     display_name="Customer Details",
@@ -47,39 +47,20 @@ Example:
     ...     table=customers_table,
     ...     match_row=MatchRowFilterMode.FIRST_ROW
     ... )
-    >>>
-    >>> # Configure form columns
     >>> form.set_columns(num_columns=2, width="250px")
     >>>
-    >>> # Add form elements
-    >>> # Header label
-    >>> form.add_label(
-    ...     text="Customer Information",
-    ...     row=1, column=1, column_span=2,
-    ...     variant=FormVariant.HEADER,
-    ...     size=FormSize.LARGE
-    ... )
+    >>> # Header label spanning both columns
+    >>> header = form.add_label("Customer Information", row=1, column=1)
+    >>> header.set_column_span(2).set_variant(FormVariant.HEADER).set_size(FormSize.LARGE)
     >>>
-    >>> # Text inputs
-    >>> name_label = form.add_label("Name:", row=2, column=1)
-    >>> name_input = form.add_text_input(
-    ...     text=Field("customer_name", DataType.STRING),
-    ...     row=2, column=2
-    ... )
+    >>> # Text input bound to a field
+    >>> form.add_label("Name:", row=2, column=1)
+    >>> form.add_text_input(customers_table.name_field, row=2, column=2)
     >>>
-    >>> email_label = form.add_label("Email:", row=3, column=1)
-    >>> email_input = form.add_text_input(
-    ...     text=Field("email", DataType.STRING),
-    ...     row=3, column=2
-    ... )
-    >>>
-    >>> # Number input with validation
-    >>> age_label = form.add_label("Age:", row=4, column=1)
-    >>> age_input = form.add_number_input(
-    ...     value=Field("age", DataType.INTEGER),
-    ...     row=4, column=2
-    ... )
-    >>> age_input.set_range_validation(min_value=18, max_value=120)
+    >>> # Number input with range validation
+    >>> form.add_label("Age:", row=3, column=1)
+    >>> age_input = form.add_number_input(customers_table.age_field, row=3, column=2)
+    >>> age_input.set_range_validation(min_value=IntegerValue(18), max_value=IntegerValue(120))
 """
 
 from dataclasses import dataclass
@@ -114,6 +95,8 @@ from daitum_ui.data import (
 from daitum_ui.elements import BaseElement
 from daitum_ui.model_event import ModelEvent
 from daitum_ui.styles import HorizontalAlignment, IconConfig
+
+from ._link_destination import LinkDestination, ModelEditorLinkDestination
 
 
 class FormSize(Enum):
@@ -263,7 +246,6 @@ class FormElement(BaseElement):
     display_format: str | None = None
 
     def __post_init__(self):
-        """Initialize the parent BaseElement class after dataclass initialization."""
         super().__init__()
 
     def set_default_value_reference(
@@ -330,11 +312,11 @@ class FormElement(BaseElement):
 
         Args:
             min_value (str, Value or None): The minimum allowed value. If an int or float, it is
-            taken to me the literal min value. If a string, it is assumed to be a reference to
-            field or named value specifying the min value.
+            taken to be the literal min value. If a string, it is assumed to be a reference to
+            a field or named value specifying the min value.
             max_value (str, Value or None): The maximum allowed value. If an int or float, it is
-            taken to me the literal max value. If a string, it is assumed to be a reference to
-            field or named value specifying the max value.
+            taken to be the literal max value. If a string, it is assumed to be a reference to
+            a field or named value specifying the max value.
             flag (ValidationFlag, optional): Specifies if the range bounds are inclusive
                 or exclusive. Defaults to ValidationFlag.INCLUSIVE.
 
@@ -422,6 +404,14 @@ class FormElement(BaseElement):
 @typechecked
 @json_type_info("formLabel")
 class FormLabel(FormElement):
+    """
+    A static or data-bound text label within a form.
+
+    Displays a fixed string or a value bound to a field, parameter, or calculation.
+    Use :attr:`variant` to control visual weight (``REGULAR`` for body text,
+    ``HEADER`` for section headings).
+    """
+
     display_string: str | None = None
     variant: FormVariant = FormVariant.REGULAR
 
@@ -478,6 +468,14 @@ class FormIconCheckbox(FormElement):
 @typechecked
 @json_type_info("formTextInput")
 class FormTextInput(FormElement):
+    """
+    A single-line text input bound to a ``STRING`` field, parameter, or calculation.
+
+    Attributes:
+        default_value (StringValue | None): Optional default text pre-filled when the
+            bound value is absent.
+    """
+
     default_value: StringValue | None = None
 
 
@@ -485,6 +483,16 @@ class FormTextInput(FormElement):
 @typechecked
 @json_type_info("formNumberInput")
 class FormNumberInput(FormElement):
+    """
+    A numeric input bound to an ``INTEGER`` or ``DECIMAL`` field, parameter, or calculation.
+
+    Supports range validation via :meth:`FormElement.set_range_validation`.
+
+    Attributes:
+        default_value (IntegerValue | DecimalValue | None): Optional numeric default
+            pre-filled when the bound value is absent.
+    """
+
     default_value: IntegerValue | DecimalValue | None = None
 
 
@@ -492,6 +500,15 @@ class FormNumberInput(FormElement):
 @typechecked
 @json_type_info("formBasicTextArea")
 class FormBasicTextArea(FormElement):
+    """
+    A multiline text area bound to a ``STRING`` field, parameter, or calculation.
+
+    Attributes:
+        default_value (StringValue | None): Optional default text.
+        rows (int): Initial visible row count. Defaults to ``1``.
+        resize (FormResize): User-resizability direction. Defaults to ``NONE``.
+    """
+
     default_value: StringValue | None = None
     rows: int = 1
     resize: FormResize = FormResize.NONE
@@ -501,6 +518,15 @@ class FormBasicTextArea(FormElement):
 @typechecked
 @json_type_info("formDatePicker")
 class FormDatePicker(FormElement):
+    """
+    A date picker bound to a ``DATE`` field, parameter, or calculation.
+
+    Supports range validation via :meth:`FormElement.set_range_validation`.
+
+    Attributes:
+        with_selector (bool): If ``True``, displays an inline calendar selector.
+    """
+
     with_selector: bool = False
 
 
@@ -508,6 +534,16 @@ class FormDatePicker(FormElement):
 @typechecked
 @json_type_info("formTimePicker")
 class FormTimePicker(FormElement):
+    """
+    A time picker bound to a ``TIME`` field, parameter, or calculation.
+
+    Supports range validation via :meth:`FormElement.set_range_validation`.
+
+    Attributes:
+        time_interval (int | None): Minute increment for the time selector (e.g. ``15``
+            for quarter-hour steps). ``None`` uses the platform default.
+    """
+
     time_interval: int | None = None
 
 
@@ -515,6 +551,17 @@ class FormTimePicker(FormElement):
 @typechecked
 @json_type_info("formDateTimePicker")
 class FormDateTimePicker(FormElement):
+    """
+    A combined date and time picker bound to a ``DATETIME`` field, parameter, or calculation.
+
+    Supports range validation via :meth:`FormElement.set_range_validation`.
+
+    Attributes:
+        with_selector (bool): If ``True``, displays an inline calendar selector.
+        time_interval (int | None): Minute increment for the time portion. ``None`` uses
+            the platform default.
+    """
+
     with_selector: bool = False
     time_interval: int | None = None
 
@@ -523,6 +570,22 @@ class FormDateTimePicker(FormElement):
 @typechecked
 @json_type_info("formDropdown")
 class FormDropdown(FormElement):
+    """
+    A dropdown (select) input bound to an ``OBJECT`` field, parameter, or calculation.
+
+    Displays a list of object references from the bound table. The display label
+    defaults to the table's key column; override it with :meth:`set_display_field`.
+    Use :meth:`FormElement.set_list_validation` to restrict available choices.
+
+    Attributes:
+        is_searchable (bool): If ``True``, includes a search box within the dropdown.
+        is_nullable (bool): If ``True``, allows the value to be cleared to null.
+        default_value (ObjectValue | None): Optional default selection.
+        choices (ModelVariable | None): Optional model variable supplying an alternative
+            list of choices.
+        object_reference_display_field (str | None): Field to display for each object choice.
+    """
+
     is_searchable: bool = False
     is_nullable: bool = False
     default_value: ObjectValue | None = None
@@ -554,6 +617,18 @@ class FormDropdown(FormElement):
 @typechecked
 @json_type_info("formButton")
 class FormButton(FormElement):
+    """
+    A clickable button that triggers a :class:`~daitum_ui.model_event.ModelEvent`.
+
+    Attributes:
+        text_value (str | None): Label displayed on the button.
+        text_color (str | None): CSS-compatible text colour.
+        background_color (str | None): CSS-compatible background colour.
+        icon_source (str | None): DaitumIcon identifier (e.g. ``"fa.SAVE"``).
+        icon_color (str | None): CSS-compatible icon colour.
+        on_click (ModelEvent | None): Event executed when the button is clicked.
+    """
+
     text_value: str | None = None
     text_color: str | None = None
     background_color: str | None = None
@@ -596,12 +671,24 @@ class FormButton(FormElement):
 @typechecked
 @json_type_info("formReviewRating")
 class FormReviewRating(FormElement):
+    """
+    A star (or custom icon) rating input bound to a numeric field, parameter, or calculation.
+
+    :attr:`FormSize.FIT_WIDTH` is not supported for this element.
+
+    Attributes:
+        fill_icon (IconConfig | None): Icon displayed for selected (filled) rating values.
+        empty_icon (IconConfig | None): Icon displayed for unselected (empty) rating values.
+        fill_color (str | None): CSS-compatible colour override for filled icons.
+    """
+
     fill_icon: IconConfig | None = None
     empty_icon: IconConfig | None = None
     fill_color: str | None = None
 
     def __post_init__(self):
         """Validate that FIT_WIDTH is not used for review rating components."""
+        super().__post_init__()
         if self.size == FormSize.FIT_WIDTH:
             raise ValueError("FormSize.FIT_WIDTH is not supported for review rating components.")
 
@@ -675,6 +762,28 @@ class FormIconPicker(FormElement):
         """Sets the icon catalogue to display in the picker."""
         self.icon_set = icon_set
         return self
+
+
+@dataclass
+@typechecked
+@json_type_info("formLink")
+class FormLink(FormElement):
+    """
+    A form element that renders a hyperlink to an external destination.
+
+    Use :meth:`FormView.add_model_editor_link` to create and add this element;
+    do not instantiate it directly.
+
+    Attributes:
+        text_value (str):
+            The visible label of the link. Defaults to ``"Open Model"``.
+        destination (LinkDestination | None):
+            The navigation target. Concrete subclasses of :class:`LinkDestination`
+            specify where the link points (e.g. :class:`ModelEditorLinkDestination`).
+    """
+
+    text_value: str = "Open Model"
+    destination: LinkDestination | None = None
 
 
 _FE = TypeVar("_FE", bound=FormElement)
@@ -1256,6 +1365,63 @@ class FormView(BaseView):
             column_start=column,
         )
         element = self._set_element_states(value, element)
+        self.form_elements.append(element)
+        return element
+
+    def add_model_editor_link(  # noqa: PLR0913
+        self,
+        row: int,
+        column: int,
+        model_id: Field | Parameter | Calculation,
+        scenario_id: Field | Parameter | Calculation | None = None,
+        text_value: str = "Open Model",
+        open_new_tab: bool = False,
+    ) -> FormLink:
+        """
+        Adds a hyperlink element to the form that opens the Daitum model editor.
+
+        ``model_id`` is required and must be an integer-typed value. ``scenario_id``
+        is optional; when provided it identifies the scenario to pre-select within
+        the model. Both ``Field`` values must belong to the form's source table.
+
+        Args:
+            row (int): Starting row position in the form grid.
+            column (int): Starting column position in the form grid.
+            model_id (Field | Parameter | Calculation): Integer value identifying
+                the model to open. Must be of type ``INTEGER``.
+            text_value (str): The visible label of the link. Defaults to
+                ``"Open Model"``.
+            scenario_id (Field | Parameter | Calculation | None): Integer value
+                identifying the scenario to open within the selected model.
+                Must be of type ``INTEGER``. Optional.
+            open_new_tab (bool): If ``True``, the editor opens in a new browser tab.
+                Defaults to ``False``.
+
+        Raises:
+            ValueError: If ``model_id`` or ``scenario_id`` is a ``Field`` not present
+                in the form's source table, or if either value is not of type ``INTEGER``.
+
+        Returns:
+            FormLink: The link element created and added to the form.
+        """
+        if isinstance(model_id, Field):
+            self._assert_field_in_table(model_id)
+        self._assert_data_type(model_id, DataType.INTEGER)
+
+        if scenario_id is not None:
+            if isinstance(scenario_id, Field):
+                self._assert_field_in_table(scenario_id)
+            self._assert_data_type(scenario_id, DataType.INTEGER)
+
+        element = FormLink(
+            text_value=text_value,
+            destination=ModelEditorLinkDestination(model_id, scenario_id, open_new_tab),
+            row_start=row,
+            column_start=column,
+        )
+        element = self._set_element_states(model_id, element)
+        if scenario_id is not None:
+            element = self._set_element_states(scenario_id, element)
         self.form_elements.append(element)
         return element
 

@@ -17,6 +17,7 @@ the problem size at runtime.
     genetic
     cmaes
     vns
+    sdls
 
 Algorithm base
 --------------

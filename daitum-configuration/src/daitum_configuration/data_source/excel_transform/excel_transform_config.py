@@ -14,8 +14,6 @@
 
 """:class:`ExcelTransformConfig` — Excel-based data source with sheet mappings."""
 
-from typing import Any
-
 from typeguard import typechecked
 
 from daitum_configuration._buildable import Buildable
@@ -93,7 +91,3 @@ class ExcelTransformConfig(DataSourceConfig):
     @property
     def type(self) -> DataSourceType:
         return DataSourceType.EXCEL_TRANSFORM
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        return super().build()

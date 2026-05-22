@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daitum-ui"
-version = "1.0.1"
+version = "1.1.0"
 description = "UI definition generation library for the Daitum platform"
 readme = "README.md"
 license = "Apache-2.0"

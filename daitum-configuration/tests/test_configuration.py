@@ -11,7 +11,7 @@ The suite is split into:
 import json
 
 import pytest
-from daitum_model import Calculation, DataType, ModelBuilder
+from daitum_model import DataType, ModelBuilder
 from daitum_model.formula import CONST
 
 import daitum_configuration
@@ -24,7 +24,6 @@ from daitum_configuration import (
     ConstraintType,
     DataStoreConfig,
     DistanceMatrixConfig,
-    DistanceMetricType,
     DVType,
     EqualityDataFilter,
     ExcelTransformConfig,
@@ -40,8 +39,6 @@ from daitum_configuration import (
     ModelImportOptions,
     ModelTransform,
     ModelTransformConfig,
-    Mutation,
-    MutationType,
     NumericExpression,
     OutputDataMapping,
     OutputMatrix,
@@ -52,11 +49,12 @@ from daitum_configuration import (
     RegexDataFilter,
     ReportData,
     ReportExportFormat,
-    SamplingMethodType,
+    ScheduleConfiguration,
     Selection,
     SelectionType,
     SetDataFilter,
     SetFeaturesConfig,
+    SteepestDynamicLocalSearch,
     StepConfiguration,
     StepType,
     StochasticConfiguration,
@@ -64,9 +62,6 @@ from daitum_configuration import (
     WildcardDataFilter,
 )
 from daitum_configuration.report_property.report_property import ReportProperty
-from daitum_configuration.schedule_configuration.schedule_configuration import (
-    ScheduleConfiguration,
-)
 
 # ----------------------------------------------------------------------------------------
 # Imports
@@ -83,6 +78,7 @@ class TestImports:
             GeneticAlgorithm,
             CMAESAlgorithm,
             VariableNeighbourhoodSearch,
+            SteepestDynamicLocalSearch,
             ModelConfiguration,
             ExcelTransformConfig,
             DataStoreConfig,
@@ -325,6 +321,12 @@ class TestDataSourceSnapshots:
         assert out["config"]["type"] == "RUN_REPORT"
         assert out["config"]["reportName"] == "MyReport"
 
+    def test_run_external_model_via_configuration(self):
+        cfg = ConfigurationBuilder()
+        ds = cfg.add_external_model_data_source("External DS")
+        out = ds.build()
+        assert out["config"]["type"] == "RUN_EXTERNAL_MODEL"
+
     def test_batched_data_source(self):
         inner = BatchedDataSourceConfig(run_after_import_sheet="Done")
         # Build a wrapping DataSource so we can pass it into the batched config.
@@ -467,6 +469,28 @@ class TestAlgorithmSnapshots:
         assert "Initial mutation rate" in params
         assert params["Mutation"]["@type"] == "qualitative"
 
+    def test_vns_algorithm_population_and_selection(self):
+        # Defaults: tau = 0.5 (lognormal learning rate); selection defaults to
+        # fast tournament; population_size defaults to NUM_VARIABLES expression.
+        vns = VariableNeighbourhoodSearch()
+        params = vns.build()["parameters"]
+        assert params["Mutation rate tau"]["value"] == "0.5"
+        assert "Mutation rate up scale" not in params
+        assert "Mutation rate down scale" not in params
+        assert params["Selection"]["@type"] == "qualitative"
+        assert params["Selection"]["value"] == SelectionType.FAST_TOURNAMENT_SELECTION.value
+        assert "Population size" in params
+
+        # Explicit configuration flows through.
+        configured = VariableNeighbourhoodSearch(
+            population_size=128,
+            offspring_size=16,
+            selection=Selection.selection(SelectionType.TOURNAMENT_SELECTION, pool_size=4),
+        ).build()["parameters"]
+        assert configured["Population size"]["value"] == "128"
+        assert configured["Selection"]["value"] == SelectionType.TOURNAMENT_SELECTION.value
+        assert configured["Selection"]["parameters"]["Selection pool size"]["value"] == "4"
+
     def test_algorithm_post_construction_mutation_reflected_in_build(self):
         # Building parameters lazily ensures attribute mutation flows through.
         ga = GeneticAlgorithm()
@@ -476,6 +500,48 @@ class TestAlgorithmSnapshots:
             "@type": "quantitative",
             "value": "200",
         }
+
+    def test_steepest_dynamic_local_search_default_shape(self):
+        out = SteepestDynamicLocalSearch().build()
+        assert out["algorithmKey"] == "daitum-steepest-dynamic-localsearch-single-objective"
+        params = out["parameters"]
+        assert params["Allow neutral walks"] == {"@type": "quantitative", "value": False}
+        assert params["Integer step size"] == {"@type": "quantitative", "value": "10"}
+        assert params["Decimal step size"] == {"@type": "quantitative", "value": "0.1"}
+        assert params["Integer step change"] == {"@type": "quantitative", "value": "1"}
+        assert params["Integer lowest step"] == {"@type": "quantitative", "value": "1"}
+        assert params["Decimal step change"] == {"@type": "quantitative", "value": "0.001"}
+        assert params["Decimal lowest step"] == {"@type": "quantitative", "value": "0.001"}
+        # Base Algorithm parameters are emitted alongside the SDLS-specific ones.
+        for key in (
+            "Log info",
+            "Evaluations",
+            "Maximum evaluations without improvement",
+            "Maximum time without improvement",
+            "Minimum improvement",
+            "Maximum restart count",
+            "PRNG seed",
+            "Time limit",
+        ):
+            assert key in params
+
+    def test_steepest_dynamic_local_search_with_named_value(self):
+        sdls = SteepestDynamicLocalSearch(integer_step_size=NumericExpression("NUM_VARIABLES"))
+        params = sdls.build()["parameters"]
+        assert params["Integer step size"] == {
+            "@type": "quantitative",
+            "value": "NUM_VARIABLES",
+        }
+
+    def test_steepest_dynamic_local_search_rejects_invalid_types(self):
+        with pytest.raises(TypeError):
+            SteepestDynamicLocalSearch(integer_step_size=0.5)  # float for an int param
+        with pytest.raises(ValueError):
+            SteepestDynamicLocalSearch(integer_step_size=-1)
+        with pytest.raises(TypeError):
+            SteepestDynamicLocalSearch(decimal_step_size=1)  # int for a float param
+        with pytest.raises(ValueError):
+            SteepestDynamicLocalSearch(decimal_lowest_step=-0.1)
 
 
 class TestAlgorithmParameterWrapping:
@@ -532,6 +598,45 @@ class TestModelConfigurationSnapshots:
         assert spec["minimumValue"] == 0
         assert spec["maximumValue"] == 10
         assert spec["minimumValueReference"] is None
+
+    def test_decision_variable_tag_and_seed_sources(self):
+        from daitum_configuration.model_configuration.decision_variable import DecisionVariable
+
+        m = ModelBuilder()
+        p = m.add_parameter("DV", DataType.INTEGER, 0)
+        tag_param = m.add_parameter("Tags", DataType.STRING, "")
+        seed_param = m.add_parameter("Seed", DataType.INTEGER, 0)
+
+        # Defaults: both sources serialised as null when unset.
+        dv = DecisionVariable(p, dv_type=DVType.RANGE)
+        out = dv.build()
+        assert out["tagSource"] is None
+        assert out["specification"]["seedSource"] is None
+
+        # After setting, both serialise as !!!-prefixed references matching
+        # the cellReference format.
+        assert dv.set_tag_source(tag_param) is dv
+        assert dv.set_seed_source(seed_param) is dv
+        out = dv.build()
+        assert out["tagSource"] == f"!!!{tag_param.to_string()}"
+        assert out["specification"]["seedSource"] == f"!!!{seed_param.to_string()}"
+
+    def test_decision_variable_per_row_sources_use_table_field(self):
+        from daitum_configuration.model_configuration.decision_variable import DecisionVariable
+
+        m = ModelBuilder()
+        items = m.add_data_table("Items")
+        items.set_key_column("Name")
+        items.add_data_field("Name", DataType.STRING)
+        qty = items.add_data_field("Qty", DataType.INTEGER)
+        tag_field = items.add_data_field("Tag", DataType.STRING)
+        seed_field = items.add_data_field("SeedQty", DataType.INTEGER)
+
+        dv = DecisionVariable(qty, dv_table=items, dv_type=DVType.RANGE)
+        dv.set_tag_source(tag_field).set_seed_source(seed_field)
+        out = dv.build()
+        assert out["tagSource"] == f"!!!{items.id}[{tag_field.id}]"
+        assert out["specification"]["seedSource"] == f"!!!{items.id}[{seed_field.id}]"
 
     def test_objective(self):
         m = ModelBuilder()
@@ -681,20 +786,79 @@ class TestScheduleSnapshots:
     def test_step_configuration_parallel(self):
         leaf1 = StepConfiguration(StepType.SINGLE, algorithm_config_key="a")
         leaf2 = StepConfiguration(StepType.SINGLE, algorithm_config_key="b")
-        parent = StepConfiguration(StepType.PARALLEL, steps=[leaf1, leaf2])
+        parent = StepConfiguration(StepType.PARALLEL)
         parent.add_step(leaf1).add_step(leaf2)
         out = parent.build()
         assert out["type"] == "PARALLEL"
         assert len(out["steps"]) == 2
 
+    def test_step_configuration_defaults_omit_optional_fields(self):
+        # With no extra configuration, optional None fields are omitted by
+        # Buildable. The boolean flags default to False and ARE emitted.
+        step = StepConfiguration(StepType.SINGLE, algorithm_config_key="algo_1")
+        out = step.build()
+        assert "includedTags" not in out
+        assert "overrideParameters" not in out
+        assert "splitValuesKey" not in out
+        assert "disabledKey" not in out
+        assert out["recalculateRanges"] is False
+        assert out["deferred"] is False
+
+    def test_step_configuration_subproblem_and_execution_fields(self):
+        step = (
+            StepConfiguration(StepType.SINGLE, algorithm_config_key="algo_1")
+            .add_included_tag("phase1")
+            .add_included_tag("phase2")
+            .add_included_tag("phase1")  # duplicate is ignored
+            .add_override_parameter("populationSize", "200")
+            .add_override_parameter("maxEvaluations", "10000")
+            .set_split_values_key("groups[partition]")
+            .set_recalculate_ranges(True)
+            .set_disabled_key("flags[abort]")
+            .set_deferred(True)
+        )
+        out = step.build()
+        assert out["includedTags"] == ["phase1", "phase2"]
+        assert out["overrideParameters"] == {
+            "populationSize": "200",
+            "maxEvaluations": "10000",
+        }
+        assert out["splitValuesKey"] == "groups[partition]"
+        assert out["recalculateRanges"] is True
+        assert out["disabledKey"] == "flags[abort]"
+        assert out["deferred"] is True
+
+    def test_step_configuration_setters_return_self(self):
+        step = StepConfiguration(StepType.SINGLE, algorithm_config_key="algo_1")
+        assert step.add_included_tag("a") is step
+        assert step.add_override_parameter("k", "v") is step
+        assert step.set_split_values_key("s") is step
+        assert step.set_recalculate_ranges(True) is step
+        assert step.set_disabled_key("d") is step
+        assert step.set_deferred(True) is step
+
     def test_schedule_configuration(self):
         ga = GeneticAlgorithm()
         root = StepConfiguration(StepType.SINGLE, algorithm_config_key="ga")
-        sc = ScheduleConfiguration({"ga": ga}, root)
+        sc = ScheduleConfiguration(root).add_algorithm("ga", ga)
         out = sc.build()
         assert "algorithmConfigurations" in out
         assert out["algorithmConfigurations"]["ga"]["algorithmKey"] == "daitum-gga-single-objective"
         assert out["scheduleRoot"]["type"] == "SINGLE"
+
+    def test_schedule_configuration_global_parameters(self):
+        root = StepConfiguration(StepType.SINGLE, algorithm_config_key="ga")
+        sc = ScheduleConfiguration(root)
+        # No global params by default.
+        assert "globalParameters" not in sc.build()
+        # Adder is fluent and accumulates entries; same key replaces.
+        result = (
+            sc.add_global_parameter("seed", "42")
+            .add_global_parameter("threads", "8")
+            .add_global_parameter("seed", "99")
+        )
+        assert result is sc
+        assert sc.build()["globalParameters"] == {"seed": "99", "threads": "8"}
 
 
 # ----------------------------------------------------------------------------------------

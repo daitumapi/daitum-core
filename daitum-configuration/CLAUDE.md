@@ -51,6 +51,7 @@ daitum-configuration/
 │   │   ├── model_transform/                # ModelTransformConfig
 │   │   ├── distance_matrix/                # DistanceMatrixConfig, OutputMatrix
 │   │   ├── run_report/                     # RunReportConfig
+│   │   ├── run_external_model/             # RunExternalModelConfig
 │   │   ├── geo_location_config.py          # GeoLocationConfig
 │   │   └── set_features_config.py          # SetFeaturesConfig
 │   │
@@ -92,7 +93,7 @@ config.write_to_file("model")
 
 **Data source add methods:** `add_excel_transform`, `add_model_transform`, `add_data_store`,
 `add_batched_data_source`, `add_distance_matrix`, `add_geo_location`, `add_set_features`,
-`add_report_data_source`.
+`add_report_data_source`, `add_external_model_data_source`.
 
 **Report:** `add_report_property`.
 
@@ -104,7 +105,8 @@ defined there (evaluation budget, time limits, stopping criteria, restart count,
 |---|---|
 | `GeneticAlgorithm` | Population-based evolutionary algorithm |
 | `CMAESAlgorithm` | Covariance Matrix Adaptation Evolution Strategy |
-| `VariableNeighbourhoodSearch` | Metaheuristic using adaptive neighbourhood changes |
+| `VariableNeighbourhoodSearch` | (μ+λ) EA with per-individual self-adapting mutation rate; same `population_size`/`selection` shape as `GeneticAlgorithm` |
+| `SteepestDynamicLocalSearch` | Steepest Descent local search with a dynamic step-size schedule (separate integer and decimal step controls) |
 
 All numeric parameters accept either a plain `int`/`float` or a `NumericExpression`.
 
@@ -173,8 +175,45 @@ ga = GeneticAlgorithm(mutation=mutation, selection=selection, recombinator=Recom
 **RecombinatorType:** `UNIFORM_CROSSOVER`, `N_POINT_CROSSOVER`.
 
 ### ScheduleConfiguration
-Defines a hierarchy of algorithm steps for multi-phase optimisation. Each `StepConfiguration`
-has a `StepType` (`SINGLE`, `PARALLEL`, `SEQUENCE`) and references an `Algorithm` instance.
+Defines a multi-phase optimisation as a tree of `StepConfiguration` nodes plus a named map of
+`Algorithm` instances those nodes reference by key. Attach a schedule to
+`ConfigurationBuilder.set_schedule_configuration` instead of `set_algorithm` (the two are
+mutually exclusive — `set_algorithm` is shorthand for a one-step schedule).
+
+```python
+from daitum_configuration import (
+    GeneticAlgorithm,
+    ScheduleConfiguration,
+    StepConfiguration,
+    StepType,
+)
+
+root = StepConfiguration(StepType.SINGLE, algorithm_config_key="ga")
+schedule = (
+    ScheduleConfiguration(root)
+    .add_algorithm("ga", GeneticAlgorithm())
+    .add_global_parameter("seed", "42")
+)
+```
+
+`schedule_root` is required. Use `add_algorithm(key, algorithm)` for each algorithm referenced
+in the tree, and `add_global_parameter(key, value)` for schedule-wide parameter overrides
+(step-scoped overrides on individual steps take precedence).
+
+**StepType:** `SINGLE` (leaf, runs one algorithm), `SEQUENCE` (runs children in order, each
+seeded by the previous), `PARALLEL` (runs children concurrently from the same seed).
+
+**StepConfiguration subproblem & execution fields** — all configured via chained `add_*` /
+`set_*` and emitted flat on the step's JSON:
+
+| Method | Effect |
+|---|---|
+| `add_included_tag(tag)` | Restrict to variables whose tags are all in the included set (variables with no tags always pass). Pairs with `DecisionVariable.set_tag_source`. |
+| `add_override_parameter(key, value)` | Step-scoped parameter override; full re-eval each evaluation. |
+| `set_split_values_key(ref)` | Split into independent subproblems by a comma-separated model value (one subproblem per value, each scoped to that tag). |
+| `set_disabled_key(ref)` | Skip the step when the model value equals `"true"`. |
+| `set_recalculate_ranges(True)` | Narrow variable bounds from current model state; new bounds must be a subset of the original. Usually combined with `set_deferred(True)`. |
+| `set_deferred(True)` | Delay step construction until execution; required when the above fields depend on results of earlier steps. |
 
 
 ## Import Conventions
@@ -183,6 +222,7 @@ has a `StepType` (`SINGLE`, `PARALLEL`, `SEQUENCE`) and references an `Algorithm
 from daitum_configuration import ConfigurationBuilder, GeneticAlgorithm, CMAESAlgorithm
 from daitum_configuration import ModelConfiguration, DVType, Priority, ConstraintType
 from daitum_configuration import NumericExpression
+from daitum_configuration import ScheduleConfiguration, StepConfiguration, StepType
 from daitum_configuration import ExcelTransformConfig, DataStoreConfig
 from daitum_configuration import EqualityDataFilter, InequalityDataFilter
 ```

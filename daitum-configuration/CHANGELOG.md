@@ -1,5 +1,69 @@
 # Changelog
 
+## [2.0.0]
+
+### Added
+- `SteepestDynamicLocalSearch` — new local-search algorithm with separate
+  integer and decimal step controls (`integer_step_size`,
+  `decimal_step_size`, `_step_change`, `_lowest_step`) plus an
+  `allow_neutral_walks` flag. Serialises with algorithmKey
+  `daitum-steepest-dynamic-localsearch-single-objective`.
+- `StepConfiguration` — new optional fields for schedule subproblems and
+  execution control: `included_tags`, `override_parameters`,
+  `split_values_key`, `recalculate_ranges`, `disabled_key`, `deferred`.
+  Configured via chained `add_included_tag`, `add_override_parameter`,
+  `set_split_values_key`, `set_recalculate_ranges`, `set_disabled_key`, and
+  `set_deferred` methods. Fields are emitted flat on the step (e.g.
+  `includedTags`, `disabledKey`).
+- `DecisionVariable.set_tag_source` — identifies the source for reading
+  tags on a decision variable, consumed by step-level `includedTags`
+  filters. Serialised as `tagSource` (always emitted; `null` when unset).
+- `RunExternalModelConfig` — new data source that triggers the model's
+  configured external evaluator. Input, parameter, and output mappings
+  live on `ExternalModelConfiguration`; the data source is a marker in
+  the calculation chain.
+- `DataSourceType.RUN_EXTERNAL_MODEL` — new enum value backing
+  `RunExternalModelConfig`.
+- `ScheduleConfiguration` re-exported from the top-level
+  `daitum_configuration` package (was previously only reachable via its
+  submodule).
+- `ScheduleConfiguration.add_algorithm(key, algorithm)` — fluent adder
+  replacing the previous constructor kwarg and `set_algorithm_configurations`
+  setter.
+- `ScheduleConfiguration.add_global_parameter(key, value)` — fluent adder
+  for entries in the schedule's `globalParameters` map.
+- `VariableNeighbourhoodSearch` — `population_size` and `selection` fields
+  matching `GeneticAlgorithm`'s shape. VNS is now framed as a (μ+λ) EA where
+  λ = `population_size`, μ = `population_size / offspring_size`, and
+  `selection` picks the μ parents each generation.
+- `VariableNeighbourhoodSearch.mutation_rate_tau` (default `0.5`) — the
+  log-normal learning rate τ controlling the per-offspring mutation-rate
+  step ``childRate = parentRate × exp(τ × N(0, 1))``.
+
+### Changed
+- `ScheduleConfiguration.__init__` now takes a single required
+  `schedule_root: StepConfiguration` argument. The `algorithm_configurations`
+  kwarg has been removed; register algorithms via `add_algorithm` instead.
+- `DecisionVariable.set_tag_source` and `set_seed_source` now accept a
+  `Parameter | Calculation | Field` (matching `set_min` / `set_max` and the
+  dv constructor itself) instead of a raw string. Per-row decision
+  variables require a `Field` resolved against `dv_table`; model-level ones
+  require a named value. Both serialise as `!!!`-prefixed references in
+  the same format as `cellReference`.
+
+### Removed
+- `ScheduleConfiguration.set_algorithm_configurations` — replaced by
+  `add_algorithm`.
+- `ScheduleConfiguration.set_schedule_root` — `schedule_root` is now a
+  required constructor argument.
+- `VariableNeighbourhoodSearch.mutation_rate_up_scale` and
+  `mutation_rate_down_scale` — replaced by the single
+  `mutation_rate_tau` field, which parameterises a true log-normal step
+  (`× exp(τ × N(0, 1))`) instead of a uniform draw over a scaled range.
+- `StepConfiguration.__init__` `steps` parameter — children are appended
+  via `add_step` only; the constructor now takes just `step_type` and
+  `algorithm_config_key`.
+
 ## [1.0.1]
 
 ### Fixed

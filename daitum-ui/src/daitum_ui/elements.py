@@ -23,10 +23,10 @@ Main Components
 ---------------
 
 **Configuration Enums:**
-    Visual and behavioral configuration options for UI elements:
+    Visual and behavioural configuration options for UI elements:
 
     - ElementSize: Predefined size options (EXTRA_SMALL to THREE_EXTRA_LARGE)
-    - ActionType: Element behavior (VALUE for data updates, EVENTS for triggers)
+    - ActionType: Element behaviour (VALUE for data updates, EVENTS for triggers)
     - TextVariant: Text presentation styles (SPAN for inline, PARAGRAPH for block)
     - FontWeight: Text thickness (REGULAR, SEMI_BOLD, BOLD)
     - BadgeVariant: Badge visual styles (DEFAULT, UPDATED)
@@ -36,6 +36,7 @@ Main Components
     - RowSpacing: Vertical spacing options (NONE, TIGHT, RELAXED)
     - AlignContent: Alignment options (CENTER, SPACE_BETWEEN)
     - LayoutDirection: List layout direction (ROW, COLUMN)
+    - OverflowStrategy: Overflow handling for list containers (CLIP, SCROLL, SUMMARISE)
 
 **Base Classes:**
     Foundation classes providing common functionality:
@@ -68,6 +69,11 @@ Main Components
     - IconElement: Icon display with click handling and tooltips
     - ListElement: Renders all rows of a table using a reusable element template
 
+**Link Elements:**
+    Navigation components:
+
+    - ModelEditorLink: Hyperlink that opens the Daitum model editor
+
 **Helper Functions:**
     - get_boolean_variable(): Converts Field/Parameter/Calculation/bool to ModelVariable
     - get_model_variable(): Converts model objects to ModelVariable descriptors
@@ -88,6 +94,7 @@ All UI elements inherit from BaseElement or Element::
         ├── IconElement
         ├── IconCheckbox
         ├── ListElement
+        ├── ModelEditorLink
         ├── ReviewRating
         ├── Slider
         └── Text
@@ -197,7 +204,7 @@ Creating a list element with a summarise overflow::
         data_source=employees_table,
         template=template_card,
         overflow_strategy=OverflowStrategy.SUMMARISE,
-        overflow_element=overflow,
+        overflow_element=overflow,  # Required when strategy is SUMMARISE
     )
 """
 
@@ -221,6 +228,8 @@ from daitum_ui.data import Condition
 from daitum_ui.model_event import ModelEvent
 from daitum_ui.styles import HorizontalAlignment, IconConfig
 from daitum_ui.template_binding_key import TemplateBindingKey
+
+from ._link_destination import ModelEditorLinkDestination
 
 
 class ElementSize(Enum):
@@ -288,14 +297,13 @@ class FontWeight(Enum):
 
 class BadgeVariant(Enum):
     """
-    The display variant of the badge. This is a holdover from an earlier version of the badge,
-    so we'll likely remove this in the future.
+    The display variant of the badge.
 
-    Options:
+    Attributes:
         DEFAULT:
             Standard visual appearance.
         UPDATED:
-            Indicates a visually updated or emphasized state.
+            Indicates a visually updated or emphasised state.
     """
 
     DEFAULT = "DEFAULT"
@@ -395,6 +403,10 @@ class OverflowStrategy(Enum):
 @dataclass
 @typechecked
 class ElementStates(Buildable):
+    """Holds the conditional state flags for a UI element. Each flag is a list of
+    :class:`~daitum_ui.data.Condition` instances; the element enters that state when
+    any condition evaluates to true."""
+
     is_disabled: list[Condition] | None = None
     is_required: list[Condition] | None = None
     is_read_only: list[Condition] | None = None
@@ -463,6 +475,10 @@ class BaseElement(ABC, Buildable):
     def add_conditional_disabled(self, is_disabled: Field | Parameter | Calculation | bool):
         """
         Sets whether the element is disabled (non-interactive).
+
+        Args:
+            is_disabled (Field | Parameter | Calculation | bool):
+                Condition that evaluates to ``True`` when the element should be disabled.
         """
         if self.element_states is None:
             self.element_states = ElementStates()
@@ -489,6 +505,10 @@ class BaseElement(ABC, Buildable):
     def add_conditional_required(self, is_required: Field | Parameter | Calculation | bool):
         """
         Sets whether the element is required for valid form submission.
+
+        Args:
+            is_required (Field | Parameter | Calculation | bool):
+                Condition that evaluates to ``True`` when the element is required.
         """
         if self.element_states is None:
             self.element_states = ElementStates()
@@ -515,6 +535,10 @@ class BaseElement(ABC, Buildable):
     def add_conditional_read_only(self, is_read_only: Field | Parameter | Calculation | bool):
         """
         Sets whether the element is read-only (not editable).
+
+        Args:
+            is_read_only (Field | Parameter | Calculation | bool):
+                Condition that evaluates to ``True`` when the element should be read-only.
         """
         if self.element_states is None:
             self.element_states = ElementStates()
@@ -541,6 +565,10 @@ class BaseElement(ABC, Buildable):
     def add_conditional_error(self, is_error: Field | Parameter | Calculation | bool):
         """
         Sets whether the element is in an error state.
+
+        Args:
+            is_error (Field | Parameter | Calculation | bool):
+                Condition that evaluates to ``True`` when the element should show an error state.
         """
         if self.element_states is None:
             self.element_states = ElementStates()
@@ -568,6 +596,10 @@ class BaseElement(ABC, Buildable):
     def add_conditional_warning(self, is_warning: Field | Parameter | Calculation | bool):
         """
         Sets whether the element is in a warning state.
+
+        Args:
+            is_warning (Field | Parameter | Calculation | bool):
+                Condition that evaluates to ``True`` when the element should show a warning state.
         """
         if self.element_states is None:
             self.element_states = ElementStates()
@@ -595,6 +627,10 @@ class BaseElement(ABC, Buildable):
     def add_conditional_success(self, is_success: Field | Parameter | Calculation | bool):
         """
         Sets whether the element is in a success state.
+
+        Args:
+            is_success (Field | Parameter | Calculation | bool):
+                Condition that evaluates to ``True`` when the element should show a success state.
         """
         if self.element_states is None:
             self.element_states = ElementStates()
@@ -622,6 +658,10 @@ class BaseElement(ABC, Buildable):
     def add_conditional_hidden(self, is_hidden: Field | Parameter | Calculation | bool):
         """
         Sets whether the element is hidden in the UI.
+
+        Args:
+            is_hidden (Field | Parameter | Calculation | bool):
+                Condition that evaluates to ``True`` when the element should be hidden.
         """
         if self.element_states is None:
             self.element_states = ElementStates()
@@ -648,6 +688,10 @@ class BaseElement(ABC, Buildable):
     def add_conditional_info(self, is_info: Field | Parameter | Calculation | bool):
         """
         Sets whether the element is in an info state.
+
+        Args:
+            is_info (Field | Parameter | Calculation | bool):
+                Condition that evaluates to ``True`` when the element should show an info state.
         """
         if self.element_states is None:
             self.element_states = ElementStates()
@@ -675,6 +719,10 @@ class BaseElement(ABC, Buildable):
     def add_conditional_reserve_space(self, reserve_space: Field | Parameter | Calculation | bool):
         """
         Sets whether space is reserved in the layout when the element is hidden.
+
+        Args:
+            reserve_space (Field | Parameter | Calculation | bool):
+                Condition that evaluates to ``True`` when space should be reserved.
         """
         if self.element_states is None:
             self.element_states = ElementStates()
@@ -870,7 +918,7 @@ class OverflowElement(ElementContainer):
             data_source=employees_table,
             template=template_card,
             overflow_strategy=OverflowStrategy.SUMMARISE,
-            overflow_element=overflow,
+            overflow_element=overflow,  # Required when strategy is SUMMARISE
         )
     """
 
@@ -1361,7 +1409,9 @@ class ListElement(Element):
             Defines height of the list element.
         overflow_element (Optional[OverflowElement]):
             Element rendered in place of overflowing items when
-            ``overflow_strategy`` is :attr:`OverflowStrategy.SUMMARISE`.
+            ``overflow_strategy`` is :attr:`OverflowStrategy.SUMMARISE`. Required
+            when strategy is ``SUMMARISE``; may also be supplied via
+            :meth:`set_overflow_element`.
         row_gap (Optional[str]):
             Vertical spacing between rows.
         column_gap (Optional[str]):
@@ -1375,6 +1425,7 @@ class ListElement(Element):
         template: Element,
         layout_direction: LayoutDirection = LayoutDirection.COLUMN,
         overflow_strategy: OverflowStrategy = OverflowStrategy.SCROLL,
+        overflow_element: "OverflowElement | None" = None,
     ):
         super().__init__()
 
@@ -1391,7 +1442,7 @@ class ListElement(Element):
         elif isinstance(data_source, Table):
             self.source_table = data_source.id
 
-        if overflow_strategy == OverflowStrategy.SUMMARISE:
+        if overflow_strategy == OverflowStrategy.SUMMARISE and overflow_element is None:
             raise ValueError("overflow_element is required when overflow_strategy is SUMMARISE.")
 
         self.template = template
@@ -1401,7 +1452,7 @@ class ListElement(Element):
         self.overflow_strategy = overflow_strategy
         self.height: str | None = None
         self.width: str | None = None
-        self.overflow_element: OverflowElement | None = None
+        self.overflow_element: OverflowElement | None = overflow_element
         self.row_gap: str | None = None
         self.column_gap: str | None = None
 
@@ -1464,3 +1515,40 @@ class ListElement(Element):
             employee_list.add_template_field_mapping(name_key, name_field)
         """
         self.field_bindings[key.to_string()] = field.to_string()
+
+
+@typechecked
+@json_type_info("modelEditorLink")
+class ModelEditorLink(Element):
+    """
+    A hyperlink element that opens the Daitum model editor.
+
+    Renders as a clickable text link. The model and scenario to open can be
+    bound to ``Field``, ``Parameter``, ``Calculation``, or ``ContextVariable``
+    values so they are resolved at runtime.
+
+    Attributes:
+        text_value (str):
+            The visible label of the link. Accepts a static string or a
+            model-variable reference rendered as ``${...}``. Defaults to
+            ``"Open Model"``.
+        destination (ModelEditorLinkDestination):
+            The model-editor destination built from the provided ``model_id``,
+            ``scenario_id``, and ``open_new_tab`` arguments.
+    """
+
+    def __init__(
+        self,
+        model_id: Field | Parameter | Calculation | ContextVariable,
+        scenario_id: Field | Parameter | Calculation | ContextVariable | None = None,
+        text_value: str | Parameter | Calculation | Field | TemplateBindingKey = "Open Model",
+        open_new_tab: bool = False,
+    ):
+        super().__init__()
+
+        if isinstance(text_value, str):
+            self.text_value: str = text_value
+        else:
+            self.text_value = f"${{{text_value.to_string()}}}"
+
+        self.destination = ModelEditorLinkDestination(model_id, scenario_id, open_new_tab)

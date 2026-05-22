@@ -80,11 +80,7 @@ from .gantt_view import (
     TreeGridGanttTaskDefinition,
     TreeGridGanttView,
 )
-from .layout import (
-    FlexView,
-    GridLayout,
-    GridView,
-)
+from .layout import FlexView, GridLayout, GridView
 from .map_view import MapType, MapView
 from .menu_configurations import MenuConfigurations
 from .modal import Modal

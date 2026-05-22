@@ -52,6 +52,10 @@ class NumericExpression:
     def __str__(self) -> str:
         return self.expr
 
+    def __repr__(self) -> str:
+        # Used by Sphinx autodoc when rendering dataclass field defaults.
+        return self.expr
+
     def __add__(self, other: int | float | str | NumericExpression) -> NumericExpression:
         return NumericExpression._from_expr(f"({self.expr} + {NumericExpression(other).expr})")
 

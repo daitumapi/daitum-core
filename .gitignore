@@ -12,3 +12,7 @@ docs/_build/
 docs/daitum_model/formulas/
 .idea/
 model-files/
+
+quickstart_test.py
+data/
+*.zip

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.0.2]
+
+### Changed
+- Collapsed multi-line `from ... import (...)` statements onto single lines in
+  `derived_table`, `formulas`, and `tables` (no API or behaviour change).
+
 ## [1.0.1]
 
 ### Changed

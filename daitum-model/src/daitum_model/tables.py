@@ -30,19 +30,8 @@ from typeguard import typechecked
 
 from ._buildable import Buildable
 from ._helpers import _validate_name
-from .data_types import (
-    BaseDataType,
-    DataType,
-    MapDataType,
-    ObjectDataType,
-    _TableBase,
-)
-from .fields import (
-    CalculatedField,
-    ComboField,
-    DataField,
-    Field,
-)
+from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType, _TableBase
+from .fields import CalculatedField, ComboField, DataField, Field
 from .formula import CONST, Formula, Operand
 
 

@@ -13,7 +13,7 @@
 # limitations under the License.
 
 """
-Event system for defining user interactions and application behavior.
+Event system for defining user interactions and application behaviour.
 
 This module provides the ModelEvent class, which represents sequences of actions
 that execute in response to user interactions (clicks, changes, etc.) or other
@@ -28,7 +28,7 @@ Main Components
     - EditorEvent: Wrapper connecting editor interactions to model events
 
 **Action Categories:**
-    The ModelEvent class supports 13 action types organized by purpose:
+    The ModelEvent class supports the following action types organised by purpose:
 
     UI Navigation:
         - add_show_modal_action(): Display modal dialogs
@@ -57,6 +57,9 @@ Main Components
     External Operations:
         - add_run_report_action(): Execute reports
         - add_run_data_source_action(): Refresh data sources
+
+    Navigation:
+        - add_model_editor_navigate_action(): Open the Daitum model editor
 
 Event Execution Model
 ---------------------
@@ -368,6 +371,16 @@ Value matching for copy operations::
         fields=[products_table.price_field],
         match_field=products_table.product_id_field  # Match by ID
     )
+
+Navigating to the model editor::
+
+    # Open a specific model in a new tab
+    navigate_event = ModelEvent()
+    navigate_event.add_model_editor_navigate_action(
+        model_id=model_id_field,
+        scenario_id=scenario_id_field,
+        open_new_tab=True,
+    )
 """
 
 from dataclasses import dataclass
@@ -390,6 +403,7 @@ from ._events import (
     InsertRowArgs,
     ModelTransactionArgs,
     NamedValueTarget,
+    NavigateArgs,
     OpenModalArgs,
     RowSelectionMode,
     RunDataSourceArgs,
@@ -403,6 +417,7 @@ from ._events import (
     Target,
     ValueType,
 )
+from ._link_destination import ModelEditorLinkDestination
 from .data import Value
 
 
@@ -791,6 +806,37 @@ class ModelEvent(Buildable):
         target: Target = NamedValueTarget(name_value_target.id)
 
         action = SetValueArgs(source, target)
+        action.condition_context_variable = condition.id if condition else None
+        self.actions.append(action)
+
+    def add_model_editor_navigate_action(
+        self,
+        model_id: Field | Parameter | Calculation | ContextVariable,
+        scenario_id: Field | Parameter | Calculation | ContextVariable | None = None,
+        open_new_tab: bool = False,
+        condition: ContextVariable | None = None,
+    ):
+        """
+        Adds an action that navigates to the Daitum model editor.
+
+        Both ``model_id`` and ``scenario_id`` are optional. When provided, they are
+        resolved at runtime to identify the target model and scenario. Omitting
+        them opens the editor without pre-selecting a model or scenario.
+
+        Args:
+            model_id (Field | Parameter | Calculation | ContextVariable):
+                Value identifying the model to open. Must resolve to an integer.
+            scenario_id (Field | Parameter | Calculation | ContextVariable | None):
+                Value identifying the scenario to open within the selected model.
+                Must resolve to an integer.
+            open_new_tab (bool): If ``True``, the editor opens in a new browser tab.
+                Defaults to ``False``.
+            condition (Optional[ContextVariable]): Context variable controlling
+                conditional execution of the action. If provided, the action only
+                executes when the context variable evaluates to true.
+        """
+        model_editor_link = ModelEditorLinkDestination(model_id, scenario_id, open_new_tab)
+        action = NavigateArgs(model_editor_link)
         action.condition_context_variable = condition.id if condition else None
         self.actions.append(action)
 

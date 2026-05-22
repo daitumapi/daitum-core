@@ -29,13 +29,7 @@ from enum import Enum
 from typeguard import typechecked
 
 from ._buildable import Buildable
-from .data_types import (
-    PRIMITIVE_DATA_TYPES,
-    BaseDataType,
-    DataType,
-    MapDataType,
-    ObjectDataType,
-)
+from .data_types import PRIMITIVE_DATA_TYPES, BaseDataType, DataType, MapDataType, ObjectDataType
 from .fields import DataField, Field
 from .tables import Table
 

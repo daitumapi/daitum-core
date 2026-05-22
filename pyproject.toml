@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daitum-core"
-version = "1.0.1"
+version = "2.0.0"
 description = "Meta-package installing daitum-model, daitum-ui, and daitum-configuration"
 readme = "README.md"
 license = "Apache-2.0"
@@ -18,9 +18,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "daitum-model==1.0.1",
-    "daitum-ui==1.0.1",
-    "daitum-configuration==1.0.1",
+    "daitum-model==1.0.2",
+    "daitum-ui==1.1.0",
+    "daitum-configuration==2.0.0",
 ]
 
 [project.urls]

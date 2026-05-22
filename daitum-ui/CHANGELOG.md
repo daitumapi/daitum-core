@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.1.0]
+
+### Added
+- `NavigateArgs` — new `EventArgs` subclass for navigating to a link destination.
+- `ModelEditorLinkDestination` — link destination targeting the Daitum model editor.
+- `ModelEditorLink` element — hyperlink that opens the Daitum model editor.
+- `FormLink` form element.
+- `ModelEvent.add_model_editor_navigate_action(model_id, scenario_id, open_new_tab, condition)`
+  — fluent action that opens the Daitum model editor, optionally pre-selecting a model and
+  scenario.
+- `RosterTaskDefinition` describing drag and drop configuration for roster cards; attached
+  to a column via `RosterColumn.set_task_definition(...)`.
+
+### Changed
+- `RosterColumn.add_template_field_mapping` and `add_model_event_mapping`
+  now return `self` for fluent chaining.
+
+### Fixed
+- `TableView` / `TreeView` `children=None` now means "no field at this level", serialising
+  child entries as `{"fieldId": null}` (via a `_NullViewField` placeholder); validation is
+  skipped for null children.
+- `GanttTaskDefinition` — corrected the `on_click_source_field` datatype check.
+
 ## [1.0.1]
 
 ### Fixed

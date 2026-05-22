@@ -67,7 +67,8 @@ class DecisionVariable(Buildable):
         DecisionVariable._tracking_counter += 1
         self._dv_type = dv_type
         self._scale: int | float = 0
-        self._seed_source: str | None = None
+        self._seed_source_string: str | None = None
+        self._tag_source_string: str | None = None
         self._disabled: bool = False
         self._disabled_if_invalid: bool = False
 
@@ -105,10 +106,57 @@ class DecisionVariable(Buildable):
         self._scale = scale
         return self
 
-    def set_seed_source(self, seed_source: str) -> "DecisionVariable":
-        """Set an identifier for the source used to seed this variable's initial value."""
-        self._seed_source = seed_source
+    def set_seed_source(self, seed_source: Parameter | Calculation | Field) -> "DecisionVariable":
+        """Set the model source used to seed this variable's initial value.
+
+        Pass a :class:`~daitum_model.Parameter` or
+        :class:`~daitum_model.Calculation` for a model-level decision
+        variable, or a :class:`~daitum_model.fields.Field` resolved against
+        this variable's ``dv_table`` for a per-row decision variable. The
+        source is emitted as a ``!!!``-prefixed reference, matching the
+        format of :attr:`cellReference`.
+        """
+        self._seed_source_string = self._resolve_source_string(seed_source, "seed_source")
         return self
+
+    def set_tag_source(self, tag_source: Parameter | Calculation | Field) -> "DecisionVariable":
+        """Set the model source for reading tags on this decision variable.
+
+        Pass a :class:`~daitum_model.Parameter` or
+        :class:`~daitum_model.Calculation` for a model-level decision
+        variable, or a :class:`~daitum_model.fields.Field` resolved against
+        this variable's ``dv_table`` for a per-row decision variable. For
+        multiple tags per variable, the referenced value should be an array.
+
+        Tags are consumed by step-level ``includedTags`` filters on
+        :class:`~daitum_configuration.StepConfiguration`. The source is
+        emitted as a ``!!!``-prefixed reference, matching the format of
+        :attr:`cellReference`.
+        """
+        self._tag_source_string = self._resolve_source_string(tag_source, "tag_source")
+        return self
+
+    def _resolve_source_string(
+        self, source: Parameter | Calculation | Field, param_name: str
+    ) -> str:
+        """Resolve a seed/tag source to its serialised reference string.
+
+        Mirrors the model-level-vs-per-row rule used by :attr:`cellReference`:
+        a per-row DV (``dv_table`` set) requires a :class:`Field`; a
+        model-level DV requires a :class:`Parameter` or :class:`Calculation`.
+        """
+        if self._dv_table is None:
+            if not isinstance(source, Parameter | Calculation):
+                raise ValueError(
+                    f"{param_name} must be a Parameter or Calculation for a "
+                    f"model-level decision variable, got {type(source).__name__}"
+                )
+            return source.to_string()
+
+        if isinstance(source, Parameter | Calculation):
+            return source.to_string()
+
+        return f"{self._dv_table.id}[{source.id}]"
 
     def set_disabled(self, disabled: bool) -> "DecisionVariable":
         """Disable this variable, holding it at its seed value."""
@@ -218,7 +266,7 @@ class DecisionVariable(Buildable):
 
     def build(self) -> dict[str, Any]:
         """Serialise to a JSON-compatible dict."""
-        return {
+        result: dict[str, Any] = {
             "cellReference": f"!!!{self._dv_string}",
             "trackingId": self._tracking_id,
             "specification": {
@@ -236,8 +284,16 @@ class DecisionVariable(Buildable):
                 "maximumValueReference": (
                     f"!!!{self._dv_max_value}" if isinstance(self._dv_max_value, str) else None
                 ),
-                "seedSource": self._seed_source,
+                "seedSource": (
+                    f"!!!{self._seed_source_string}"
+                    if self._seed_source_string is not None
+                    else None
+                ),
             },
             "disabled": self._disabled,
             "disabledIfInvalid": self._disabled_if_invalid,
+            "tagSource": (
+                f"!!!{self._tag_source_string}" if self._tag_source_string is not None else None
+            ),
         }
+        return result

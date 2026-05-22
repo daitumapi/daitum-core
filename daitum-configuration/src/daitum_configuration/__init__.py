@@ -34,6 +34,7 @@ from .algorithm_configuration.genetic_algorithm import (
     SelectionType,
 )
 from .algorithm_configuration.numeric_expression import NumericExpression
+from .algorithm_configuration.steepest_dynamic_local_search import SteepestDynamicLocalSearch
 from .algorithm_configuration.vns_algorithm import VariableNeighbourhoodSearch
 from .configuration import ConfigurationBuilder
 from .data_source.batched_data_source.batch_data_source_type import BatchDataSourceType
@@ -71,6 +72,7 @@ from .model_property.model_import_options import ModelImportOptions
 from .model_property.overlay_config import OverlayConfig
 from .report_property.report_data import ReportData
 from .report_property.report_export_format import ReportExportFormat
+from .schedule_configuration.schedule_configuration import ScheduleConfiguration
 from .schedule_configuration.step_configuration import StepConfiguration
 from .schedule_configuration.step_type import StepType
 
@@ -86,6 +88,7 @@ __all__ = [
     "Mutation",
     "Selection",
     "CMAESAlgorithm",
+    "SteepestDynamicLocalSearch",
     "NumericExpression",
     "ConstraintType",
     "DVType",
@@ -99,6 +102,7 @@ __all__ = [
     "ReportData",
     "StepType",
     "StepConfiguration",
+    "ScheduleConfiguration",
     "ExcelTransformConfig",
     "ImportOptionOverrides",
     "ModelTransform",

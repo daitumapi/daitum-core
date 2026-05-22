@@ -24,7 +24,6 @@ serialises the result into ``model-configuration.json``.
 import json
 import os
 import pathlib
-from typing import Any
 
 from typeguard import typechecked
 
@@ -45,6 +44,9 @@ from daitum_configuration.data_source.geo_location_config import GeoLocationConf
 from daitum_configuration.data_source.model_transform.model_transform_config import (
     ModelTransformConfig,
 )
+from daitum_configuration.data_source.run_external_model.run_external_model_config import (
+    RunExternalModelConfig,
+)
 from daitum_configuration.data_source.run_report.run_report_config import RunReportConfig
 from daitum_configuration.data_source.set_features_config import SetFeaturesConfig
 from daitum_configuration.model_configuration.model_configuration import ModelConfiguration
@@ -52,9 +54,7 @@ from daitum_configuration.model_property.model_import_options import ModelImport
 from daitum_configuration.model_property.model_property import ModelProperty
 from daitum_configuration.model_property.overlay_config import OverlayConfig
 from daitum_configuration.report_property.report_property import ReportProperty
-from daitum_configuration.schedule_configuration.schedule_configuration import (
-    ScheduleConfiguration,
-)
+from daitum_configuration.schedule_configuration.schedule_configuration import ScheduleConfiguration
 
 
 # pylint: disable=too-few-public-methods
@@ -80,8 +80,6 @@ class ConfigurationBuilder(Buildable):
         self.solution_view_enabled: bool = False
         self.report_properties: dict[str, ReportProperty] | None = None
         self.model_properties: ModelProperty | None = None
-        self.model_topic_mapping: list[Any] = []
-        self.tooltips: list[Any] = []
 
     def set_algorithm(self, algorithm: Algorithm) -> "ConfigurationBuilder":
         """Set the top-level algorithm. Mutually exclusive with a schedule."""
@@ -111,16 +109,6 @@ class ConfigurationBuilder(Buildable):
     def set_solution_view_enabled(self, solution_view_enabled: bool) -> "ConfigurationBuilder":
         """Set whether the solution view is enabled by default when allowed."""
         self.solution_view_enabled = solution_view_enabled
-        return self
-
-    def set_model_topic_mapping(self, model_topic_mapping: list[Any]) -> "ConfigurationBuilder":
-        """Set the model-topic mapping list emitted alongside the configuration."""
-        self.model_topic_mapping = model_topic_mapping
-        return self
-
-    def set_tooltips(self, tooltips: list[Any]) -> "ConfigurationBuilder":
-        """Set the tooltip definitions emitted alongside the configuration."""
-        self.tooltips = tooltips
         return self
 
     def add_report_property(
@@ -178,6 +166,13 @@ class ConfigurationBuilder(Buildable):
         """Register a data source that feeds rows from a previously-run report. See
         :meth:`add_excel_transform` for the return value."""
         return self._add_data_source(DataSource(name, RunReportConfig(report_name)))
+
+    def add_external_model_data_source(self, name: str) -> DataSource:
+        """Register a data source that runs the model's configured external evaluator.
+        Input, parameter, and output mappings are declared on
+        :class:`~daitum_configuration.ExternalModelConfiguration`. See
+        :meth:`add_excel_transform` for the return value."""
+        return self._add_data_source(DataSource(name, RunExternalModelConfig()))
 
     def add_distance_matrix(self, name: str, config: DistanceMatrixConfig) -> DataSource:
         """Register a distance-matrix data source. See :meth:`add_excel_transform` for the

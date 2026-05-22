@@ -17,8 +17,6 @@
 of an optimisation problem, plus per-model solver flags.
 """
 
-from typing import Any
-
 from daitum_model import Calculation, Parameter
 from daitum_model.fields import DataField, Field
 from daitum_model.tables import DataTable, Table
@@ -206,7 +204,3 @@ class ModelConfiguration(Buildable):
 
         self.scenario_outputs.append(scenario_output)
         return scenario_output
-
-    def build(self) -> dict[str, Any]:
-        """Serialise this model configuration to a JSON-compatible dict."""
-        return super().build()
