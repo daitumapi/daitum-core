@@ -18,6 +18,7 @@ the problem size at runtime.
     cmaes
     vns
     sdls
+    alns
 
 Algorithm base
 --------------

@@ -29,6 +29,9 @@ from daitum_configuration.data_source.data_store.data_filter import DataFilter
 from daitum_configuration.data_source.model_transform.data_input_source_type import (
     DataInputSourceType,
 )
+from daitum_configuration.data_source.model_transform.validation_severity import (
+    ValidationSeverity,
+)
 
 
 class ModelTransformInput(Buildable, ABC):
@@ -90,10 +93,34 @@ class DataStoreInterfaceInput(_DataStoreLikeInput):
 
 
 class DirectUploadInput(ModelTransformInput):
-    """Reads rows from a directly-uploaded CSV (or ZIP of CSVs)."""
+    """Reads rows from a directly-uploaded CSV (or ZIP of CSVs).
 
-    def __init__(self, tables: dict[str, str]):
+    Two header-validation severity controls are applied at upload time:
+
+    - :attr:`missing_header_severity` — how to surface a header that the input
+      expects but the uploaded data does not provide.
+    - :attr:`unexpected_header_severity` — how to surface a header present in
+      the uploaded data that the input does not expect.
+
+    Both default to :attr:`ValidationSeverity.ERROR`, matching the platform
+    Java default. Use :attr:`ValidationSeverity.WARNING` to allow the upload to
+    proceed while still displaying the issue, or :attr:`ValidationSeverity.IGNORE`
+    to suppress it entirely.
+    """
+
+    def __init__(
+        self,
+        tables: dict[str, str],
+        missing_header_severity: ValidationSeverity = ValidationSeverity.ERROR,
+        unexpected_header_severity: ValidationSeverity = ValidationSeverity.ERROR,
+    ):
+        if not isinstance(missing_header_severity, ValidationSeverity):
+            raise TypeError("missing_header_severity must be a ValidationSeverity")
+        if not isinstance(unexpected_header_severity, ValidationSeverity):
+            raise TypeError("unexpected_header_severity must be a ValidationSeverity")
         self.table_mapping = tables
+        self.missing_header_severity = missing_header_severity
+        self.unexpected_header_severity = unexpected_header_severity
 
     @property
     def source_type(self) -> DataInputSourceType:

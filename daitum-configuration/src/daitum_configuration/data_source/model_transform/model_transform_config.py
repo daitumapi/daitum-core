@@ -27,6 +27,9 @@ from daitum_configuration.data_source.model_transform.model_transform_input impo
     DynamicValuesInput,
     ModelTransformInput,
 )
+from daitum_configuration.data_source.model_transform.validation_severity import (
+    ValidationSeverity,
+)
 
 
 @typechecked
@@ -87,9 +90,21 @@ class ModelTransformConfig(DataSourceConfig):
         )
         return self
 
-    def add_direct_upload_input(self, tables: dict[str, str]) -> "ModelTransformConfig":
-        """Register a direct-upload (CSV) input feeding the secondary model."""
-        self.inputs.append(DirectUploadInput(tables))
+    def add_direct_upload_input(
+        self,
+        tables: dict[str, str],
+        missing_header_severity: ValidationSeverity = ValidationSeverity.ERROR,
+        unexpected_header_severity: ValidationSeverity = ValidationSeverity.ERROR,
+    ) -> "ModelTransformConfig":
+        """Register a direct-upload (CSV) input feeding the secondary model.
+
+        ``missing_header_severity`` and ``unexpected_header_severity`` control
+        how header mismatches at upload time are surfaced; both default to
+        :attr:`ValidationSeverity.ERROR`.
+        """
+        self.inputs.append(
+            DirectUploadInput(tables, missing_header_severity, unexpected_header_severity)
+        )
         return self
 
     @property

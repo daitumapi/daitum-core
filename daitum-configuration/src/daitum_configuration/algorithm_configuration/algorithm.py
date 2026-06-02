@@ -44,11 +44,9 @@ class Algorithm(Buildable, ABC):
     #: Whether the solver emits per-iteration progress logs.
     log_info: bool = False
     #: Maximum total evaluations before the run terminates.
-    evaluations: int | NamedValue = 100000 * NumericExpression("NUM_VARIABLES")
+    evaluations: int | NamedValue = 100000
     #: Stop after this many consecutive evaluations with no improvement.
-    max_evaluations_without_improvement: int | NamedValue = 10000 * NumericExpression(
-        "NUM_VARIABLES"
-    )
+    max_evaluations_without_improvement: int | NamedValue = 10000
     #: Stop after this many seconds with no improvement.
     max_time_without_improvement: int | NamedValue = 300
     #: Smallest objective change counted as an improvement.

@@ -1,5 +1,42 @@
 # Changelog
 
+## [2.1.0]
+
+### Added
+- `AdaptiveLargeNeighbourhoodSearch` — new metaheuristic configuration that
+  drives the platform's Adaptive Large Neighbourhood Search solver. Wraps the
+  algorithm-level controls (`candidates_per_iteration`, `segment_length`,
+  `decay_factor`, plus the operator-reward tiers `new_best_reward`,
+  `improving_reward`, `accepted_reward`) and an `acceptance_criterion`
+  qualitative choice. Serialises with algorithmKey
+  `daitum-alns-single-objective`.
+- `AcceptanceCriterion` — choice object describing how candidates replace the
+  incumbent, with `AcceptanceCriterion.simulated_annealing(initial_temperature,
+  cooling_rate)` and `AcceptanceCriterion.greedy()` constructors.
+- `AcceptanceCriterionType` enum (`SIMULATED_ANNEALING`, `GREEDY`) backing the
+  qualitative parameter value for `AcceptanceCriterion`.
+- `AdaptiveLargeNeighbourhoodSearch.stagnation_limit` (default `0`) — number of
+  consecutive iterations without a new global best before triggering a soft
+  restart. ``0`` disables the soft restart; non-zero values require
+  ``perturb()`` to be implemented in the external model.
+- `ValidationSeverity` enum (`ERROR`, `WARNING`, `IGNORE`) describing how
+  header-validation issues on a direct-upload model-transform input are
+  surfaced at upload time.
+- `DirectUploadInput.missing_header_severity` and
+  `DirectUploadInput.unexpected_header_severity` — controls for headers
+  expected by the input but missing from the upload, and headers present in
+  the upload but not expected by the input. Both default to
+  `ValidationSeverity.ERROR`, matching the platform Java default. Available as
+  optional kwargs on `ModelTransformConfig.add_direct_upload_input` and on the
+  `DirectUploadInput` constructor. Not currently supported on the other
+  `ModelTransformInput` variants.
+
+### Changed
+- `Algorithm.evaluations` default changed from
+  ``100000 * NumericExpression("NUM_VARIABLES")`` to a plain ``100000``.
+- `Algorithm.max_evaluations_without_improvement` default changed from
+  ``10000 * NumericExpression("NUM_VARIABLES")`` to a plain ``10000``.
+
 ## [2.0.0]
 
 ### Added

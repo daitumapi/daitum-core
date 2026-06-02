@@ -21,6 +21,11 @@ report/model properties; :meth:`ConfigurationBuilder.write_to_file` emits
 ``model-configuration.json``.
 """
 
+from .algorithm_configuration.alns_algorithm import (
+    AcceptanceCriterion,
+    AcceptanceCriterionType,
+    AdaptiveLargeNeighbourhoodSearch,
+)
 from .algorithm_configuration.cmaes_algorithm import CMAESAlgorithm
 from .algorithm_configuration.genetic_algorithm import (
     ComparatorType,
@@ -53,6 +58,7 @@ from .data_source.excel_transform.import_option_overrides import ImportOptionOve
 from .data_source.geo_location_config import GeoLocationConfig
 from .data_source.model_transform.model_transform import ModelTransform
 from .data_source.model_transform.model_transform_config import ModelTransformConfig
+from .data_source.model_transform.validation_severity import ValidationSeverity
 from .data_source.set_features_config import SetFeaturesConfig
 from .model_configuration.constraint import ConstraintType
 from .model_configuration.decision_variable import DVType
@@ -107,6 +113,7 @@ __all__ = [
     "ImportOptionOverrides",
     "ModelTransform",
     "ModelTransformConfig",
+    "ValidationSeverity",
     "DataStoreConfig",
     "EqualityDataFilter",
     "InequalityDataFilter",
@@ -122,6 +129,9 @@ __all__ = [
     "GeoLocationConfig",
     "SetFeaturesConfig",
     "VariableNeighbourhoodSearch",
+    "AdaptiveLargeNeighbourhoodSearch",
+    "AcceptanceCriterion",
+    "AcceptanceCriterionType",
     "ExternalModelConfiguration",
     "InputDataMapping",
     "OutputDataMapping",
