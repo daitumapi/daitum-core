@@ -44,6 +44,7 @@ Usage::
 """
 
 from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType
+from .decoding import LoadError
 from .derived_table import AggregationMethod, DerivedTable, SortDirection
 from .fields import Field
 from .formula import Formula
@@ -51,6 +52,7 @@ from .joined_table import JoinCondition, JoinedTable, JoinType
 from .model import ModelBuilder
 from .named_values import Calculation, Parameter
 from .tables import Table
+from .tracking import AutoCapture, Baseline, TrackingGroup
 from .union_table import UnionSource, UnionTable
 from .validator import (
     LengthValidator,
@@ -88,6 +90,16 @@ __all__ = [
     "DerivedTable",
     "JoinedTable",
     "JoinCondition",
+    "LoadError",
+    "TrackingGroup",
+    "Baseline",
+    "AutoCapture",
 ]
 
 FieldMapping = UnionTable.FieldMapping
+
+# Register every model decoder on the shared registries. Imported after __all__ to avoid
+# partial-init cycles; the explicit call (not an import side effect) makes the wiring visible.
+from . import _decoders  # noqa: E402
+
+_decoders.register_all()

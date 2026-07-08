@@ -37,7 +37,7 @@ Main Components
 
     Data Operations:
         - add_set_table_value_action(): Set field values in table rows
-        - add_set_name_value_action(): Update Parameters or Calculations
+        - add_set_named_value_action(): Update Parameters or Calculations
         - add_copy_values_action(): Copy values between rows
         - add_clear_values_action(): Clear field values in rows
 
@@ -113,8 +113,9 @@ Value Sources
 Many actions accept values from multiple sources:
 
 - **Value objects**: Constant values (IntegerValue, StringValue, etc.)
-- **ContextVariable**: Dynamic values from context
-- **int/str literals**: Direct constant values for row indices
+- **Model variables**: Dynamic values read at runtime from a Field, Parameter,
+  Calculation, or ContextVariable
+- **int literals**: Direct constant values for row indices
 
 The action automatically determines the appropriate source type.
 
@@ -341,9 +342,9 @@ Setting named values (Parameters/Calculations)::
 
     # Update parameter value
     update_param_event = ModelEvent()
-    update_param_event.add_set_name_value_action(
+    update_param_event.add_set_named_value_action(
         value_source=DecimalValue(0.15),
-        name_value_target=tax_rate_parameter
+        named_value_target=tax_rate_parameter
     )
 
 Row operations with key-based selection::
@@ -385,16 +386,17 @@ Navigating to the model editor::
 
 from dataclasses import dataclass
 
-from daitum_model import Calculation, Field, Parameter, Table
+from daitum_model import Baseline, Calculation, Field, Parameter, Table, TrackingGroup
+from daitum_model.tracking import normalise_tracking_groups
 
 from daitum_ui._buildable import Buildable
 from daitum_ui.context_variable import ContextVariable
 
 from ._events import (
     ActionType,
+    CaptureBaselineArgs,
     ClearValuesArgs,
     ConstantSource,
-    ContextVariableSource,
     CopyValuesArgs,
     DeleteRowArgs,
     DuplicateRowArgs,
@@ -402,11 +404,14 @@ from ._events import (
     EventArgs,
     InsertRowArgs,
     ModelTransactionArgs,
+    ModelVariableSource,
     NamedValueTarget,
     NavigateArgs,
     OpenModalArgs,
+    RevertBaselineArgs,
     RowSelectionMode,
     RunDataSourceArgs,
+    RunOptimisationArgs,
     RunReportArgs,
     SetContextEventArgs,
     SetContextEventArgsValue,
@@ -419,6 +424,31 @@ from ._events import (
 )
 from ._link_destination import ModelEditorLinkDestination
 from .data import Value
+
+
+def _build_source(
+    raw: Value | int | Field | Parameter | Calculation | ContextVariable,
+) -> Source:
+    """
+    Builds the appropriate :class:`Source` from a raw argument.
+
+    A ``Value`` (or bare ``int`` row index) becomes a :class:`ConstantSource`; a ``Field``,
+    ``Parameter``, ``Calculation``, or ``ContextVariable`` becomes a :class:`ModelVariableSource`
+    wrapping the corresponding :class:`ModelVariable`.
+    """
+    if isinstance(raw, Value):
+        return ConstantSource(raw.get_value())
+
+    if isinstance(raw, int):
+        return ConstantSource(raw)
+
+    from .elements import get_model_variable
+
+    model_variable = get_model_variable(raw)
+    if model_variable is None:
+        raise TypeError(f"Cannot build a source from {raw!r}.")
+
+    return ModelVariableSource(model_variable)
 
 
 class ModelEvent(Buildable):
@@ -484,6 +514,19 @@ class ModelEvent(Buildable):
                 context variable evaluates to true.
         """
         action = RunReportArgs(report_name)
+        action.condition_context_variable = condition.id if condition else None
+        self.actions.append(action)
+
+    def add_run_optimisation_action(self, condition: ContextVariable | None = None):
+        """
+        Adds an action to trigger an optimisation run.
+
+        Args:
+            condition (Optional[ContextVariable]): Context variable controlling conditional
+                execution of the action. If provided, the action only executes when the
+                context variable evaluates to true.
+        """
+        action = RunOptimisationArgs()
         action.condition_context_variable = condition.id if condition else None
         self.actions.append(action)
 
@@ -736,24 +779,72 @@ class ModelEvent(Buildable):
         action.condition_context_variable = condition.id if condition else None
         self.actions.append(action)
 
+    def add_capture_baseline_action(
+        self,
+        baseline: Baseline | str,
+        tracking_groups: list[str | TrackingGroup] | None = None,
+        condition: ContextVariable | None = None,
+    ):
+        """
+        Adds an action to capture a baseline.
+
+        Args:
+            baseline (Baseline | str): The baseline to capture, or its name.
+            tracking_groups (Optional[List[str | TrackingGroup]]): Restrict the capture to a
+                subset of the baseline's tracking groups. Omit to capture all of them.
+            condition (Optional[ContextVariable]): Context variable controlling conditional
+                execution of the action.
+        """
+        baseline_name = baseline.name if isinstance(baseline, Baseline) else baseline
+        groups = normalise_tracking_groups(tracking_groups) if tracking_groups else None
+        action = CaptureBaselineArgs(baseline=baseline_name, tracking_groups=groups)
+        action.condition_context_variable = condition.id if condition else None
+        self.actions.append(action)
+
+    def add_revert_baseline_action(
+        self,
+        baseline: Baseline | str,
+        tracking_groups: list[str | TrackingGroup] | None = None,
+        condition: ContextVariable | None = None,
+    ):
+        """
+        Adds an action to revert editable elements to a captured baseline.
+
+        Args:
+            baseline (Baseline | str): The baseline to revert to, or its name.
+            tracking_groups (Optional[List[str | TrackingGroup]]): Restrict the revert to a
+                subset of the baseline's tracking groups. Omit to revert all of them.
+            condition (Optional[ContextVariable]): Context variable controlling conditional
+                execution of the action.
+        """
+        baseline_name = baseline.name if isinstance(baseline, Baseline) else baseline
+        groups = normalise_tracking_groups(tracking_groups) if tracking_groups else None
+        action = RevertBaselineArgs(baseline=baseline_name, tracking_groups=groups)
+        action.condition_context_variable = condition.id if condition else None
+        self.actions.append(action)
+
     def add_set_table_value_action(
         self,
-        value_source: Value | ContextVariable,
+        value_source: Value | Field | Parameter | Calculation | ContextVariable,
         target_table: Table,
         target_field: Field,
-        target_row: int | ContextVariable,
+        target_row: int | Field | Parameter | Calculation | ContextVariable,
         condition: ContextVariable | None = None,
     ):
         """
         Adds an action to set a value in a specific table field and row.
 
         Args:
-            value_source (Value | ContextVariable): The source of the value to set. Can be
-                either a constant Value or a ContextVariable whose value will be used.
+            value_source (Value | Field | Parameter | Calculation | ContextVariable): The source
+                of the value to set. A ``Value`` supplies a constant; a ``Field``, ``Parameter``,
+                ``Calculation``, or ``ContextVariable`` supplies a value read from that model
+                variable at runtime.
             target_table (Table): The table containing the field to be updated.
             target_field (Field): The field in the target table that will receive the new value.
                 Must be a field that exists in the target_table.
-            target_row (int | ContextVariable): Identifies the row to update.
+            target_row (int | Field | Parameter | Calculation | ContextVariable): Identifies the
+                row to update. An ``int`` is a constant row index; a model variable supplies the
+                row index read at runtime.
             condition (Optional[ContextVariable]): Context variable controlling conditional
                 execution of the action. If provided, the action only executes when the
                 context variable evaluates to true.
@@ -761,18 +852,12 @@ class ModelEvent(Buildable):
         Raises:
             ValueError: If target_field is not a field in target_table.
         """
-        if isinstance(value_source, Value):
-            source: Source = ConstantSource(value_source.get_value())
-        else:
-            source = ContextVariableSource(value_source.id)
+        source = _build_source(value_source)
 
         if target_field not in target_table.get_fields():
             raise ValueError(f"{target_field} is not in the table: {target_table}.")
 
-        if isinstance(target_row, int):
-            row_source: Source = ConstantSource(target_row)
-        else:
-            row_source = ContextVariableSource(target_row.id)
+        row_source = _build_source(target_row)
 
         target = TableValueTarget(row_source, target_table.id, target_field.id)
 
@@ -780,30 +865,29 @@ class ModelEvent(Buildable):
         action.condition_context_variable = condition.id if condition else None
         self.actions.append(action)
 
-    def add_set_name_value_action(
+    def add_set_named_value_action(
         self,
-        value_source: Value | ContextVariable,
-        name_value_target: Parameter | Calculation,
+        value_source: Value | Field | Parameter | Calculation | ContextVariable,
+        named_value_target: Parameter | Calculation,
         condition: ContextVariable | None = None,
     ):
         """
         Adds an action to set the value of a named value (Parameter or Calculation).
 
         Args:
-            value_source (Value | ContextVariable): The source of the value to set. Can be
-                either a constant Value or a ContextVariable whose value will be used.
-            name_value_target (Parameter | Calculation): The named value (Parameter or
+            value_source (Value | Field | Parameter | Calculation | ContextVariable): The source
+                of the value to set. A ``Value`` supplies a constant; a ``Field``, ``Parameter``,
+                ``Calculation``, or ``ContextVariable`` supplies a value read from that model
+                variable at runtime.
+            named_value_target (Parameter | Calculation): The named value (Parameter or
                 Calculation) that will receive the new value.
             condition (Optional[ContextVariable]): Context variable controlling conditional
                 execution of the action. If provided, the action only executes when the
                 context variable evaluates to true.
         """
-        if isinstance(value_source, Value):
-            source: Source = ConstantSource(value_source.get_value())
-        else:
-            source = ContextVariableSource(value_source.id)
+        source = _build_source(value_source)
 
-        target: Target = NamedValueTarget(name_value_target.id)
+        target: Target = NamedValueTarget(named_value_target.id)
 
         action = SetValueArgs(source, target)
         action.condition_context_variable = condition.id if condition else None

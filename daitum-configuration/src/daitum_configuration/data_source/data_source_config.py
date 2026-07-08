@@ -22,7 +22,8 @@ serialised with a ``type`` discriminator key.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from daitum_configuration._buildable import Buildable
+from daitum_model.serialisation import Buildable
+
 from daitum_configuration.data_source.data_source_type import DataSourceType
 
 

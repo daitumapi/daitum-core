@@ -74,11 +74,6 @@ def prepare_data(model: ModelBuilder, input_path: str, output_path: str):
                         value = _convert(field, row[field.id], table_data)
                         converted_row[field.id] = json.dumps(value) if value is not None else None
 
-                        if field.tracking_group is not None:
-                            tracked_field = table.get_field(field.tracking_id)
-                            if isinstance(tracked_field, DataField):
-                                converted_row[tracked_field.id] = converted_row[field.id]
-
                     converted_data.append(converted_row)
 
         field_names = [field.id for field in data_fields]

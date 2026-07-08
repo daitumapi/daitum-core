@@ -14,9 +14,9 @@
 
 """:class:`ReportProperty` — export-time configuration for one report."""
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.report_property.report_data import ReportData
 from daitum_configuration.report_property.report_export_format import ReportExportFormat
 

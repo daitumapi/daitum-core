@@ -1,192 +1,260 @@
-# Adding Formulas
+# Adding a Formula Function
 
-Internal guide for adding a new formula function to `daitum_model.formulas`.
+Internal guide for adding a new formula function (e.g. `LOG`, `NORMDIST`, `INTERSECTION`) to
+`daitum_model.formulas`. New functions are added semi-regularly as the platform gains capabilities,
+so follow this end-to-end — a function is only "done" when its node class, public wrapper, tests,
+and generated docs are all in place.
 
-A formula function is a public Python builder (e.g. `LOG`, `NORMDIST`, `INTERSECTION`) that
-returns a `Formula` wrapping an expression string and a `DataType`. Every formula is split into
-two layers:
+> **Read first:** the root `../CLAUDE.md` (Australian English, the lint workflow, the venv) and
+> `daitum-model/CLAUDE.md` (package layout).
+
+
+## 1. The architecture (how a formula works now)
+
+A formula **is** a structured expression tree — not a string. Each function is a node class that
+knows its children, validates its arguments, infers its return type, and renders itself to the exact
+platform expression string. `data_type` and `formula_string` are *projections* of the tree (how it
+type-checks and how it is written to JSON), derived on demand.
+
+Every function spans two layers:
 
 | Layer | File | Responsibility |
 |---|---|---|
-| Internal builder | `src/daitum_model/_base_formulas.py` | Takes already-serialised `str` operands, returns `Formula(data_type, "NAME(arg1, arg2, ...)")`. No validation, no docstring. |
-| Public wrapper | `src/daitum_model/formulas.py` | Accepts user-friendly types (`Operand`, `int`, `float`, `bool`, etc.), coerces literals via `CONST`, validates data types, computes the return type, and calls the internal builder. Owns the docstring. |
+| **Node class** | `src/daitum_model/_functions.py` | A `Function` subclass owning the argument spec, validation, return-type inference, and rendering. |
+| **Public wrapper** | `src/daitum_model/formulas.py` | The user-facing builder. Accepts friendly types (`Operand`, `int`, `float`, `bool`, `str`), constructs the node, and returns it. Owns the user docstring. |
 
-This split keeps the wire-format trivially easy to inspect and lets the public API do all
-type-checking and Pythonic ergonomics in one place.
+A node `is-a` `Formula` (the abstract base in `formula.py`), so the wrapper returns the node directly
+— there is no separate "materialise" step.
+
+`Function.__init__` (in `expression.py`) runs a fixed pipeline for every function:
+
+1. `ensure_operand(arg)` coerces each Python literal to a `Constant` operand (so `SUM(1, [Cost])`
+   works without the caller wrapping `1`).
+2. `_validate_arity()` — enforced from the declarative `spec` (below).
+3. `_validate_types()` — each operand checked against its `Arg.accepts`, from the `spec`.
+4. `validate()` — a per-function hook for **cross-argument / structural** rules only.
+5. `result_type()` — infers the return `DataType` from the operands.
+
+So most of a function is *declarative*: you describe its arguments in a `spec`, and the engine does
+arity + per-argument type checking. You only write imperative code for return-type inference and any
+rule that spans multiple arguments.
 
 
-## Step-by-step
+## 2. Write the node class (`_functions.py`)
 
-### 1. Add the internal builder
+A concrete `Function` subclass sets:
 
-In `_base_formulas.py`, add a one-liner returning a `Formula`. The expression string must
-exactly match what the platform expects.
+- `name` — the **wire name** the function renders as (usually the public function name, uppercase).
+- `spec` — a tuple of `Arg` declaring each argument (name + accepted types + flags).
+- `result_type(self)` — returns the inferred `BaseDataType`.
+- `validate(self)` — *optional*; only for cross-argument/structural rules.
 
-```python
-def _MYFUNC(data_type: DataType, arg1: str, arg2: str) -> Formula:
-    return Formula(data_type, f"MYFUNC({arg1}, {arg2})")
-```
-
-Variadic arguments use `*args: str` and `", ".join(...)`:
-
-```python
-def _MYFUNC(data_type: DataType, ignore_blanks: str, *values: str) -> Formula:
-    return Formula(data_type, f"MYFUNC({ignore_blanks}, {', '.join(values)})")
-```
-
-If the return type can be a composite (`ObjectDataType`, `MapDataType`), widen the
-`data_type` parameter accordingly — see `_INTERSECTION`, `_UNION` for examples.
-
-### 2. Import the builder in `formulas.py`
-
-The import block at the top of `formulas.py` is alphabetical. Insert the new `_MYFUNC` in
-alphabetical position.
-
-### 3. Add the public wrapper
-
-Place the new public function near related ones (e.g. numeric next to numeric, set-ops next to
-set-ops). The file is grouped by topic, not strictly alphabetical.
-
-The wrapper's job is always the same five things:
-
-1. **Coerce Python literals** (`int`, `float`, `bool`, sometimes `str`) into `Operand`s by
-   recursively calling itself with `CONST(value)` substituted.
-2. **Extract data types** of every operand via `.to_data_type()`.
-3. **Validate** each data type against the appropriate allowed set
-   (`NUMERIC_AND_ARRAY_TYPES`, `BOOLEANISH_AND_ARRAY_TYPES`, `DATE_AND_ARRAY_TYPES`, etc. —
-   defined near the top of `formulas.py`). Raise `ValueError` with a descriptive message on
-   mismatch.
-4. **Compute the return type.** Two common patterns:
-   - *Type-preserving* (e.g. `ABS`): pass the input data type straight through.
-   - *Type-fixing* (e.g. `EXP`, `LOG`, `NORMDIST`): force `DECIMAL` for scalar inputs and
-     `DECIMAL_ARRAY` if **any** input is an array. Use `data_type.is_array()` to detect arrays.
-5. **Call the internal builder** with the computed return type and `operand.to_string()` for
-   each argument.
-
-Skeleton (single-argument numeric, return type fixed to DECIMAL):
+### `Arg` — the declarative argument spec
 
 ```python
-def MYFUNC(value: int | float | Operand) -> Formula:
-    """<see Docstring conventions below>"""
-    if isinstance(value, int | float):
-        return MYFUNC(CONST(value))
+from daitum_model.expression import Arg
 
-    data_type = value.to_data_type()
-
-    if data_type not in NUMERIC_AND_ARRAY_TYPES or not isinstance(data_type, DataType):
-        raise ValueError(f"MYFUNC invalid with data type {data_type}")
-
-    ret_data_type = DataType.DECIMAL_ARRAY if data_type.is_array() else DataType.DECIMAL
-
-    return _MYFUNC(ret_data_type, value.to_string())
+Arg(
+    name="input_string",          # shown in errors and generated docs
+    accepts=frozenset(_STRINGS),  # accepted DataTypes, or None for ANY (no restriction)
+    variadic=False,               # True ⇒ captures all remaining operands
+    optional=False,               # True ⇒ may be omitted
+    literal_only=False,           # True ⇒ must be a literal, not an operand (rare)
+)
 ```
 
-Skeleton (multi-argument, mixed numeric + boolean, return type fixed to DECIMAL):
+The module defines reusable type sets (`_NUMERIC`, `_STRINGS`, `_DECIMALS`, `_DATES`, `_BOOLEANISH`,
+`_INT_OR_ARRAY`, …) near the top of `_functions.py` — reuse them rather than re-listing `DataType`s.
+
+### Prefer a shape base class
+
+Most functions fit an existing shape base; subclass it and you inherit the spec + validation:
+
+| Base | Shape | Examples |
+|---|---|---|
+| `_TypedUnary` (+ `_PreserveUnary` / `_DecimalUnary` / `_IntegerUnary` / `_StringUnary`) | one operand of `accepts`, result by strategy | `ABS`, `LOG`, `ROUND`, `LOWER` |
+| `_Reducer` (+ `_ArrayReducer` / `_DecimalReducer` / `_BooleanReducer`) | variadic operands of `accepts` (≥1) | `SUM`, `AVERAGE`, `AND` |
+| `_MinMax` | variadic numeric/date/time with family rules | `MIN`, `MAX` |
+| `_BranchMerge` | two branches, array-of-scalar compatible | `IFBLANK`, `IFERROR` |
+| `_LeftRight`, `_BitOp`, `_Between`, `_ProbabilityDist`, … | other recurring shapes | `LEFT`, `BITAND`, `DAYSBETWEEN` |
+
+Example — a new unary that returns `DECIMAL`:
+
+```python
+class MyFunc(_DecimalUnary):
+    name = "MYFUNC"
+    accepts = frozenset(_NUMERIC)   # the shape base derives its spec from `accepts`
+```
+
+Example — a bespoke two-argument function:
+
+```python
+class MyFunc(Function):
+    name = "MYFUNC"
+    spec = (
+        Arg("amount", accepts=frozenset(_NUMERIC)),
+        Arg("label", accepts=frozenset(_STRINGS)),
+    )
+
+    def validate(self) -> None:
+        # Only cross-argument / structural rules belong here — per-argument type checks are already
+        # done by the engine from `spec`. Raise via the standardised helpers:
+        #   self.type_error(dt) / self.incompatible_error(a, b) / self.arity_error() / self.invalid(reason)
+        ...
+
+    def result_type(self) -> BaseDataType:
+        amount = self._operands[0].to_data_type()
+        return amount  # e.g. preserve the first operand's type
+```
+
+### Rules of thumb
+
+- **Errors are always `ValueError`**, raised through the `Function` helpers (`type_error`,
+  `incompatible_error`, `arity_error`, `invalid`) so messages share one shape: `"<NAME>: <reason>."`.
+- **Zero-operand functions** (like `ROWVECTOR`) leave `spec = ()`. `ROW`/`CONST` are special constants
+  built in the wrapper, not node classes.
+- **A different wire name** (rendered ≠ class `name`): override `render_name()` — see
+  `LookupArray` → `LOOKUP_ARRAY`. Keep `name` matching the public function for the registries.
+- **Custom argument shapes** (optional/variadic via a hand-written `__init__`): see `Find`, `Text`,
+  `Choose`, `Lookup`, `ToMap`. Still declare a `spec` (with `optional=True` / `variadic=True`) so the
+  docs and validation engine see every argument.
+- **Non-default rendering** (rare): override `to_string()`. The default is
+  `NAME(arg1, arg2, …)` joined by `separator` (`", "`).
+
+
+## 3. Write the public wrapper (`formulas.py`)
+
+A thin builder that accepts friendly types and constructs the node. The whole file is
+`@typechecked`, so annotate arguments precisely.
 
 ```python
 def MYFUNC(
-    x: Operand | int | float,
-    flag: Operand | bool,
+    amount: Operand | int | float,
+    label: Operand | str,
 ) -> Formula:
-    """<see Docstring conventions below>"""
-    if isinstance(x, (int, float)):
-        return MYFUNC(CONST(x), flag)
-    if isinstance(flag, bool):
-        return MYFUNC(x, CONST(flag))
+    """
+    One-line summary of what MYFUNC does.
 
-    x_dt = x.to_data_type()
-    flag_dt = flag.to_data_type()
+    <Behaviour description: what it computes, array handling, blank/error behaviour.>
 
-    if x_dt not in NUMERIC_AND_ARRAY_TYPES:
-        raise ValueError(f"MYFUNC invalid with the argument {x_dt}")
-    if flag_dt not in BOOLEANISH_AND_ARRAY_TYPES:
-        raise ValueError(f"MYFUNC invalid with the argument {flag_dt}")
+    Arguments:
+        amount: ...
+        label: ...
 
-    ret_data_type = DataType.DECIMAL
-    if x_dt.is_array() or flag_dt.is_array():
-        ret_data_type = DataType.DECIMAL_ARRAY
+    Returns:
+        ...
 
-    return _MYFUNC(ret_data_type, x.to_string(), flag.to_string())
+    Raises:
+        ValueError: if `amount` is not numeric.
+        ValueError: if `label` is not a string.
+
+    Examples:
+        .. code-block:: python
+
+            MYFUNC(cost, "total")
+    """
+    return _functions.MyFunc(amount, label)
 ```
 
-For variadic, set-returning, or composite-typed functions (e.g. `INTERSECTION`, `ARRAY`,
-`LOOKUP`), the same five steps apply — adapt the validation and return-type logic. Read the
-nearest existing analogue before writing a new one.
+- The **docstring describes behaviour only** — do *not* hand-write "Supported types" tables; those
+  are generated from the `spec` (§5).
+- Literals are coerced automatically (`ensure_operand`), so accept `int`/`float`/`bool`/`str`
+  alongside `Operand` where it makes sense and let the node wrap them.
+- The wrapper is the docs/round-trip surface: its name must be uppercase (the docs reflector and the
+  parser registry key on it).
 
-The `typechecked()` call at the top of `formulas.py` automatically enforces the type
-annotations on every public function — keep your annotations precise.
-
-### 4. Re-export
-
-Public functions defined in `formulas.py` are accessed as `daitum_model.formulas.MYFUNC` (or
-via `from daitum_model import formulas`). Nothing else to do — no `__all__`, no edits to
-`__init__.py`.
+(Editing the existing `_functions.py` / `formulas.py` needs no new licence header; a brand-new source
+file under `daitum-model/src` does — see the Apache 2.0 header in the root `CLAUDE.md`.)
 
 
-## Docstring conventions
+## 4. Tests — required, in this order
 
-Docstrings are rendered directly into the user-facing documentation, so they must be
-consistent. Match the style of `NORMDIST`, `NORMINV`, `GAMMADIST` exactly. The required
-sections, in order:
+Run `pytest` and `./pipelines/lint.sh` (Black, Ruff, MyPy) before considering the change done.
 
-1. **One-line summary** — verb-led, ends with a full stop.
-2. **Paragraph description** — what the function does, array-element behaviour, edge cases
-   (blank/error inputs, domain restrictions).
-3. **Arguments** — one entry per parameter. Each entry has a short prose description followed
-   by a `*Supported types*:` block:
+### 4a. Argument-spec coverage gate (automatic)
 
-   ```
-   *Supported types*:
+`tests/test_expression_nodes.py::test_every_function_declares_an_argument_spec` fails CI if your
+node class has no `spec` (empty allowed only for the zero-operand `BLANK`/`ROWVECTOR`). Filling the
+`spec` (§2) satisfies it — and is what makes the generated per-argument docs correct.
 
-   .. container:: supported-types
+### 4b. Characterisation corpus (required)
 
-       - INTEGER
-       - DECIMAL
-       - INTEGER_ARRAY
-       - DECIMAL_ARRAY
-   ```
+Add at least one case to **`tests/fixtures/contract_cases.py`** (`function_cases()`), naming it with
+the function name as the leading token:
 
-4. **Returns** — what the formula evaluates to, scalar-vs-array rules, and a `*Supported
-   types*:` block listing the possible return types.
-5. **Raises** — every `ValueError` the wrapper can raise, with the triggering condition.
-6. **Examples** — at least three `.. code-block:: python` blocks: a scalar literal, a model
-   field / `Operand`, and an array. Each block ends with a `# Returns ...` comment showing the
-   evaluated result (approximate is fine).
+```python
+Case("MYFUNC", lambda fx: formulas.MYFUNC(fx.fields["Cost"], "total")),
+```
 
-Notes:
-- **Australian English** throughout (per the root `CLAUDE.md`).
-- Keep the prose tight. The supported-types containers carry the type information — don't
-  duplicate it in prose.
-- Don't reference internal builders (`_MYFUNC`) or other implementation details in docstrings.
+`tests/test_formula_contract.py::test_every_public_function_is_covered` fails CI until every public
+function has a corpus case. The harness captures `(to_string(), to_data_type())` into a golden file.
+
+### 4c. Drift corpus (required for behaviour coverage)
+
+`tests/fixtures/drift_corpus.py` exhaustively sweeps functions × typed-operand specimens, pinning
+each outcome (rendered string + type on success, exception type on rejection). Register your function
+in the registry that matches its shape:
+
+- `UNARY` / `BINARY` — one / two operands swept over the specimen set.
+- `VARIADIC_NUMERIC` / `VARIADIC_LOGICAL` — variadic groups.
+- For a bespoke shape (optional/variadic/literal args), add explicit invocations in
+  `_add_bespoke_cases`.
+
+The golden files (`tests/fixtures/drift_*_golden.json`) are **auto-captured on first run when
+absent**. To accept a new function's behaviour, run the suite once (capturing its cases), inspect the
+new golden entries to confirm they are correct, and commit them. When you *change* existing
+behaviour deliberately, delete the affected golden and re-capture — and note the change in the PR.
+
+### 4d. Bespoke behaviour tests (optional)
+
+If the function has non-trivial validation or inference, add a focused test in
+`tests/test_formulas.py`. Don't add redundant tests the corpus already covers.
 
 
-## Verification
+## 5. Docs (generated — verify, don't hand-write)
 
-Run the standard checks before committing:
+The reference is generated from the `spec` and the drift corpus by `docs/generate_formula_docs.py`:
+
+- **Per-argument "Accepted types"** tables come from your `Arg` spec (names + accepted types).
+- **"Return types"** come from the function's successful outcomes in the drift golden.
+- `tests/test_doc_spec.py` cross-checks that the declared `spec` accepts every input type the corpus
+  exercises — so a spec that under-declares fails CI.
+
+Regenerate and confirm it builds:
 
 ```bash
-source venv/bin/activate
-./pipelines/lint.sh                       # Black, Ruff, MyPy
-pytest daitum-model/                      # full test suite
+cd docs && python generate_formula_docs.py        # writes daitum_model/formulas/MYFUNC.rst etc.
 ```
 
-Smoke-test the new function in a REPL to confirm:
-
-- scalar input → expected scalar return type
-- array input → expected `_ARRAY` return type
-- a non-matching `DataType` raises `ValueError`
-- the emitted `formula_string` contains the function name and the expected number of arguments
+You do **not** hand-edit the generated `formulas/*.rst` stubs.
 
 
-## When to add a test
+## 6. The parser & decoder (usually automatic — know the one caveat)
 
-Per the root `CLAUDE.md` ("only add tests that verify internal behaviours or fix specific
-bugs"), most new formulas do **not** need a dedicated test. Add a test in
-`tests/test_formulas.py` only if the wrapper has non-trivial logic — e.g. unusual return-type
-inference, multi-branch validation, or a fix for a specific bug. Trivial single-argument
-wrappers that mirror an existing pattern (`ABS`, `EXP`, `LOG`, `SIN`, `COS`) do not warrant
-their own tests.
+A formula loaded from JSON is parsed back into its node tree by `_parser.py`, and the decoder
+(`_decoders/formula.py`) requires an **exact** round-trip: `parse(formula.to_string())` must
+reproduce the original string and type, or it raises `LoadError`. There is no string fallback.
 
-When you do add a test, follow the existing pattern in `tests/test_formulas.py`: assert the
-returned `data_type` and that the function name appears in the formula string, for both scalar
-and array inputs.
+For a normal function this is automatic: the parser finds your node class by its `name` (or the
+`LOOKUP_ARRAY`-style override) and reconstructs `MyFunc(*parsed_args)`. **The drift conformance gate
+(`test_parser.py::TestParserDriftConformance`) will fail** if your function does not round-trip — so
+a green suite confirms the parser handles it.
+
+The one thing to watch: if your function's **type cannot be recovered from its rendered string**
+(as `BLANK()` erases its declared type), the parser needs the authoritative type. `BLANK` is handled
+by passing the decoder's `dataType` as `expected_type`; a new function with the same property would
+need similar handling in `_parser.py`. This is rare — most functions render all the information their
+type depends on.
+
+
+## 7. Checklist
+
+- [ ] Node class in `_functions.py` — `name`, `spec` (named `Arg`s), `result_type`, `validate` if
+      cross-argument rules exist. Reused a shape base where one fit.
+- [ ] Errors raise `ValueError` via the `Function` helpers.
+- [ ] Public wrapper in `formulas.py` — friendly types, behaviour-only docstring, returns the node.
+- [ ] Case added to `contract_cases.py`.
+- [ ] Registered in `drift_corpus.py` (or `_add_bespoke_cases`); golden re-captured and inspected.
+- [ ] `./pipelines/lint.sh` clean; `pytest` green (incl. the spec gate, doc cross-check, and parser
+      drift conformance).
+- [ ] Docs regenerate and build.

@@ -20,6 +20,7 @@ from typing import Any
 from typeguard import typechecked
 
 from ._buildable import Buildable, json_type_info
+from ._data import ModelVariable
 from ._link_destination import LinkDestination
 
 
@@ -164,19 +165,23 @@ class ConstantSource(Source):
     value: Any
 
 
-@json_type_info("CONTEXT_VARIABLE")
+@json_type_info("MODEL_VARIABLE")
 @dataclass
 @typechecked
-class ContextVariableSource(Source):
+class ModelVariableSource(Source):
     """
-    A source that retrieves a value from a context variable.
+    A source that retrieves a value from a model variable.
+
+    A model variable references a field, named value (parameter or calculation), or
+    context variable. The wrapped :class:`ModelVariable` records which kind it is and
+    the identifier to read from at runtime.
 
     Attributes:
-        context_variable_id (str):
-            The identifier of the context variable from which to read the value.
+        model_variable (ModelVariable):
+            The model variable describing where the value is read from.
     """
 
-    context_variable_id: str
+    model_variable: ModelVariable
 
 
 @json_type_info("TABLE_VALUE")
@@ -280,6 +285,63 @@ class RunDataSourceArgs(EventArgs):
     """
 
     data_source_name: str
+
+
+@json_type_info("CAPTURE_BASELINE")
+@dataclass
+@typechecked
+class CaptureBaselineArgs(EventArgs):
+    """
+    Arguments for capturing a baseline.
+
+    Stores the current values of the baseline's tracked elements (including calculated
+    fields).
+
+    Attributes:
+        baseline (str):
+            The name of the baseline to capture.
+        tracking_groups (Optional[List[str]]):
+            Restrict the capture to a subset of the baseline's tracking groups. Omit (or
+            leave empty) to capture all of them.
+    """
+
+    baseline: str
+    tracking_groups: list[str] | None = None
+
+
+@json_type_info("REVERT_BASELINE")
+@dataclass
+@typechecked
+class RevertBaselineArgs(EventArgs):
+    """
+    Arguments for reverting to a baseline.
+
+    Restores the editable elements (data fields, combo fields with
+    ``calculate_in_optimiser``, and parameters) to their captured values; calculated
+    fields recompute from the reverted inputs.
+
+    Attributes:
+        baseline (str):
+            The name of the baseline to revert to.
+        tracking_groups (Optional[List[str]]):
+            Restrict the revert to a subset of the baseline's tracking groups. Omit (or
+            leave empty) to revert all of them.
+    """
+
+    baseline: str
+    tracking_groups: list[str] | None = None
+
+
+@json_type_info("RUN_OPTIMISATION")
+@dataclass
+@typechecked
+class RunOptimisationArgs(EventArgs):
+    """
+    Arguments for triggering an optimisation run.
+
+    This event carries no additional arguments beyond the inherited
+    ``condition_context_variable``.
+    """
 
 
 @json_type_info("SET_VIEW")

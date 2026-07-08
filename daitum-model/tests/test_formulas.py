@@ -2,7 +2,6 @@
 Tests for daitum_model.formulas: formula functions, types, and serialisation.
 """
 
-import pytest
 from daitum_model import DataType, Formula, ModelBuilder, formulas
 
 
@@ -196,13 +195,74 @@ class TestProbabilitySerialisation:
         assert "GAMMAINV" in result.formula_string
 
 
-class TestChangeCalculator:
-    def test_change_calculator_importable(self):
-        from daitum_model import change_calculator
+class TestBaseline:
+    def _field(self):
+        from daitum_model import DataType, ModelBuilder
 
-        assert change_calculator is not None
+        model = ModelBuilder()
+        table = model.add_data_table("T")
+        table.set_id_field("id")
+        field = table.add_data_field("revenue", DataType.DECIMAL)
+        field.set_tracking_groups(["edits"])
+        return field
 
-    def test_difference_function_exists(self):
-        from daitum_model.change_calculator import difference
+    def test_baseline_returns_reference_type(self):
+        from daitum_model import DataType, Formula
 
-        assert difference is not None
+        result = formulas.BASELINE("optimised", self._field())
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.DECIMAL
+        assert result.formula_string == 'BASELINE("optimised", [revenue])'
+
+    def test_baseline_with_fallback(self):
+        field = self._field()
+        result = formulas.BASELINE("optimised", field, field)
+        assert result.formula_string == 'BASELINE("optimised", [revenue], [revenue])'
+
+    def test_baseline_fallback_type_mismatch_raises(self):
+        import pytest
+        from daitum_model import DataType, ModelBuilder
+
+        model = ModelBuilder()
+        table = model.add_data_table("T")
+        table.set_id_field("id")
+        decimal_field = table.add_data_field("revenue", DataType.DECIMAL)
+        decimal_field.set_tracking_groups(["edits"])
+        string_field = table.add_data_field("name", DataType.STRING)
+        with pytest.raises(ValueError, match="does not match"):
+            formulas.BASELINE("optimised", decimal_field, string_field)
+
+    def test_baseline_untracked_reference_raises(self):
+        import pytest
+        from daitum_model import DataType, ModelBuilder
+
+        model = ModelBuilder()
+        table = model.add_data_table("T")
+        table.set_id_field("id")
+        field = table.add_data_field("revenue", DataType.DECIMAL)
+        with pytest.raises(ValueError, match="not assigned to any tracking group"):
+            formulas.BASELINE("optimised", field)
+
+    def test_baseline_expression_reference_raises(self):
+        import pytest
+
+        field = self._field()
+        with pytest.raises(TypeError, match="must be a field, calculation, or parameter"):
+            formulas.BASELINE("optimised", field + field)
+
+    def test_baseline_accepts_baseline_object(self):
+        from daitum_model import ModelBuilder
+
+        model = ModelBuilder()
+        edits = model.add_tracking_group("edits")
+        baseline = model.add_baseline("optimised", [edits])
+        result = formulas.BASELINE(baseline, self._field())
+        assert result.formula_string == 'BASELINE("optimised", [revenue])'
+
+    def test_hasbaseline_returns_boolean(self):
+        from daitum_model import DataType, Formula
+
+        result = formulas.HASBASELINE("optimised")
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.BOOLEAN
+        assert result.formula_string == 'HASBASELINE("optimised")'

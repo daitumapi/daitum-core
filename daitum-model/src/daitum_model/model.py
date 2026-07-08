@@ -24,18 +24,19 @@ JSON layout consumed by the Daitum platform.
 import json
 import os
 import pathlib
-from typing import Any, cast
+import warnings
+from typing import Any
 
 from typeguard import typechecked
 
-from ._helpers import replace_field, replace_named_value
 from .data_types import BaseDataType, DataType
 from .derived_table import DerivedTable
-from .fields import CalculatedField, Field
+from .fields import Field
 from .formula import CONST, Formula, Operand
 from .joined_table import JoinCondition, JoinedTable
 from .named_values import Calculation, Parameter
 from .tables import DataTable, Table
+from .tracking import AutoCapture, Baseline, TrackingGroup
 from .union_table import UnionSource, UnionTable
 
 
@@ -58,14 +59,17 @@ class ModelBuilder:
         self._validation_named_val: Parameter | Calculation | None = None
         self._partial_evaluation_allowed: bool = True
 
-        self._have_converted_tracked_fields: bool = False
+        # Populated by ``read_from_file`` so a loaded model exposes its symbol table.
+        self._load_context: Any = None
+
+        self._tracking_groups: list[TrackingGroup] = []
+        self._baselines: list[Baseline] = []
 
     def add_calculation(
         self,
         id: str,
         formula: Operand | float | int | bool | str,
         model_level: bool = False,
-        tracking_group: str | None = None,
     ) -> Calculation:
         """
         Add a :class:`~daitum_model.Calculation` to the model.
@@ -78,10 +82,6 @@ class ModelBuilder:
                 string), which is wrapped automatically.
             model_level: If ``True``, the calculation is evaluated once for the
                 whole model. If ``False`` (the default) it is scenario-level.
-            tracking_group: Optional change-tracking group. When set, a sibling
-                ``*_TRACKING_*`` calculation is generated with references to
-                other tracked named values and fields rewritten to their
-                tracking ids.
 
         Returns:
             The newly added :class:`~daitum_model.Calculation`.
@@ -91,53 +91,13 @@ class ModelBuilder:
                 already exists in the model.
         """
         if not isinstance(formula, Formula):
-            return self.add_calculation(id, CONST(formula), model_level, tracking_group)
+            return self.add_calculation(id, CONST(formula), model_level)
         if any(calculation.id == id for calculation in self._calculations) or any(
             parameter.id == id for parameter in self._parameters
         ):
             raise ValueError(f"A named value with id {id} already exists in the model")
         calc = Calculation(id, formula, model_level=model_level, model=self)
-        if tracking_group is not None:
-            calc.set_tracking_group(tracking_group)
         self._calculations.append(calc)
-
-        if tracking_group is not None:
-            tracking_formula = calc.formula.formula_string
-
-            tracked_named_values = [
-                named_value
-                for named_value in (self._parameters or []) + (self._calculations or [])
-                if named_value.tracking_group is not None
-                and named_value.tracking_group == tracking_group
-            ]
-
-            for named_value in tracked_named_values:
-                tracking_formula = replace_named_value(
-                    tracking_formula,
-                    named_value.id,
-                    named_value.tracking_id,
-                )
-
-            tracked_fields = [
-                field
-                for table in self._tables or []
-                for field in table.get_fields()
-                if field.tracking_group is not None and field.tracking_group == tracking_group
-            ]
-
-            for field in tracked_fields:
-                tracking_formula = replace_field(
-                    tracking_formula,
-                    field.id,
-                    field.tracking_id,
-                )
-
-            self.add_calculation(
-                calc.tracking_id,
-                formula=Formula(calc.formula.data_type, tracking_formula),
-                model_level=calc.model_level,
-            )
-
         return calc
 
     def add_parameter(
@@ -146,7 +106,6 @@ class ModelBuilder:
         data_type: BaseDataType,
         value: Any,
         model_level: bool = False,
-        tracking_group: str | None = None,
     ) -> Parameter:
         """
         Add a :class:`~daitum_model.Parameter` to the model.
@@ -158,22 +117,65 @@ class ModelBuilder:
             value: Initial value. Must be compatible with ``data_type``.
             model_level: If ``True``, the parameter is shared across all
                 scenarios. If ``False`` (the default) it is scenario-level.
-            tracking_group: Optional change-tracking group. When set, a sibling
-                ``*_TRACKING_*`` parameter is generated with the same value.
 
         Returns:
             The newly added :class:`~daitum_model.Parameter`.
         """
         param = Parameter(id, data_type, value, model_level)
-        if tracking_group is not None:
-            param.set_tracking_group(tracking_group)
         param.set_model(self)
         self._parameters.append(param)
-
-        if tracking_group is not None:
-            self.add_parameter(param.tracking_id, data_type, value, model_level)
-
         return param
+
+    def add_tracking_group(self, name: str) -> TrackingGroup:
+        """
+        Declare a change-tracking group.
+
+        Tag fields, parameters, and calculations with the returned group (via
+        ``set_tracking_groups``) to include them in baselines that capture it.
+
+        Args:
+            name: Unique identifier for the tracking group.
+
+        Returns:
+            The newly declared :class:`~daitum_model.tracking.TrackingGroup`.
+
+        Raises:
+            ValueError: If a tracking group with the same ``name`` already exists.
+        """
+        if any(group.name == name for group in self._tracking_groups):
+            raise ValueError(f"A tracking group named '{name}' already exists in the model")
+        group = TrackingGroup(name)
+        self._tracking_groups.append(group)
+        return group
+
+    def add_baseline(
+        self,
+        name: str,
+        tracking_groups: list[str | TrackingGroup],
+        auto_capture: AutoCapture = AutoCapture.NONE,
+    ) -> Baseline:
+        """
+        Declare a baseline — a named point in time that snapshots tracking groups.
+
+        Args:
+            name: Unique identifier for the baseline.
+            tracking_groups: The tracking groups (or their names) this baseline
+                captures.
+            auto_capture: Platform milestone that triggers an automatic capture,
+                or :attr:`~daitum_model.tracking.AutoCapture.NONE` (the default)
+                for manual capture only.
+
+        Returns:
+            The newly declared :class:`~daitum_model.tracking.Baseline`.
+
+        Raises:
+            ValueError: If a baseline with the same ``name`` already exists.
+        """
+        if any(baseline.name == name for baseline in self._baselines):
+            raise ValueError(f"A baseline named '{name}' already exists in the model")
+        baseline = Baseline(name, tracking_groups, auto_capture)
+        self._baselines.append(baseline)
+        return baseline
 
     def add_data_table(self, id: str) -> DataTable:
         """
@@ -241,7 +243,9 @@ class ModelBuilder:
             id: Unique identifier for the joined table.
             join_conditions: One condition per joined table pairing. The
                 :class:`~daitum_model.JoinType` of each condition controls how
-                unmatched rows are handled.
+                unmatched rows are handled. A :attr:`~daitum_model.JoinType.CROSS`
+                condition pairs every left row with every right row and takes no
+                match fields.
 
         Returns:
             The newly added :class:`~daitum_model.joined_table.JoinedTable`.
@@ -408,11 +412,9 @@ class ModelBuilder:
                     )
 
         if not field_severity:
-            return self.add_calculation("__validation_state__", 0, model_level=True)
+            return self.add_calculation("__validation_state__", 0)
 
-        return self.add_calculation(
-            "__validation_state__", formulas.MAX(*field_severity), model_level=True
-        )
+        return self.add_calculation("__validation_state__", formulas.MAX(*field_severity))
 
     def _add_table(self, table: Table):
         """
@@ -424,6 +426,81 @@ class ModelBuilder:
         if any(_table.id == table.id for _table in self._tables):
             raise ValueError(f"A table with id {table.id} already exists in the model")
         self._tables.append(table)
+
+    @classmethod
+    def read_from_file(cls, model_directory: str | os.PathLike[str]) -> "ModelBuilder":
+        """
+        Reconstruct a live :class:`ModelBuilder` from the canonical Daitum directory layout.
+
+        The inverse of :meth:`write_to_file`. Reads ``model-definition.json`` and the
+        scenario- and model-level ``named-values.json`` files from disk, then delegates to
+        :meth:`read_from_dict` to do the actual decoding.
+
+        Args:
+            model_directory: The directory previously written by :meth:`write_to_file`.
+
+        Returns:
+            A :class:`ModelBuilder` equivalent to the one that produced the files.
+        """
+        root = pathlib.Path(model_directory)
+        with (root / "model-definition.json").open(encoding="utf-8") as fp:
+            definition = json.load(fp)
+
+        named_values: list[dict[str, Any]] = []
+        for relative in ("model-data/named-values.json", "scenarios/Initial/named-values.json"):
+            path = root / relative
+            if path.exists():
+                with path.open(encoding="utf-8") as fp:
+                    named_values.append(json.load(fp))
+
+        return cls.read_from_dict(definition, named_values)
+
+    @classmethod
+    def read_from_dict(
+        cls,
+        definition: dict[str, Any],
+        named_values: list[dict[str, Any]] | None = None,
+    ) -> "ModelBuilder":
+        """
+        Reconstruct a live :class:`ModelBuilder` from already-parsed JSON dicts.
+
+        The dict-level inverse of :meth:`build`. Rebuilds the tables, calculations, and
+        parameters from ``definition``, then restores each parameter's value from the
+        ``named_values`` payloads. The returned builder is fully re-editable (decoding
+        routes through the ``add_*`` factories) and exposes the populated
+        :class:`~daitum_model.decoding.LoadContext` via :attr:`load_context` for a
+        configuration or UI load to consume.
+
+        Args:
+            definition: The dict produced by :meth:`build` (``model-definition.json``).
+            named_values: Parsed ``named-values.json`` payloads (each a ``{"values": {...}}``
+                dict) supplying parameter values. May be omitted when no values are needed.
+
+        Returns:
+            A :class:`ModelBuilder` equivalent to the one that produced the dict.
+        """
+        from ._decoders.model import decode_model  # pylint: disable=import-outside-toplevel
+        from .decoding import LoadContext  # pylint: disable=import-outside-toplevel
+
+        ctx = LoadContext()
+        model = decode_model(definition, ctx)
+
+        for payload in named_values or []:
+            for param_id, value_dict in payload.get("values", {}).items():
+                param = ctx.symbols.get(param_id)
+                if isinstance(param, Parameter):
+                    param._value = value_dict.get("value")  # pylint: disable=protected-access
+
+        model._load_context = ctx  # pylint: disable=protected-access
+        return model
+
+    @property
+    def load_context(self):
+        """The :class:`~daitum_model.decoding.LoadContext` populated by :meth:`read_from_file`.
+
+        ``None`` on a builder that was constructed directly rather than loaded.
+        """
+        return getattr(self, "_load_context", None)
 
     def write_to_file(self, model_directory: str | os.PathLike[str]) -> None:
         """
@@ -456,75 +533,24 @@ class ModelBuilder:
         """
         Build the JSON-compatible dict representation of the model.
 
-        On the first call, change-tracking metadata is resolved: tracked
-        calculated fields have their formulas rewritten to reference the
-        ``*_TRACKING_*`` ids of any other tracked named values and fields.
-        This step is idempotent and only runs once per builder.
+        Change-tracking declarations are validated here (see
+        :meth:`_validate_tracking`). The ``trackingGroupDefinitions`` and
+        ``baselineDefinitions`` keys are only emitted when at least one tracking
+        group or baseline has been declared, so untracked models are unaffected.
 
         Returns:
             A dict suitable for ``json.dump`` containing
             ``calculationDefinitions``, ``parameterDefinitions``,
-            ``tableDefinitions``, ``optimisationCheckNamedValue``, and
-            ``partialEvaluationAllowed`` keys.
+            ``tableDefinitions``, ``optimisationCheckNamedValue``,
+            ``partialEvaluationAllowed`` and, when present, the change-tracking
+            definition maps.
+
+        Raises:
+            ValueError: If a change-tracking declaration is invalid.
         """
+        self._validate_tracking()
 
-        if not self._have_converted_tracked_fields:
-            tracked_named_values = [
-                named_value
-                for named_value in (self._parameters or []) + (self._calculations or [])
-                if named_value.tracking_group is not None
-            ]
-            tracked_fields = []
-            for table in self._tables:
-                for field in table.get_fields():
-                    if field.tracking_group is not None:
-                        tracked_fields.append(field)
-            if len(tracked_fields) != 0:
-                for table in self._tables:
-                    for field in table.get_fields():
-                        if field.tracking_group is None:
-                            continue
-                        if not isinstance(field, CalculatedField):
-                            continue
-
-                        tracking_group = field.tracking_group
-                        tracked_field = table.get_field(field.tracking_id)
-                        assert isinstance(tracked_field, CalculatedField)
-                        tracked_field = cast(CalculatedField, tracked_field)
-
-                        tracking_formula = tracked_field.formula.formula_string
-
-                        named_values_to_replace = [
-                            named_value
-                            for named_value in tracked_named_values
-                            if named_value.tracking_group == tracking_group
-                        ]
-
-                        for named_value in named_values_to_replace:
-                            tracking_formula = replace_named_value(
-                                tracking_formula,
-                                named_value.id,
-                                named_value.tracking_id,
-                            )
-
-                        fields_to_replace = [
-                            field_to_replace
-                            for field_to_replace in tracked_fields
-                            if field_to_replace.tracking_group == tracking_group
-                        ]
-
-                        for field_to_replace in fields_to_replace:
-                            tracking_formula = replace_field(
-                                tracking_formula,
-                                field_to_replace.id,
-                                field_to_replace.tracking_id,
-                            )
-
-                        tracked_field.formula = Formula(tracked_field.data_type, tracking_formula)
-
-            self._have_converted_tracked_fields = True
-
-        return {
+        definition: dict[str, Any] = {
             "calculationDefinitions": {calc.id: calc.build() for calc in self._calculations},
             "parameterDefinitions": {param.id: param.build() for param in self._parameters},
             "tableDefinitions": {table.id: table.build() for table in self._tables},
@@ -533,6 +559,73 @@ class ModelBuilder:
             ),
             "partialEvaluationAllowed": self._partial_evaluation_allowed,
         }
+
+        if self._tracking_groups:
+            definition["trackingGroupDefinitions"] = {
+                group.name: group.build() for group in self._tracking_groups
+            }
+        if self._baselines:
+            definition["baselineDefinitions"] = {
+                baseline.name: baseline.build() for baseline in self._baselines
+            }
+
+        return definition
+
+    def _validate_tracking(self) -> None:
+        """
+        Validate change-tracking declarations.
+
+        Raises:
+            ValueError: If an element or baseline references an undeclared
+                tracking group, or a table has a tracked field but no
+                ``id_field``.
+        """
+        declared_groups = {group.name for group in self._tracking_groups}
+
+        def check_element(kind: str, name: str, groups: list[str] | None) -> set[str]:
+            used = set(groups or [])
+            unknown = used - declared_groups
+            if unknown:
+                raise ValueError(
+                    f"{kind} '{name}' references undeclared tracking group(s): "
+                    f"{', '.join(sorted(unknown))}"
+                )
+            return used
+
+        captured_groups: set[str] = set()
+
+        for named_value in self._calculations:
+            check_element("Calculation", named_value.id, named_value.tracking_groups)
+        for param in self._parameters:
+            check_element("Parameter", param.id, param.tracking_groups)
+
+        for table in self._tables:
+            table_has_tracked_field = False
+            for field in table.get_fields():
+                used = check_element("Field", field.id, field.tracking_groups)
+                if used:
+                    table_has_tracked_field = True
+            if table_has_tracked_field and table.id_field is None:
+                raise ValueError(
+                    f"Table '{table.id}' has tracked fields but does not declare an id_field; "
+                    "baseline row values are matched by identity, so a stable id_field is required"
+                )
+
+        for baseline in self._baselines:
+            unknown = set(baseline.tracking_groups) - declared_groups
+            if unknown:
+                raise ValueError(
+                    f"Baseline '{baseline.name}' references undeclared tracking group(s): "
+                    f"{', '.join(sorted(unknown))}"
+                )
+            captured_groups.update(baseline.tracking_groups)
+
+        for group_name in sorted(declared_groups - captured_groups):
+            warnings.warn(
+                f"Tracking group '{group_name}' is not captured by any baseline; "
+                "tagging is inert.",
+                stacklevel=2,
+            )
 
     def to_named_value_dict(self, model_level: bool) -> dict[str, Any]:
         """

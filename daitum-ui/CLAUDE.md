@@ -138,6 +138,16 @@ object graph to a dict, applying `snake_case` → `camelCase` key transformation
 `@json_type_info("type_name")` decorator injects a `@type` discriminator field into the output.
 Do **not** bypass this mechanism — always override `.build()` rather than calling `.to_dict()`.
 
+### Decoding (loading JSON back into builders)
+
+The inverse — reconstructing typed builder objects from `build()` output — is provided by the
+shared decoder core in **`daitum_model.decoding`** (`LoadContext`, `decode_into`,
+`register_decoder`, `register_type`, `LoadError`). This package's decoders live in `_decoders/`.
+Because UI classes set attributes via `set_*`/`add_*` rather than constructor args, they decode
+through a **template** mechanism (`_decoders/_template.py`) that learns each attribute's type from
+a reference instance. Entry point: `UiBuilder.read_from_file(model_directory, model)`. Import the
+decoder core from its public path `daitum_model.decoding`.
+
 
 ## Import Conventions
 

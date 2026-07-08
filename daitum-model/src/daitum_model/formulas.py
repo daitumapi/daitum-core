@@ -16,107 +16,26 @@
 This module provides various functions that generate formulas used in Daitum models.
 """
 
-from typing import Any, cast
+from typing import Any
 
 from typeguard import typechecked
 
-from daitum_model import BaseDataType, DataType, Formula, MapDataType, ObjectDataType, Table
-from daitum_model._base_formulas import (
-    _ABS,
-    _AND,
-    _ARRAY,
-    _ARRAYMAX,
-    _ARRAYMIN,
-    _AVERAGE,
-    _BINOMDIST,
-    _BINOMINV,
-    _BITAND,
-    _BITMASK,
-    _BITMASKSTRING,
-    _BITOR,
-    _BLANK,
-    _CEILING,
-    _CHAR,
-    _CHOOSE,
-    _CONTAINS,
-    _COS,
-    _COUNT,
-    _COUNTBLANKS,
-    _COUNTDUPLICATES,
-    _DATE,
-    _DATETIME,
-    _DAY,
-    _DAYSBETWEEN,
-    _DISTINCT,
-    _DISTRIBUTE,
-    _EOMONTH,
-    _EXP,
-    _FILTER,
-    _FIND,
-    _FINDDUPLICATES,
-    _FLOOR,
-    _FROMTIMEZONE,
-    _GAMMADIST,
-    _GAMMAINV,
-    _GET,
-    _HOUR,
-    _HOURSBETWEEN,
-    _IF,
-    _IFBLANK,
-    _IFERROR,
-    _INDEX,
-    _INTEGER,
-    _INTERSECTION,
-    _ISBLANK,
-    _ISERROR,
-    _LEFT,
-    _LEN,
-    _LOG,
-    _LOOKUP,
-    _LOOKUPARRAY,
-    _LOWER,
-    _MATCH,
-    _MAX,
-    _MEDIAN,
-    _MIN,
-    _MINUTE,
-    _MOD,
-    _MONTH,
-    _MONTHSBETWEEN,
-    _NEXT,
-    _NORMDIST,
-    _NORMINV,
-    _NOT,
-    _OR,
-    _PLUSDAYS,
-    _PLUSMINUTES,
-    _POWER,
-    _PREV,
-    _RANK,
-    _RIGHT,
-    _ROUND,
-    _ROWS,
-    _ROWVECTOR,
-    _SECOND,
-    _SETTIME,
-    _SIN,
-    _SIZE,
-    _STDEV,
-    _SUM,
-    _TEXT,
-    _TEXTJOIN,
-    _TIME,
-    _TOMAP,
-    _TOTIMEZONE,
-    _TRIM,
-    _UNION,
-    _UPPER,
-    _VALUES,
-    _WEEKDAY,
-    _WEIBULL,
-    _YEAR,
+from daitum_model import (
+    BaseDataType,
+    Baseline,
+    Calculation,
+    DataType,
+    Field,
+    Formula,
+    ObjectDataType,
+    Parameter,
+    Table,
+    _functions,
 )
-from daitum_model.formula import CONST, Operand
+
+# ``CONST`` is part of the public ``daitum_model.formulas`` surface (an uppercase formula function
+# recognised by the docs reflector and imported by callers), so it is re-exported here.
+from daitum_model.formula import CONST, Constant, Operand  # noqa: F401
 
 # This applies type checking to all the functions in the file
 typechecked()
@@ -154,17 +73,19 @@ TIME_AND_ARRAY_TYPES = {
 STRING_AND_ARRAY_TYPES = {DataType.STRING, DataType.STRING_ARRAY}
 
 
-def _is_object_array(x: Table | Operand) -> bool:
-    if isinstance(x, Table):
-        return True
+def _is_object_array(x: Operand) -> bool:
+    """Whether *x* is an ``OBJECT_ARRAY`` operand.
 
+    A bare :class:`~daitum_model.Table` qualifies because, as an operand, its data type is an
+    ``OBJECT_ARRAY`` over itself (see :meth:`Table.to_data_type`) — so tables and object-array
+    fields flow through the same path with no special-casing.
+    """
     data_type = x.to_data_type()
-
     return data_type.is_array() if isinstance(data_type, ObjectDataType) else False
 
 
 def LOOKUP(
-    table: Table | Operand,
+    table: Operand,
     field_name: Operand | str,
     condition: Operand | int | float | str | bool,
     reverse_search: bool | Operand = False,
@@ -181,52 +102,26 @@ def LOOKUP(
             The table or OBJECT_ARRAY in which to perform the lookup. If the input is blank or in an
             error state, the formula evaluates to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - TABLE
-                - OBJECT_ARRAY
         field_name:
             The field name of the column to match against the condition. Must exist in `table`.
             If the field does not exist, the formula evaluates to an error. If a raw string is
             provided (rather than a formula), the method verifies that the field exists in the
             table, and raises a ValueError otherwise.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
         condition:
             The condition value to search for within the specified column. Must be compatible with
             the column's data type. If the value is not found the formula evaluates to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
         reverse_search:
             Optional. If True, the search starts from the last row and moves backward toward the
             first row. Defaults to False. Only BOOLEAN values are accepted; otherwise, a ValueError
             is raised.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
 
     Returns:
         The row in the table where the specified field equals the condition. If no row matches,
         the formula evaluates to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - OBJECT
 
     Raises:
         ValueError: if the specified field does not exist in the table.
@@ -249,57 +144,7 @@ def LOOKUP(
             LOOKUP(my_table, "status", "active", reverse_search=True)
             # Returns the last row where status == "active"
     """
-    if not _is_object_array(table):
-        raise ValueError("LOOKUP can only be called on a table or OBJECT_ARRAY")
-
-    if isinstance(condition, int | float | str | bool):
-        return LOOKUP(table, field_name, CONST(condition), reverse_search)
-
-    if isinstance(reverse_search, bool):
-        return LOOKUP(table, field_name, condition, CONST(reverse_search))
-
-    table_data_type = None if isinstance(table, Table) else table.to_data_type()
-
-    source_table = (
-        table
-        if isinstance(table, Table)
-        else (
-            cast(Table, table_data_type._source_table)
-            if isinstance(table_data_type, ObjectDataType)
-            else None
-        )
-    )
-    assert source_table
-
-    # This will be the default way to use it (with field_name as string),
-    # but must also support a formula being passed in. For this latter case,
-    # we cannot perform most type checks
-    if isinstance(field_name, str):
-        field = source_table.get_field(field_name)
-        if not field:
-            raise ValueError(f"Field '{field_name}' does not exist in the table")
-        field_data_type = field.to_data_type()
-        condition_data_type = condition.to_data_type()
-
-        if condition_data_type != field_data_type:
-            raise ValueError(
-                f"Cannot compare field of type {field_data_type} with condition of type "
-                f"{condition_data_type}"
-            )
-        return LOOKUP(table, CONST(field_name), condition, reverse_search)
-
-    if reverse_search.to_data_type() != DataType.BOOLEAN:
-        raise ValueError(f"Reverse search data type {reverse_search.to_data_type()} is invalid")
-
-    table_string = table.id if isinstance(table, Table) else table.to_string()
-
-    return _LOOKUP(
-        ObjectDataType(source_table),
-        table_string,
-        field_name.to_string(),
-        condition.to_string(),
-        reverse_search.to_string(),
-    )
+    return _functions.Lookup(table, field_name, condition, reverse_search)
 
 
 def MATCH(
@@ -320,54 +165,20 @@ def MATCH(
             If `lookup_value` is blank or in an error state, or the value is not found, the returned
             formula will evaluate to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - STRING
-                - BOOLEAN
-                - DATE
-                - DATETIME
-                - TIME
-                - OBJECT
         lookup_array:
             The array in which to search for `lookup_value`. Must be a valid array type and
             compatible with the data type of `lookup_value`. If the array is blank or in an error
             state, the formula will evaluate to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - BOOLEAN_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - TIME_ARRAY
-                - OBJECT_ARRAY
         reverse_search:
              Optional. If True, the search starts from the end of the array and moves backward.
              Defaults to False. Only BOOLEAN values are accepted; otherwise, a ValueError is raised.
 
-             *Supported types*:
-
-             .. container:: supported-types
-
-                 - BOOLEAN
 
     Returns:
         The 1-based index of the array where the match is found. If the value is not found, the
         formula will evaluate to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
 
     Raises:
         ValueError: if the data type of `lookup_value` is not a singular version of the data type of
@@ -388,36 +199,10 @@ def MATCH(
             MATCH(5, [1, 3, 5, 7], reverse_search=True)
             # Returns 2
     """
-
-    array_data_type = lookup_array.to_data_type()
-    if not array_data_type.is_array():
-        raise ValueError("MATCH can only be called on an array type")
-
-    if isinstance(lookup_value, int | float | str | bool):
-        return MATCH(CONST(lookup_value), lookup_array, reverse_search)
-
-    if (
-        isinstance(lookup_value, Operand)
-        and array_data_type.from_array() != lookup_value.to_data_type()
-    ):
-        raise ValueError(
-            f"Cannot search for {lookup_value.to_data_type()} in " f"{array_data_type}"
-        )
-
-    if isinstance(reverse_search, bool):
-        return MATCH(lookup_value, lookup_array, CONST(reverse_search))
-
-    if reverse_search.to_data_type() != DataType.BOOLEAN:
-        raise ValueError(f"Reverse search data type {reverse_search.to_data_type()} is invalid")
-
-    return _MATCH(
-        lookup_value.to_string(),
-        lookup_array.to_string(),
-        reverse_search.to_string(),
-    )
+    return _functions.Match(lookup_value, lookup_array, reverse_search)
 
 
-def ROWS(array: Table | Operand) -> Formula:
+def ROWS(array: Operand) -> Formula:
     """
     The ROWS function returns the number of rows in a specified table or array. If the input is
     blank or in an error state, the formula evaluates to an error. Only valid tables or array types
@@ -428,28 +213,11 @@ def ROWS(array: Table | Operand) -> Formula:
             The table or array for which to count the number of rows. Must be a valid table or array
             type. If the input is blank or in an error state, the formula evaluates to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - BOOLEAN_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - TIME_ARRAY
-                - OBJECT_ARRAY
 
     Returns:
         The total number of rows in the specified table or array. If the input is invalid, blank, or
         in an error state, the formula evaluates to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
 
     Raises:
         ValueError: if the input is not a valid table or array type.
@@ -460,15 +228,7 @@ def ROWS(array: Table | Operand) -> Formula:
             ROWS(my_table)
             # Returns the number of rows in my_table
     """
-    if isinstance(array, Table):
-        return _ROWS(array.id)
-
-    array_data_type = array.to_data_type()
-
-    if not array_data_type.is_array():
-        raise ValueError("ROWS can only be called on an array type")
-
-    return _ROWS(array.to_string())
+    return _functions.Rows(array)
 
 
 def SUM(*values: Operand | int | float) -> Formula:
@@ -483,25 +243,11 @@ def SUM(*values: Operand | int | float) -> Formula:
         *values:
             One or more arguments to be summed.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
-                - DECIMAL
-                - DECIMAL_ARRAY
 
     Returns:
         The total sum of the specified values. If all inputs are integers, the result is INTEGER.
         If any input is DECIMAL or DECIMAL_ARRAY, the result is DECIMAL.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - DECIMAL
 
     Raises:
         ValueError: if no arguments are provided.
@@ -523,23 +269,7 @@ def SUM(*values: Operand | int | float) -> Formula:
             # Returns the sum of the two columns amount and tax
     """
 
-    if not values:
-        raise ValueError("At least one input is required")
-
-    # Convert all inputs to `Operand` if necessary
-    converted_fields = [field if isinstance(field, Operand) else CONST(field) for field in values]
-
-    ret_data_type = DataType.INTEGER
-    for value in converted_fields:
-        data_type = value.to_data_type()
-        if data_type not in NUMERIC_AND_ARRAY_TYPES:
-            raise ValueError(f"Datatype {data_type} is not a valid input for this method")
-        if data_type in {DataType.DECIMAL, DataType.DECIMAL_ARRAY}:
-            ret_data_type = DataType.DECIMAL
-
-    string_values = [value.to_string() for value in converted_fields]
-
-    return _SUM(ret_data_type, *string_values)
+    return _functions.Sum(*values)
 
 
 def POWER(
@@ -556,78 +286,16 @@ def POWER(
         mantissa:
             The base number to raise to a power.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         exponent:
             The exponent to which the mantissa is raised.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         The result of the exponentiation.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER (if both inputs are integer types)
-            - DECIMAL (otherwise)
-            - INTEGER_ARRAY or DECIMAL_ARRAY (if either input is an array)
     """
-
-    if isinstance(mantissa, (int, float)):
-        return POWER(CONST(mantissa), exponent)
-    if isinstance(exponent, (int, float)):
-        return POWER(mantissa, CONST(exponent))
-
-    mantissa_data_type = mantissa.to_data_type()
-    exponent_data_type = exponent.to_data_type()
-
-    if not isinstance(mantissa_data_type, DataType) or not isinstance(exponent_data_type, DataType):
-        raise ValueError(
-            f"Incompatible data types for method POWER: {mantissa_data_type}, {exponent_data_type}"
-        )
-
-    if mantissa_data_type not in {
-        DataType.DECIMAL,
-        DataType.DECIMAL_ARRAY,
-        DataType.INTEGER,
-        DataType.INTEGER_ARRAY,
-    }:
-        raise ValueError(f"POWER does not support mantissa with data type: {mantissa_data_type}")
-
-    if exponent_data_type not in {
-        DataType.DECIMAL,
-        DataType.DECIMAL_ARRAY,
-        DataType.INTEGER,
-        DataType.INTEGER_ARRAY,
-    }:
-        raise ValueError(f"POWER does not support exponent with data type: {exponent_data_type}")
-
-    integer_types = {DataType.INTEGER, DataType.INTEGER_ARRAY}
-    non_array_ret_data_type = (
-        DataType.INTEGER
-        if mantissa_data_type in integer_types and exponent_data_type in integer_types
-        else DataType.DECIMAL
-    )
-    ret_is_array = mantissa_data_type.is_array() or exponent_data_type.is_array()
-    ret_data_type = non_array_ret_data_type.to_array() if ret_is_array else non_array_ret_data_type
-
-    return _POWER(ret_data_type, mantissa.to_string(), exponent.to_string())
+    return _functions.Power(mantissa, exponent)
 
 
 def ROW() -> Formula:
@@ -644,11 +312,6 @@ def ROW() -> Formula:
     Returns:
         The 1-based row index of the current table.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
 
     Examples:
         Basic usage within a table:
@@ -665,7 +328,7 @@ def ROW() -> Formula:
             ROW()
             # Evaluates to an error
     """
-    return Formula(DataType.INTEGER, "ROW()")
+    return Constant(DataType.INTEGER, "ROW()")
 
 
 def IF(
@@ -684,41 +347,20 @@ def IF(
         condition:
             The condition to evaluate.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - INTEGER (treats 0 as False, non-zero as True)
 
         true_branch:
             The value to return if the condition is true. Must be the same data type as
             `false_branch`, or NULL.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
         false_branch:
             The value to return if the condition is false. Must be the same data type as
             `true_branch`, or NULL.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
     Returns:
         Either `true_branch` or `false_branch`, depending on the condition.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - ANY
 
     Raises:
         ValueError: If `condition` is not BOOLEAN or INTEGER.
@@ -745,45 +387,7 @@ def IF(
 
             result = IF(score > 90, "A", IF(score > 80, "B", IF(score > 70, "C", "F")))
     """
-
-    if isinstance(condition, (int, bool)):
-        return IF(CONST(condition), true_branch, false_branch)
-    if isinstance(true_branch, (int, float, str, bool)):
-        return IF(condition, CONST(true_branch), false_branch)
-    if isinstance(false_branch, (int, float, str, bool)):
-        return IF(condition, true_branch, CONST(false_branch))
-
-    condition_data_type = condition.to_data_type()
-    true_branch_data_type = true_branch.to_data_type()
-    false_branch_data_type = false_branch.to_data_type()
-
-    if not isinstance(condition_data_type, DataType) or condition_data_type not in {
-        DataType.BOOLEAN,
-        DataType.INTEGER,
-    }:
-        raise ValueError("An IF condition must be either a BOOLEAN or INTEGER")
-
-    if (
-        true_branch_data_type != false_branch_data_type
-        and true_branch.to_data_type() != DataType.NULL
-        and false_branch.to_data_type() != DataType.NULL
-    ):
-        raise ValueError(
-            f"Both branches of IF statement must have the same data type. True branch: "
-            f"{true_branch_data_type}. False branch: {false_branch_data_type}."
-        )
-
-    if true_branch.to_data_type() == DataType.NULL and false_branch.to_data_type() == DataType.NULL:
-        raise ValueError("Both branches of IF statement cannot be blank.")
-    ret_data_type = (
-        true_branch_data_type if true_branch_data_type != DataType.NULL else false_branch_data_type
-    )
-    return _IF(
-        ret_data_type,
-        condition.to_string(),
-        true_branch.to_string(),
-        false_branch.to_string(),
-    )
+    return _functions.If(condition, true_branch, false_branch)
 
 
 def FIND(
@@ -809,45 +413,21 @@ def FIND(
             The substring to search for within `search_string`. If blank or in an error state, the
             formula evaluates to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
         search_string:
             The string within which to search for `match_string`. Must be a valid string or string
             array. If blank or in an error state, the formula evaluates to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
         start_index:
             Optional. The 1-based position to start searching from. Defaults to 1 if not provided.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         Returns the index within this string of the first occurrence of the specified substring,
         starting at `start_index` if specified, otherwise 1. If the substring is not found, the
         formula evaluates to 0.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: if `match_string` or `search_string` is not of type STRING or STRING_ARRAY.
@@ -868,53 +448,7 @@ def FIND(
             FIND("apple", "banana apple pie", start_index=5)
             # Returns 8
     """
-    if isinstance(match_string, str):
-        return FIND(CONST(match_string), search_string, start_index)
-    if isinstance(search_string, str):
-        return FIND(match_string, CONST(search_string), start_index)
-    if start_index:
-        if isinstance(start_index, int):
-            return FIND(match_string, search_string, CONST(start_index))
-
-    match_string_data_type = match_string.to_data_type()
-    search_string_data_type = search_string.to_data_type()
-    start_index_data_type = start_index.to_data_type() if start_index else None
-
-    data_type_exception = ValueError(
-        f"FIND is only supported for strings with type {DataType.STRING} or {DataType.STRING_ARRAY}"
-    )
-
-    if not isinstance(match_string_data_type, DataType) or not isinstance(
-        search_string_data_type, DataType
-    ):
-        raise data_type_exception
-
-    if search_string_data_type not in STRING_AND_ARRAY_TYPES:
-        raise data_type_exception
-    if match_string_data_type not in STRING_AND_ARRAY_TYPES:
-        raise data_type_exception
-
-    if start_index:
-        if start_index_data_type not in {DataType.INTEGER, DataType.INTEGER_ARRAY}:
-            raise ValueError(
-                f"FIND's third argument must be of type {DataType.INTEGER} or "
-                f"{DataType.INTEGER_ARRAY}"
-            )
-
-    ret_is_array = search_string_data_type.is_array() or match_string_data_type.is_array()
-    ret_data_type = DataType.INTEGER_ARRAY if ret_is_array else DataType.INTEGER
-
-    if start_index:
-        ret_data_type = (
-            DataType.INTEGER_ARRAY if start_index.to_data_type().is_array() else ret_data_type
-        )
-        return _FIND(
-            ret_data_type,
-            match_string.to_string(),
-            search_string.to_string(),
-            start_index.to_string(),
-        )
-    return _FIND(ret_data_type, match_string.to_string(), search_string.to_string())
+    return _functions.Find(match_string, search_string, start_index)
 
 
 def LEFT(
@@ -934,34 +468,16 @@ def LEFT(
             The string from which characters will be extracted. Can be a literal string,
             a field, formula, calculation, or parameter.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
         length:
             The number of characters to extract from the left of `input_string`. If negative, the
             formula evaluates to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         The substring consisting of the leftmost characters of `input_string` up to `index`.
         If either input is an array, an array of substrings is returned.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING
-            - STRING_ARRAY
 
     Raises:
         ValueError: if `input_string` is not of type STRING or STRING_ARRAY.
@@ -989,34 +505,7 @@ def LEFT(
             LEFT(["Apple", "Banana", "Cherry"], 2)
             # Returns ["Ap", "Ba", "Ch"]
     """
-    if isinstance(input_string, str):
-        return LEFT(CONST(input_string), length)
-    if isinstance(length, int):
-        return LEFT(input_string, CONST(length))
-
-    input_string_data_type = input_string.to_data_type()
-    length_data_type = length.to_data_type()
-
-    data_type_exception = ValueError(
-        f"LEFT is only supported with input string data type {DataType.STRING} or "
-        f"{DataType.STRING_ARRAY}"
-    )
-
-    if not isinstance(input_string_data_type, DataType) or not isinstance(
-        length_data_type, DataType
-    ):
-        raise data_type_exception
-
-    if input_string_data_type not in STRING_AND_ARRAY_TYPES:
-        raise data_type_exception
-
-    if length_data_type not in {DataType.INTEGER, DataType.INTEGER_ARRAY}:
-        raise data_type_exception
-
-    ret_is_array = input_string_data_type.is_array() or length_data_type.is_array()
-    ret_data_type = DataType.STRING_ARRAY if ret_is_array else DataType.STRING
-
-    return _LEFT(ret_data_type, input_string.to_string(), length.to_string())
+    return _functions.Left(input_string, length)
 
 
 def RIGHT(
@@ -1036,34 +525,16 @@ def RIGHT(
             The string from which characters will be extracted. Can be a literal string,
             a field, formula, calculation, or parameter.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
         length:
             The number of characters to extract from the right of `input_string`. If negative, the
             formula evaluates to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         The substring consisting of the rightmost characters of `input_string` up to `index`.
         If either input is an array, an array of substrings is returned.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING
-            - STRING_ARRAY
 
     Raises:
         ValueError: if `input_string` is not of type STRING or STRING_ARRAY.
@@ -1091,34 +562,7 @@ def RIGHT(
             RIGHT(["Apple", "Banana", "Cherry"], 2)
             # Returns ["ue", "le", "ry"]
     """
-    if isinstance(input_string, str):
-        return RIGHT(CONST(input_string), length)
-    if isinstance(length, int):
-        return RIGHT(input_string, CONST(length))
-
-    input_string_data_type = input_string.to_data_type()
-    length_data_type = length.to_data_type()
-
-    data_type_exception = ValueError(
-        f"LEFT is only supported with input string data type {DataType.STRING} or "
-        f"{DataType.STRING_ARRAY}"
-    )
-
-    if not isinstance(input_string_data_type, DataType) or not isinstance(
-        length_data_type, DataType
-    ):
-        raise data_type_exception
-
-    if input_string_data_type not in STRING_AND_ARRAY_TYPES:
-        raise data_type_exception
-
-    if length_data_type not in {DataType.INTEGER, DataType.INTEGER_ARRAY}:
-        raise data_type_exception
-
-    ret_is_array = input_string_data_type.is_array() or length_data_type.is_array()
-    ret_data_type = DataType.STRING_ARRAY if ret_is_array else DataType.STRING
-
-    return _RIGHT(ret_data_type, input_string.to_string(), length.to_string())
+    return _functions.Right(input_string, length)
 
 
 def PREV(field: Operand) -> Formula:
@@ -1133,22 +577,12 @@ def PREV(field: Operand) -> Formula:
             The field whose previous value is to be retrieved. If a formula is provided, PREV will
             evaluate it for the previous row.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
     Returns:
         The value of `field` from the preceding row in the table.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - ANY
     """
-    return _PREV(field.to_data_type(), field.to_string())
+    return _functions.Prev(field)
 
 
 def NEXT(field: Operand) -> Formula:
@@ -1163,22 +597,12 @@ def NEXT(field: Operand) -> Formula:
             The field whose next value is to be retrieved. If a formula is provided, PREV will
             evaluate it for the next row.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
     Returns:
         The value of `field` from the next row in the table.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - ANY
     """
-    return _NEXT(field.to_data_type(), field.to_string())
+    return _functions.Next(field)
 
 
 def TEXT(value: Operand, formatting: Operand | str | None = None) -> Formula:
@@ -1193,33 +617,16 @@ def TEXT(value: Operand, formatting: Operand | str | None = None) -> Formula:
         value:
             The value or field to convert to text.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
         formatting:
             Optional. A string or field that specifies the text format to apply to `value`.
             If provided, must be a string or string array. Defaults to no formatting.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
     Returns:
         The text representation of `value`, optionally formatted. Returns an array if `value` or
         `formatting` is an array.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING
-            - STRING_ARRAY
 
     Raises:
         ValueError: If `formatting` is not STRING or STRING_ARRAY.
@@ -1253,24 +660,7 @@ def TEXT(value: Operand, formatting: Operand | str | None = None) -> Formula:
             TEXT([1, 2, 3], "00")
             # Returns ["01", "02", "03"]
     """
-
-    ret_data_type = DataType.STRING_ARRAY if value.to_data_type().is_array() else DataType.STRING
-
-    if formatting:
-        if isinstance(formatting, str):
-            return TEXT(value, CONST(formatting))
-
-        if formatting.to_data_type() not in STRING_AND_ARRAY_TYPES:
-            raise ValueError(
-                f"TEXT is only supported with a formatting with type {DataType.STRING} or "
-                f"{DataType.STRING_ARRAY}"
-            )
-        ret_data_type = (
-            DataType.STRING_ARRAY if formatting.to_data_type().is_array() else ret_data_type
-        )
-        return _TEXT(ret_data_type, value.to_string(), formatting.to_string())
-
-    return _TEXT(ret_data_type, value.to_string())
+    return _functions.Text(value, formatting)
 
 
 def BLANK(
@@ -1290,11 +680,6 @@ def BLANK(
     Returns:
         A blank value of the specified data type.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - ANY
 
     Examples:
         Creating a generic blank:
@@ -1312,7 +697,7 @@ def BLANK(
             BLANK(DataType.STRING)
             # Returns a blank of type STRING. Can be assigned to a field or named value
     """
-    return _BLANK(data_type if data_type else DataType.NULL)
+    return _functions.Blank(data_type)
 
 
 def ISBLANK(value: Operand) -> Formula:
@@ -1327,22 +712,11 @@ def ISBLANK(value: Operand) -> Formula:
         value:
             The value to check if blank.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
     Returns:
         True if `value` is blank, False otherwise. Returns an array of boolean values if `value` is
         an array.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - BOOLEAN
-            - BOOLEAN_ARRAY
 
     Examples:
         .. code-block:: python
@@ -1350,7 +724,7 @@ def ISBLANK(value: Operand) -> Formula:
             ISBLANK(customer["email"])
             # Returns True if email is blank, else False
     """
-    return _ISBLANK(value.to_string())
+    return _functions.IsBlank(value)
 
 
 def IFBLANK(
@@ -1368,30 +742,15 @@ def IFBLANK(
         value:
             The value to check if blank.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
         blank_branch:
             The value to return if `value` is blank. Must be compatible with the data type
             of `value` (or NULL).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
     Returns:
         Either `blank_branch` if `value` is blank, or the original `value` otherwise.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - ANY
 
     Raises:
         ValueError: If `value` and `blank_branch` have incompatible data types.
@@ -1403,44 +762,11 @@ def IFBLANK(
             IFBLANK(order["discount"], order["default_discount"])
             # Returns the discount if present, else default_discount
     """
-    if isinstance(blank_branch, (int, float, str, bool)):
-        return IFBLANK(value, CONST(blank_branch))
-
-    value_data_type = value.to_data_type()
-    blank_branch_data_type = blank_branch.to_data_type()
-
-    array_types_match = False
-    if isinstance(value_data_type, DataType):
-        array_types_match = (
-            value_data_type.is_array() and value_data_type.from_array() == blank_branch_data_type
-        )
-    elif isinstance(value_data_type, ObjectDataType) and isinstance(
-        blank_branch_data_type, ObjectDataType
-    ):
-        array_types_match = (
-            value_data_type.is_array()
-            and value_data_type._source_table == blank_branch_data_type._source_table
-        )
-
-    if (
-        value_data_type != blank_branch_data_type
-        and DataType.NULL not in (value_data_type, blank_branch_data_type)
-        and not array_types_match
-    ):
-        raise ValueError(
-            f"IFBLANK incompatible with data types {value_data_type} "
-            f"and {blank_branch_data_type}"
-        )
-
-    if value_data_type == DataType.NULL and blank_branch_data_type == DataType.NULL:
-        raise ValueError("Both branches of IFBLANK cannot be blank.")
-    ret_data_type = value_data_type if value_data_type != DataType.NULL else blank_branch_data_type
-
-    return _IFBLANK(ret_data_type, value.to_string(), blank_branch.to_string())
+    return _functions.IfBlank(value, blank_branch)
 
 
 def FILTER(
-    array: Table | Operand,
+    array: Operand,
     filter_condition: Operand,
 ) -> Formula:
     """
@@ -1457,48 +783,17 @@ def FILTER(
         array:
             The array or table to filter. The return will be a filtered array of the same type.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - BOOLEAN_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - TIME_ARRAY
-                - OBJECT_ARRAY
 
         filter_condition:
             An array representing which elements or rows to include. Must be of type
             BOOLEAN_ARRAY, INTEGER_ARRAY, or DECIMAL_ARRAY. If a non-boolean type is used, the
             value is treated as True if non-zero, False if zero.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A filtered array containing only elements or rows that meet the `filter_condition`.
         Returns an array of the same type as `array` or an object array for tables.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
-            - STRING_ARRAY
-            - BOOLEAN_ARRAY
-            - DATE_ARRAY
-            - DATETIME_ARRAY
-            - TIME_ARRAY
-            - OBJECT_ARRAY
 
     Raises:
         ValueError: If `filter_condition` is not BOOLEAN_ARRAY, INTEGER_ARRAY, or DECIMAL_ARRAY.
@@ -1519,27 +814,7 @@ def FILTER(
             FILTER(customers_table, customers_table["active"])
             # Returns all rows where 'active' is True
     """
-    filter_condition_data_type = filter_condition.to_data_type()
-
-    if filter_condition_data_type not in {
-        DataType.BOOLEAN_ARRAY,
-        DataType.DECIMAL_ARRAY,
-        DataType.INTEGER_ARRAY,
-    }:
-        raise ValueError(
-            f"Filter condition must have a data type of either "
-            f"{DataType.BOOLEAN_ARRAY, DataType.DECIMAL_ARRAY, DataType.INTEGER_ARRAY}."
-        )
-
-    if isinstance(array, Table):
-        return _FILTER(ObjectDataType(array, True), array.id, filter_condition.to_string())
-
-    array_data_type = array.to_data_type()
-
-    if not array_data_type.is_array():
-        raise ValueError("FILTER can only be called on an array type")
-
-    return _FILTER(array_data_type, array.to_string(), filter_condition.to_string())
+    return _functions.Filter(array, filter_condition)
 
 
 def MIN(*values: Operand | int | float) -> Formula:
@@ -1555,33 +830,10 @@ def MIN(*values: Operand | int | float) -> Formula:
             An arbitrary number of values or fields to compare. All inputs must be of
             compatible types (numeric, date, time, or datetime).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - DATE
-                - DATETIME
-                - TIME
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - TIME_ARRAY
 
     Returns:
         The minimum value among the inputs.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - DECIMAL
-            - DATE
-            - DATETIME
-            - TIME
 
     Raises:
         ValueError: If no inputs are provided.
@@ -1614,48 +866,7 @@ def MIN(*values: Operand | int | float) -> Formula:
         This formula only returns a scalar value. For array-wise minimums, use the `ARRAYMIN`
         formula instead.
     """
-    if not values:
-        raise ValueError("At least one input is required")
-
-    # Convert all inputs to `Operand` if necessary
-    converted_value = [value if isinstance(value, Operand) else CONST(value) for value in values]
-
-    ret_data_type = DataType.INTEGER
-    # Check that all inputs are either numeric, date, time or datetime
-    first_value_type = converted_value[0].to_data_type()
-    for value in converted_value:
-        data_type = value.to_data_type()
-
-        if (
-            data_type not in NUMERIC_AND_ARRAY_TYPES
-            and data_type not in DATE_AND_ARRAY_TYPES
-            and data_type not in {DataType.TIME, DataType.TIME_ARRAY}
-        ):
-            raise ValueError(f"Datatype {data_type} is not a valid input for this method")
-
-        if first_value_type in NUMERIC_AND_ARRAY_TYPES and data_type not in NUMERIC_AND_ARRAY_TYPES:
-            raise ValueError(f"Datatype {data_type} is not compatible with other inputs")
-
-        if first_value_type in {DataType.TIME, DataType.TIME_ARRAY}:
-            ret_data_type = DataType.TIME
-            if data_type not in {DataType.TIME, DataType.TIME_ARRAY}:
-                raise ValueError(f"Datatype {data_type} is not compatible with other inputs")
-
-        if first_value_type in {DataType.DATE, DataType.DATE_ARRAY}:
-            ret_data_type = DataType.DATE
-            if data_type not in {DataType.DATE, DataType.DATE_ARRAY}:
-                raise ValueError(f"Datatype {data_type} is not compatible with other inputs")
-
-        if first_value_type in {DataType.DATETIME, DataType.DATETIME_ARRAY}:
-            ret_data_type = DataType.DATETIME
-            if data_type not in {DataType.DATETIME, DataType.DATETIME_ARRAY}:
-                raise ValueError(f"Datatype {data_type} is not compatible with other inputs")
-
-        if data_type in {DataType.DECIMAL, DataType.DECIMAL_ARRAY}:
-            ret_data_type = DataType.DECIMAL
-
-    value_strings = [value.to_string() for value in converted_value]
-    return _MIN(ret_data_type, *value_strings)
+    return _functions.Min(*values)
 
 
 def MAX(*values: Operand | int | float) -> Formula:
@@ -1671,33 +882,10 @@ def MAX(*values: Operand | int | float) -> Formula:
             An arbitrary number of values or fields to compare. All inputs must be of
             compatible types (numeric, date, time, or datetime).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - DATE
-                - DATETIME
-                - TIME
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - TIME_ARRAY
 
     Returns:
         The maximum value among the inputs.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - DECIMAL
-            - DATE
-            - DATETIME
-            - TIME
 
     Raises:
         ValueError: If no inputs are provided.
@@ -1730,48 +918,7 @@ def MAX(*values: Operand | int | float) -> Formula:
         This formula only returns a scalar value. For array-wise maximums, use the `ARRAYMAX`
         formula instead.
     """
-    if not values:
-        raise ValueError("At least one input is required")
-
-    # Convert all inputs to `Operand` if necessary
-    converted_value = [value if isinstance(value, Operand) else CONST(value) for value in values]
-
-    ret_data_type = DataType.INTEGER
-    # Check that all inputs are either numeric, date, time or datetime
-    first_value_type = converted_value[0].to_data_type()
-    for value in converted_value:
-        data_type = value.to_data_type()
-
-        if (
-            data_type not in NUMERIC_AND_ARRAY_TYPES
-            and data_type not in DATE_AND_ARRAY_TYPES
-            and data_type not in {DataType.TIME, DataType.TIME_ARRAY}
-        ):
-            raise ValueError(f"Datatype {data_type} is not a valid input for this method")
-
-        if first_value_type in NUMERIC_AND_ARRAY_TYPES and data_type not in NUMERIC_AND_ARRAY_TYPES:
-            raise ValueError(f"Datatype {data_type} is not compatible with other inputs")
-
-        if first_value_type in {DataType.TIME, DataType.TIME_ARRAY}:
-            ret_data_type = DataType.TIME
-            if data_type not in {DataType.TIME, DataType.TIME_ARRAY}:
-                raise ValueError(f"Datatype {data_type} is not compatible with other inputs")
-
-        if first_value_type in {DataType.DATE, DataType.DATE_ARRAY}:
-            ret_data_type = DataType.DATE
-            if data_type not in {DataType.DATE, DataType.DATE_ARRAY}:
-                raise ValueError(f"Datatype {data_type} is not compatible with other inputs")
-
-        if first_value_type in {DataType.DATETIME, DataType.DATETIME_ARRAY}:
-            ret_data_type = DataType.DATETIME
-            if data_type not in {DataType.DATETIME, DataType.DATETIME_ARRAY}:
-                raise ValueError(f"Datatype {data_type} is not compatible with other inputs")
-
-        if data_type in {DataType.DECIMAL, DataType.DECIMAL_ARRAY}:
-            ret_data_type = DataType.DECIMAL
-
-    value_strings = [value.to_string() for value in converted_value]
-    return _MAX(ret_data_type, *value_strings)
+    return _functions.Max(*values)
 
 
 def OR(*values: Operand | bool) -> Formula:
@@ -1789,16 +936,6 @@ def OR(*values: Operand | bool) -> Formula:
             one input is required. If the input is non-boolean, it is treated as True if non-zero,
             else False.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - BOOLEAN_ARRAY
-                - INTEGER
-                - INTEGER_ARRAY
-                - DECIMAL
-                - DECIMAL_ARRAY
 
     Returns:
         True if any input is True, False otherwise. Evaluates to an error value if any input is null
@@ -1806,12 +943,6 @@ def OR(*values: Operand | bool) -> Formula:
         the OR across all elements in the array. If multiple arrays are provided, returns an array
         where each element is the OR of the corresponding elements across all input arrays.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - BOOLEAN
-            - BOOLEAN_ARRAY
 
     Raises:
         ValueError: If no inputs are provided.
@@ -1832,27 +963,7 @@ def OR(*values: Operand | bool) -> Formula:
             OR(order_table["is_urgent"])
             # Returns True if any row in the column 'is_urgent' is True
     """
-    if not values:
-        raise ValueError("At least one input is required")
-
-    # Convert all inputs to `Operand` if necessary
-    converted_values = [value if isinstance(value, Operand) else CONST(value) for value in values]
-
-    # Check that all inputs are boolean-compatible
-    for field in converted_values:
-        data_type = field.to_data_type()
-        if data_type not in BOOLEANISH_AND_ARRAY_TYPES:
-            raise ValueError(f"OR is not compatible with data type {data_type}")
-
-    ret_data_type = (
-        DataType.BOOLEAN
-        if all(f.to_data_type() == DataType.BOOLEAN for f in converted_values)
-        or (len(converted_values) == 1 and converted_values[0].to_data_type().is_array())
-        else DataType.BOOLEAN_ARRAY
-    )
-
-    value_strings = [value.to_string() for value in converted_values]
-    return _OR(ret_data_type, *value_strings)
+    return _functions.Or(*values)
 
 
 def AND(*values: Operand | bool) -> Formula:
@@ -1869,16 +980,6 @@ def AND(*values: Operand | bool) -> Formula:
             one input is required. If the input is non-boolean, it is treated as True if non-zero,
             else False.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - BOOLEAN_ARRAY
-                - INTEGER
-                - INTEGER_ARRAY
-                - DECIMAL
-                - DECIMAL_ARRAY
 
     Returns:
         False if any input is False, True otherwise. Evaluates to an error value if any input is
@@ -1887,12 +988,6 @@ def AND(*values: Operand | bool) -> Formula:
         returns an array where each element is the AND of the corresponding elements across all
         input arrays.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - BOOLEAN
-            - BOOLEAN_ARRAY
 
     Raises:
         ValueError: If no inputs are provided.
@@ -1913,27 +1008,7 @@ def AND(*values: Operand | bool) -> Formula:
             AND(order_table["is_urgent"])
             # Returns False if any row in the column 'is_urgent' is False, otherwise True
     """
-    if not values:
-        raise ValueError("At least one input is required")
-
-    # Convert all inputs to `Operand` if necessary
-    converted_values = [value if isinstance(value, Operand) else CONST(value) for value in values]
-
-    # Check that all inputs are boolean-compatible
-    for field in converted_values:
-        data_type = field.to_data_type()
-        if data_type not in BOOLEANISH_AND_ARRAY_TYPES:
-            raise ValueError(f"AND is not compatible with data type {data_type}")
-
-    ret_data_type = (
-        DataType.BOOLEAN
-        if all(f.to_data_type() == DataType.BOOLEAN for f in converted_values)
-        or (len(converted_values) == 1 and converted_values[0].to_data_type().is_array())
-        else DataType.BOOLEAN_ARRAY
-    )
-
-    value_strings = [value.to_string() for value in converted_values]
-    return _AND(ret_data_type, *value_strings)
+    return _functions.And(*values)
 
 
 def NOT(value: Operand | bool) -> Formula:
@@ -1950,26 +1025,10 @@ def NOT(value: Operand | bool) -> Formula:
         value:
             A boolean or boolean-compatible input to negate.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - BOOLEAN_ARRAY
-                - INTEGER
-                - INTEGER_ARRAY
-                - DECIMAL
-                - DECIMAL_ARRAY
 
     Returns:
         The logical negation of the input. Returns an array if the input is an array.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - BOOLEAN
-            - BOOLEAN_ARRAY
 
     Raises:
         ValueError: If the input is not boolean-compatible.
@@ -1996,17 +1055,7 @@ def NOT(value: Operand | bool) -> Formula:
             NOT([True, False])
             # Returns [False, True]
     """
-    if isinstance(value, bool):
-        return NOT(CONST(value))
-
-    data_type = value.to_data_type()
-
-    if data_type not in BOOLEANISH_AND_ARRAY_TYPES:
-        raise ValueError(f"NOT is not compatible with data type {data_type}")
-
-    ret_data_type = DataType.BOOLEAN_ARRAY if data_type.is_array() else DataType.BOOLEAN
-
-    return _NOT(ret_data_type, value.to_string())
+    return _functions.Not(value)
 
 
 def BITMASK(value: Operand) -> Formula:
@@ -2023,20 +1072,10 @@ def BITMASK(value: Operand) -> Formula:
         value:
             A model component representing a boolean array to convert into a bitmask.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
 
     Returns:
         An integer whose binary representation encodes the boolean array.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
 
     Raises:
         ValueError: If the input is not of type BOOLEAN_ARRAY.
@@ -2061,12 +1100,7 @@ def BITMASK(value: Operand) -> Formula:
         has a size greater than 32, information will be lost. For such cases, consider using
         `BITMASKSTRING` instead, which returns a hexadecimal string representation of the bitmask.
     """
-    data_type = value.to_data_type()
-
-    if data_type != DataType.BOOLEAN_ARRAY:
-        raise ValueError(f"BITMASK is not compatible with data type {data_type}")
-
-    return _BITMASK(value.to_string())
+    return _functions.Bitmask(value)
 
 
 def VALUES(value: Operand) -> Formula:
@@ -2080,32 +1114,10 @@ def VALUES(value: Operand) -> Formula:
         value:
             A model component of type `MapDataType` whose values will be extracted.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_MAP
-                - DECIMAL_MAP
-                - STRING_MAP
-                - BOOLEAN_MAP
-                - DATE_MAP
-                - DATETIME_MAP
-                - TIME_MAP
 
     Returns:
         An array containing the values of the map.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
-            - STRING_ARRAY
-            - BOOLEAN_ARRAY
-            - DATE_ARRAY
-            - DATETIME_ARRAY
-            - TIME_ARRAY
 
     Raises:
         ValueError: if the input is not of type `MapDataType`.
@@ -2118,14 +1130,7 @@ def VALUES(value: Operand) -> Formula:
             VALUES(my_map)
             # Returns ["a", "b", "c"] for a map {0: "a", 1: "b", 2: "c"}
     """
-    data_type = value.to_data_type()
-
-    if not isinstance(data_type, MapDataType):
-        raise ValueError(f"VALUES is not compatible with data type {data_type}")
-
-    ret_data_type = data_type._data_type.to_array()
-
-    return _VALUES(ret_data_type, value.to_string())
+    return _functions.Values(value)
 
 
 def CONTAINS(search_array: Operand, search_value: Operand | bool | str | float | int) -> Formula:
@@ -2141,46 +1146,17 @@ def CONTAINS(search_array: Operand, search_value: Operand | bool | str | float |
             The array to search through. Must be an array type and compatible with the type of
             `search_value`.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - TIME_ARRAY
-                - OBJECT_ARRAY
 
         search_value:
             The value to search for within the array. Must be the singular type corresponding to the
             `search_array` element type (for example, INTEGER for INTEGER_ARRAY).
             Cannot itself be an array type. A ValueError is raised if the type does not match.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - INTEGER
-                - DECIMAL
-                - STRING
-                - DATE
-                - DATETIME
-                - TIME
-                - OBJECT
 
     Returns:
         A boolean value indicating whether the specified `search_value` is found in the
         `search_array`.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - BOOLEAN
 
     Raises:
         ValueError: If `search_array` is not an array type.
@@ -2203,40 +1179,10 @@ def CONTAINS(search_array: Operand, search_value: Operand | bool | str | float |
             CONTAINS(my_array_field, my_value_field)
             # Returns True if my_value_field exists in my_array_field
     """
-    if isinstance(search_value, (bool, str, float, int)):
-        return CONTAINS(search_array, CONST(search_value))
-
-    search_array_data_type = search_array.to_data_type()
-    search_value_data_type = search_value.to_data_type()
-
-    exception = ValueError(
-        f"CONTAINS not valid with data types {search_array_data_type} and "
-        f"{search_value_data_type}."
-    )
-
-    if not search_array_data_type.is_array():
-        raise exception
-
-    if search_value_data_type.is_array():
-        raise exception
-
-    if isinstance(search_array_data_type, DataType) and isinstance(
-        search_value_data_type, DataType
-    ):
-        if search_array_data_type.from_array() != search_value_data_type:
-            raise exception
-    elif isinstance(search_array_data_type, ObjectDataType) and isinstance(
-        search_value_data_type, ObjectDataType
-    ):
-        if search_array_data_type._source_table != search_value_data_type._source_table:
-            raise exception
-    else:
-        raise exception
-
-    return _CONTAINS(search_array.to_string(), search_value.to_string())
+    return _functions.Contains(search_array, search_value)
 
 
-def INDEX(array: Table | Operand, index: Operand | int) -> Formula:
+def INDEX(array: Operand, index: Operand | int) -> Formula:
     """
     Retrieves the element or row at a specified index from an array or table.
 
@@ -2252,18 +1198,6 @@ def INDEX(array: Table | Operand, index: Operand | int) -> Formula:
             The array or table from which to retrieve an element. Must be an array type or a Table.
             If the type is invalid, a ValueError is raised.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - TIME_ARRAY
-                - OBJECT_ARRAY
 
         index:
             The 1-based index of the element or row to retrieve. Must be an INTEGER or INTEGER_ARRAY
@@ -2271,38 +1205,12 @@ def INDEX(array: Table | Operand, index: Operand | int) -> Formula:
             index is less than 1 or greater than the size of the array, the formula evaluates to an
             error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         The element or row at the specified index. If the array is OBJECT_ARRAY or Table, the result
         is an object type. If the array is a primitive ARRAY, the result is the corresponding
         singular type.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - BOOLEAN
-            - INTEGER
-            - DECIMAL
-            - STRING
-            - DATE
-            - DATETIME
-            - TIME
-            - OBJECT
-            - BOOLEAN_ARRAY
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
-            - STRING_ARRAY
-            - DATE_ARRAY
-            - DATETIME_ARRAY
-            - TIME_ARRAY
-            - OBJECT_ARRAY
 
     Raises:
         ValueError: If `index` is not of type INTEGER or INTEGER_ARRAY.
@@ -2330,40 +1238,7 @@ def INDEX(array: Table | Operand, index: Operand | int) -> Formula:
             INDEX(my_table, 1)
             # Returns the first row of the table
     """
-    if isinstance(index, int):
-        return INDEX(array, CONST(index))
-
-    index_data_type = index.to_data_type()
-    if index_data_type not in [DataType.INTEGER, DataType.INTEGER_ARRAY]:
-        raise ValueError(f"INDEX not valid with index data type {index_data_type}")
-
-    is_array = index_data_type.is_array()
-
-    if isinstance(array, Table):
-        return _INDEX(ObjectDataType(array, is_array), array.id, index.to_string())
-
-    array_data_type = array.to_data_type()
-    data_type_exception = ValueError(
-        f"INDEX invalid with data types {array_data_type} and {index_data_type}"
-    )
-    if isinstance(array_data_type, MapDataType):
-        raise data_type_exception
-    if isinstance(array_data_type, ObjectDataType):
-        if not array_data_type.is_array():
-            raise data_type_exception
-        return _INDEX(
-            ObjectDataType(array_data_type._source_table, False),
-            array.to_string(),
-            index.to_string(),
-        )
-
-    if not array_data_type.is_array():
-        raise data_type_exception
-
-    ret_data_type = array_data_type if is_array else array_data_type.from_array()
-    return _INDEX(
-        cast("DataType | ObjectDataType", ret_data_type), array.to_string(), index.to_string()
-    )
+    return _functions.Index(array, index)
 
 
 def SIZE(array: Operand) -> Formula:
@@ -2382,27 +1257,10 @@ def SIZE(array: Operand) -> Formula:
             The arra or table whose size will be evaluated. Must be a valid array type.
             If the input is not an array, a ValueError is raised.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - TIME_ARRAY
-                - OBJECT_ARRAY
 
     Returns:
         The total number of elements in the input array, returned as an INTEGER Formula.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
 
     Raises:
         ValueError: If `array` is not a valid array type.
@@ -2422,13 +1280,7 @@ def SIZE(array: Operand) -> Formula:
             SIZE(my_table)
             # Returns the size (rows * columns) of the table
     """
-    array_data_type = array.to_data_type()
-    data_type_exception = ValueError(f"SIZE invalid with data type {array_data_type}")
-
-    if not array_data_type.is_array():
-        raise data_type_exception
-
-    return _SIZE(array.to_string())
+    return _functions.Size(array)
 
 
 def PLUSDAYS(date: Operand, days: Operand | int) -> Formula:
@@ -2444,38 +1296,16 @@ def PLUSDAYS(date: Operand, days: Operand | int) -> Formula:
         date:
             The starting date to which days will be added.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATETIME
-                - DATE_ARRAY
-                - DATETIME_ARRAY
 
         days:
             The number of days to add to `date`. Can be a single integer or an array of integers.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         The resulting date after adding the specified number of days. The type of the result
         matches the input `date`, unless `days` is an array, in which case the result will be the
         array version of the `date` type.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DATE
-            - DATETIME
-            - DATE_ARRAY
-            - DATETIME_ARRAY
 
     Raises:
         ValueError: If `date` is not of type DATE, DATETIME, DATE_ARRAY, or DATETIME_ARRAY.
@@ -2496,24 +1326,7 @@ def PLUSDAYS(date: Operand, days: Operand | int) -> Formula:
             PLUSDAYS(DATE(2025, 9, 3), [1, 2, 3])
             # Returns [DATE(2025, 9, 4), DATE(2025, 9, 5), DATE(2025, 9, 6)]
     """
-    if isinstance(days, int):
-        return PLUSDAYS(date, CONST(days))
-    date_data_type = date.to_data_type()
-    days_data_type = days.to_data_type()
-    data_type_exception = ValueError(
-        f"PLUSDAYS invalid with data types {date_data_type} and {days_data_type}"
-    )
-    if not isinstance(date_data_type, DataType) or not isinstance(days_data_type, DataType):
-        raise data_type_exception
-    if date_data_type not in DATE_AND_ARRAY_TYPES:
-        raise data_type_exception
-    if days_data_type not in {DataType.INTEGER, DataType.INTEGER_ARRAY}:
-        raise data_type_exception
-
-    ret_data_type = (
-        date_data_type if days_data_type == DataType.INTEGER else date_data_type.to_array()
-    )
-    return _PLUSDAYS(ret_data_type, date.to_string(), days.to_string())
+    return _functions.PlusDays(date, days)
 
 
 def ROUND(value: Operand | float) -> Formula:
@@ -2529,23 +1342,11 @@ def ROUND(value: Operand | float) -> Formula:
             The number or array of numbers to round. If blank or in an error state, the formula
             will evaluate to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DECIMAL
-                - DECIMAL_ARRAY
 
     Returns:
         The rounded integer value(s). The result matches the input type: scalar input
         returns a single integer, array input returns an integer array.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If `value` is not of type DECIMAL or DECIMAL_ARRAY.
@@ -2565,18 +1366,7 @@ def ROUND(value: Operand | float) -> Formula:
             ROUND([1.2, 3.7, 4.5])
             # Returns [1, 4, 5]
     """
-    if isinstance(value, float):
-        return ROUND(CONST(value))
-
-    data_type = value.to_data_type()
-    data_type_exception = ValueError(f"ROUND invalid with data type {data_type}")
-    if not isinstance(data_type, DataType):
-        raise data_type_exception
-    if data_type not in {DataType.DECIMAL, DataType.DECIMAL_ARRAY}:
-        raise data_type_exception
-
-    ret_data_type = DataType.INTEGER_ARRAY if data_type.is_array() else DataType.INTEGER
-    return _ROUND(ret_data_type, value.to_string())
+    return _functions.Round(value)
 
 
 def FLOOR(value: Operand | float) -> Formula:
@@ -2592,23 +1382,11 @@ def FLOOR(value: Operand | float) -> Formula:
             The number or array of numbers to compute the floor of. If blank or in an error state,
             the formula will evaluate to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DECIMAL
-                - DECIMAL_ARRAY
 
     Returns:
         The integer value(s) representing the floor of the input. The result matches the input
         type: scalar input returns a single integer, array input returns an integer array.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If `value` is not of type DECIMAL or DECIMAL_ARRAY.
@@ -2628,18 +1406,7 @@ def FLOOR(value: Operand | float) -> Formula:
             ROUND([1.2, 3.0, 4.5])
             # Returns [1, 3, 4]
     """
-    if isinstance(value, float):
-        return FLOOR(CONST(value))
-
-    data_type = value.to_data_type()
-    data_type_exception = ValueError(f"FLOOR invalid with data type {data_type}")
-    if not isinstance(data_type, DataType):
-        raise data_type_exception
-    if data_type not in {DataType.DECIMAL, DataType.DECIMAL_ARRAY}:
-        raise data_type_exception
-
-    ret_data_type = DataType.INTEGER_ARRAY if data_type.is_array() else DataType.INTEGER
-    return _FLOOR(ret_data_type, value.to_string())
+    return _functions.Floor(value)
 
 
 def CEILING(value: Operand | float) -> Formula:
@@ -2655,23 +1422,11 @@ def CEILING(value: Operand | float) -> Formula:
             The number or array of numbers to compute the ceiling of. If blank or in an error state,
             the formula will evaluate to an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DECIMAL
-                - DECIMAL_ARRAY
 
     Returns:
         The integer value(s) representing the ceiling of the input. The result matches the input
         type: scalar input returns a single integer, array input returns an integer array.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If `value` is not of type DECIMAL or DECIMAL_ARRAY.
@@ -2691,18 +1446,7 @@ def CEILING(value: Operand | float) -> Formula:
             ROUND([1.2, 3.0, 4.5])
             # Returns [2, 3, 5]
     """
-    if isinstance(value, float):
-        return FLOOR(CONST(value))
-
-    data_type = value.to_data_type()
-    data_type_exception = ValueError(f"CEILING invalid with data type {data_type}")
-    if not isinstance(data_type, DataType):
-        raise data_type_exception
-    if data_type not in {DataType.DECIMAL, DataType.DECIMAL_ARRAY}:
-        raise data_type_exception
-
-    ret_data_type = DataType.INTEGER_ARRAY if data_type.is_array() else DataType.INTEGER
-    return _CEILING(ret_data_type, value.to_string())
+    return _functions.Ceiling(value)
 
 
 def MOD(
@@ -2722,38 +1466,14 @@ def MOD(
         number:
             The value to divide.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         divisor:
             The value to divide by.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         The remainder of the division `number % divisor`.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - DECIMAL
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If either `number` or `divisor` is not numeric.
@@ -2773,27 +1493,7 @@ def MOD(
             MOD([10, 20, 30], 7)
             # Returns [3, 6, 2]
     """
-    if isinstance(number, (int, float)):
-        return MOD(CONST(number), divisor)
-    if isinstance(divisor, (int, float)):
-        return MOD(number, CONST(divisor))
-
-    number_data_type = number.to_data_type()
-    divisor_data_type = divisor.to_data_type()
-
-    if number_data_type not in {
-        DataType.INTEGER,
-        DataType.DECIMAL,
-    } or divisor_data_type not in {DataType.INTEGER, DataType.DECIMAL}:
-        raise ValueError("MOD can only be called with numerical inputs")
-
-    ret_data_type = (
-        DataType.INTEGER
-        if number_data_type == DataType.INTEGER and divisor_data_type == DataType.INTEGER
-        else DataType.DECIMAL
-    )
-
-    return _MOD(ret_data_type, number.to_string(), divisor.to_string())
+    return _functions.Mod(number, divisor)
 
 
 def IFERROR(
@@ -2812,30 +1512,15 @@ def IFERROR(
         formula:
             The formula or model component to evaluate, which may produce an error.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
         error_branch:
             The value to return if the formula evaluates to an error. If not of the same data type
             as `formula`, or `NULL`, a ValueError is raised.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
     Returns:
         The result of the formula if no error occurs, otherwise the `error_branch` value.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - ANY
 
     Raises:
         ValueError: If `formula` and `error_branch` have incompatible data types (unless one
@@ -2857,45 +1542,7 @@ def IFERROR(
             IFERROR(LOOKUP(my_table, "customer", "bob"), BLANK())
             # Returns the customer record for "bob", or blank if not found
     """
-
-    if isinstance(error_branch, int | float | str | bool):
-        return IFERROR(formula, CONST(error_branch))
-
-    formula_data_type = formula.to_data_type()
-    error_branch_data_type = error_branch.to_data_type()
-
-    array_types_match = False
-    if isinstance(formula_data_type, DataType):
-        array_types_match = (
-            formula_data_type.is_array()
-            and formula_data_type.from_array() == error_branch_data_type
-        )
-    elif isinstance(formula_data_type, ObjectDataType) and isinstance(
-        error_branch_data_type, ObjectDataType
-    ):
-        array_types_match = (
-            formula_data_type.is_array()
-            and formula_data_type._source_table == error_branch_data_type._source_table
-        )
-
-    if (
-        formula_data_type != error_branch_data_type
-        and DataType.NULL not in (formula_data_type, error_branch_data_type)
-        and not array_types_match
-    ):
-        raise ValueError(
-            f"IFERROR incompatible with data types {formula_data_type} "
-            f"and {error_branch_data_type}"
-        )
-
-    if formula_data_type == DataType.NULL and error_branch_data_type == DataType.NULL:
-        raise ValueError("Both branches of IFERROR cannot be blank")
-
-    return _IFERROR(
-        (formula_data_type if formula_data_type != DataType.NULL else error_branch_data_type),
-        formula.to_string(),
-        error_branch.to_string(),
-    )
+    return _functions.IfError(formula, error_branch)
 
 
 def DAYSBETWEEN(
@@ -2913,37 +1560,15 @@ def DAYSBETWEEN(
         first_date:
             The starting date or array of dates.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATETIME
-                - DATE_ARRAY
-                - DATETIME_ARRAY
 
         second_date:
             The ending date or array of dates.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATETIME
-                - DATE_ARRAY
-                - DATETIME_ARRAY
 
     Returns:
         The number of days between the two dates. If input arrays have unequal lengths the returned
         formula will evaluate to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If either input is not a date or datetime type.
@@ -2954,22 +1579,7 @@ def DAYSBETWEEN(
             DAYSBETWEEN(DATE(2025, 1, 1), DATE(2025, 1, 10))
             # Returns 9
     """
-
-    first_date_data_type = first_date.to_data_type()
-    second_date_data_type = second_date.to_data_type()
-
-    if (
-        first_date_data_type not in DATE_AND_ARRAY_TYPES
-        or second_date_data_type not in DATE_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"DAYSBETWEEN invalid with arguments {first_date_data_type} and {second_date_data_type}"
-        )
-    ret_data_type = DataType.INTEGER
-    if first_date_data_type.is_array() or second_date_data_type.is_array():
-        ret_data_type = DataType.INTEGER_ARRAY
-
-    return _DAYSBETWEEN(ret_data_type, first_date.to_string(), second_date.to_string())
+    return _functions.DaysBetween(first_date, second_date)
 
 
 def YEAR(
@@ -2985,24 +1595,10 @@ def YEAR(
         date:
             The date or array of dates from which to extract the year.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATETIME
-                - DATE_ARRAY
-                - DATETIME_ARRAY
 
     Returns:
         The year as an integer or array of integers.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If the input is not a date or datetime type.
@@ -3013,15 +1609,7 @@ def YEAR(
             YEAR(DATE(2025, 9, 3))
             # Returns 2025
     """
-    date_data_type = date.to_data_type()
-    if date_data_type not in DATE_AND_ARRAY_TYPES:
-        raise ValueError(f"YEAR invalid with the argument {date.to_data_type()}")
-
-    ret_data_type = DataType.INTEGER
-    if date_data_type.is_array():
-        ret_data_type = DataType.INTEGER_ARRAY
-
-    return _YEAR(ret_data_type, date.to_string())
+    return _functions.Year(date)
 
 
 def MONTH(
@@ -3037,24 +1625,10 @@ def MONTH(
         date:
             The date or array of dates from which to extract the month.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATETIME
-                - DATE_ARRAY
-                - DATETIME_ARRAY
 
     Returns:
         The month as an integer or array of integers.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If the input is not a date or datetime type.
@@ -3065,15 +1639,7 @@ def MONTH(
             MONTH(DATE(2025, 9, 3))
             # Returns 9
     """
-    date_data_type = date.to_data_type()
-    if date_data_type not in DATE_AND_ARRAY_TYPES:
-        raise ValueError(f"MONTH invalid with the argument {date.to_data_type()}")
-
-    ret_data_type = DataType.INTEGER
-    if date_data_type.is_array():
-        ret_data_type = DataType.INTEGER_ARRAY
-
-    return _MONTH(ret_data_type, date.to_string())
+    return _functions.Month(date)
 
 
 def DAY(
@@ -3089,24 +1655,10 @@ def DAY(
         date:
             The date or array of dates from which to extract the day.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATETIME
-                - DATE_ARRAY
-                - DATETIME_ARRAY
 
     Returns:
         The day as an integer or array of integers.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If the input is not a date or datetime type.
@@ -3117,15 +1669,7 @@ def DAY(
             DAY(DATE(2025, 9, 3))
             # Returns 3
     """
-    date_data_type = date.to_data_type()
-    if date_data_type not in DATE_AND_ARRAY_TYPES:
-        raise ValueError(f"DAY invalid with the argument {date.to_data_type()}")
-
-    ret_data_type = DataType.INTEGER
-    if date_data_type.is_array():
-        ret_data_type = DataType.INTEGER_ARRAY
-
-    return _DAY(ret_data_type, date.to_string())
+    return _functions.Day(date)
 
 
 def DATE(
@@ -3144,70 +1688,22 @@ def DATE(
         year:
             The year component of the date.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
         month:
             The month component of the date (1–12).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
         day:
             The day component of the date.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         A `Formula` object representing the constructed date. If the inputs do not form a valid
         date, the formula will evaluate to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DATE
-            - DATE_ARRAY
 
     Raises:
         ValueError: If any input is not numeric or an array of numeric values.
     """
-    if isinstance(year, int):
-        return DATE(CONST(year), month, day)
-    if isinstance(month, int):
-        return DATE(year, CONST(month), day)
-    if isinstance(day, int):
-        return DATE(year, month, CONST(day))
-
-    year_date_type = year.to_data_type()
-    month_date_type = month.to_data_type()
-    day_date_type = day.to_data_type()
-
-    if (
-        year_date_type not in NUMERIC_AND_ARRAY_TYPES
-        or month_date_type not in NUMERIC_AND_ARRAY_TYPES
-        or day_date_type not in NUMERIC_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"DATE invalid with data types {year_date_type}, {month_date_type}, {day_date_type}"
-        )
-
-    ret_data_type = DataType.DATE
-    if year_date_type.is_array() or month_date_type.is_array() or day_date_type.is_array():
-        ret_data_type = DataType.DATE_ARRAY
-
-    return _DATE(ret_data_type, year.to_string(), month.to_string(), day.to_string())
+    return _functions.Date(year, month, day)
 
 
 def DATETIME(  # noqa: PLR0913
@@ -3229,108 +1725,31 @@ def DATETIME(  # noqa: PLR0913
         year:
             The year component.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
         month:
             The month component (1–12).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
         day:
             The day component.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
         hours:
             The hour component (0–23).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
         minutes:
             The minute component (0–59).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
         seconds:
             The second component (0–59).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         A `Formula` object representing the constructed datetime. If the inputs do not form a valid
         date/time, the formula will evaluate to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DATETIME
-            - DATETIME_ARRAY
 
     Raises:
         ValueError: If any input is not numeric or an array of numeric values.
     """
-    components = {
-        "year": year,
-        "month": month,
-        "day": day,
-        "hours": hours,
-        "minutes": minutes,
-        "seconds": seconds,
-    }
-
-    converted_components = {
-        key: CONST(value) if isinstance(value, int) else value for key, value in components.items()
-    }
-
-    data_types = [value.to_data_type() for _, value in converted_components.items()]
-
-    for dt in data_types:
-        if dt not in NUMERIC_AND_ARRAY_TYPES:
-            raise ValueError(f"DATETIME invalid with the argument {dt}")
-
-    ret_data_type = (
-        DataType.DATETIME_ARRAY if any(dt.is_array() for dt in data_types) else DataType.DATETIME
-    )
-
-    return _DATETIME(
-        ret_data_type,
-        (
-            converted_components["year"].to_string(),
-            converted_components["month"].to_string(),
-            converted_components["day"].to_string(),
-        ),
-        (
-            converted_components["hours"].to_string(),
-            converted_components["minutes"].to_string(),
-            converted_components["seconds"].to_string(),
-        ),
-    )
+    return _functions.DateTime(year, month, day, hours, minutes, seconds)
 
 
 def EOMONTH(
@@ -3349,37 +1768,15 @@ def EOMONTH(
         date:
             The starting date from which the end-of-month is calculated.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATETIME
-                - DATE_ARRAY
-                - DATETIME_ARRAY
         months:
             Optional. The number of months to offset from the month of `date`. Can be a scalar or
             array. Defaults to 0.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         The end-of-month date after applying the month offset. The result has the same shape
         (scalar or array) as the inputs.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DATE
-            - DATE_ARRAY
 
     Raises:
         ValueError: If `date` is not a date/datetime type, or if `months` is not numeric.
@@ -3406,25 +1803,7 @@ def EOMONTH(
             EOMONTH(DATE(2024, 1, 15), -1)
             # Returns DATE(2023, 12, 31)
     """
-    if isinstance(months, int):
-        return EOMONTH(date, CONST(months))
-
-    date_data_type = date.to_data_type()
-    months_data_type = months.to_data_type()
-
-    if (
-        date_data_type not in DATE_AND_ARRAY_TYPES
-        or months_data_type not in NUMERIC_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"EOMONTH called with invalid data types: {date_data_type}, " f"{months_data_type}"
-        )
-
-    ret_data_type = DataType.DATE
-    if date_data_type.is_array() or months_data_type.is_array():
-        ret_data_type = DataType.DATE_ARRAY
-
-    return _EOMONTH(ret_data_type, date.to_string(), months.to_string())
+    return _functions.EoMonth(date, months)
 
 
 def BITAND(field_1: Operand | int | str, field_2: Operand | int | str) -> Formula:
@@ -3450,27 +1829,11 @@ def BITAND(field_1: Operand | int | str, field_2: Operand | int | str) -> Formul
             binary representation of the integer value or hexadecimal string). If an array type, the
             operation is performed element-wise and the return will also be an array type.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - STRING
-                - INTEGER_ARRAY
-                - STRING_ARRAY
         field_2:
             The second value in the BITAND operation. Interpreted as a string of bits (either the
             binary representation of the integer value or hexadecimal string). If an array type, the
             operation is performed element-wise and the return will also be an array type.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - STRING
-                - INTEGER_ARRAY
-                - STRING_ARRAY
 
     Returns:
         A `Formula` object representing the bitwise AND result of the two inputs. If either input
@@ -3478,14 +1841,6 @@ def BITAND(field_1: Operand | int | str, field_2: Operand | int | str) -> Formul
         return type will also be a string; otherwise, it will be an integer. If either input is
         blank or in an error state, the formula evaluates to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - STRING
-            - INTEGER_ARRAY
-            - STRING_ARRAY
 
     Raises:
         ValueError: If the input data types are incompatible, unsupported, or if array lengths
@@ -3506,41 +1861,7 @@ def BITAND(field_1: Operand | int | str, field_2: Operand | int | str) -> Formul
             BITAND("9", "A")
             # Returns "08". (Binary: 1001 & 1010 = 1000)
     """
-    if isinstance(field_1, int | str):
-        return BITAND(CONST(field_1), field_2)
-
-    if isinstance(field_2, int | str):
-        return BITAND(field_1, CONST(field_2))
-
-    field_1_data_type = field_1.to_data_type()
-    field_2_data_type = field_2.to_data_type()
-
-    incompatible_data_types_message = (
-        f"BITAND incompatible with data types " f"{field_1_data_type} and {field_2_data_type}"
-    )
-
-    if not (isinstance(field_1_data_type, DataType) and isinstance(field_2_data_type, DataType)):
-        raise ValueError(incompatible_data_types_message)
-
-    field_1_base_data_type = (
-        field_1_data_type.from_array() if field_1_data_type.is_array() else field_1_data_type
-    )
-    field_2_base_data_type = (
-        field_2_data_type.from_array() if field_2_data_type.is_array() else field_2_data_type
-    )
-
-    if field_1_base_data_type not in {
-        DataType.INTEGER,
-        DataType.STRING,
-    } or field_2_base_data_type not in {DataType.INTEGER, DataType.STRING}:
-        raise ValueError(incompatible_data_types_message)
-
-    if field_1_base_data_type != field_2_base_data_type:
-        raise ValueError(incompatible_data_types_message)
-
-    ret_data_type = field_1_data_type if field_1_data_type.is_array() else field_2_data_type
-
-    return _BITAND(ret_data_type, field_1.to_string(), field_2.to_string())
+    return _functions.BitAnd(field_1, field_2)
 
 
 def BITOR(field_1: Operand | int | str, field_2: Operand | int | str) -> Formula:
@@ -3566,27 +1887,11 @@ def BITOR(field_1: Operand | int | str, field_2: Operand | int | str) -> Formula
             binary representation of the integer value or hexadecimal string). If an array type, the
             operation is performed element-wise and the return will also be an array type.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - STRING
-                - INTEGER_ARRAY
-                - STRING_ARRAY
         field_2:
             The second value in the BITOR operation. Interpreted as a string of bits (either the
             binary representation of the integer value or hexadecimal string). If an array type, the
             operation is performed element-wise and the return will also be an array type.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - STRING
-                - INTEGER_ARRAY
-                - STRING_ARRAY
 
     Returns:
         A `Formula` object representing the bitwise OR result of the two inputs. If either input
@@ -3594,14 +1899,6 @@ def BITOR(field_1: Operand | int | str, field_2: Operand | int | str) -> Formula
         return type will also be a string; otherwise, it will be an integer. If either input is
         blank or in an error state, the formula evaluates to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - STRING
-            - INTEGER_ARRAY
-            - STRING_ARRAY
 
     Raises:
         ValueError: If the input data types are incompatible, unsupported, or if array lengths
@@ -3622,42 +1919,7 @@ def BITOR(field_1: Operand | int | str, field_2: Operand | int | str) -> Formula
             BITOR("9", "A")
             # Returns "0B". (Binary: 1001 | 1010 = 1011)
     """
-
-    if isinstance(field_1, int | str):
-        return BITOR(CONST(field_1), field_2)
-
-    if isinstance(field_2, int | str):
-        return BITOR(field_1, CONST(field_2))
-
-    field_1_data_type = field_1.to_data_type()
-    field_2_data_type = field_2.to_data_type()
-
-    incompatible_data_types_message = (
-        f"BITOR incompatible with data types " f"{field_1_data_type} and {field_2_data_type}"
-    )
-
-    if not (isinstance(field_1_data_type, DataType) and isinstance(field_2_data_type, DataType)):
-        raise ValueError(incompatible_data_types_message)
-
-    field_1_base_data_type = (
-        field_1_data_type.from_array() if field_1_data_type.is_array() else field_1_data_type
-    )
-    field_2_base_data_type = (
-        field_2_data_type.from_array() if field_2_data_type.is_array() else field_2_data_type
-    )
-
-    if field_1_base_data_type not in {
-        DataType.INTEGER,
-        DataType.STRING,
-    } or field_2_base_data_type not in {DataType.INTEGER, DataType.STRING}:
-        raise ValueError(incompatible_data_types_message)
-
-    if field_1_base_data_type != field_2_base_data_type:
-        raise ValueError(incompatible_data_types_message)
-
-    ret_data_type = field_1_data_type if field_1_data_type.is_array() else field_2_data_type
-
-    return _BITOR(ret_data_type, field_1.to_string(), field_2.to_string())
+    return _functions.BitOr(field_1, field_2)
 
 
 def TIME(
@@ -3676,42 +1938,18 @@ def TIME(
         hours:
             The hours component of the time (0–23).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
         minutes:
             The minutes component of the time (0–59).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
         seconds:
             The seconds component of the time (0–59).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         A `Formula` object representing the constructed time. The result is an array if any input
         is an array; otherwise, it is a scalar. If the inputs do not form a valid time, the formula
         will evaluate to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - TIME
-            - TIME_ARRAY
 
     Raises:
         ValueError: If any of the inputs are not integers or integer arrays.
@@ -3731,36 +1969,7 @@ def TIME(
             TIME([9, 12, 15], [0, 30, 45], [0, 0, 30])
             # Returns TIME_ARRAY with [09:00:00, 12:30:00, 15:45:30]
     """
-    if isinstance(hours, int):
-        return TIME(CONST(hours), minutes, seconds)
-    if isinstance(minutes, int):
-        return TIME(hours, CONST(minutes), seconds)
-    if isinstance(seconds, int):
-        return TIME(hours, minutes, CONST(seconds))
-
-    hours_date_type = hours.to_data_type()
-    minutes_date_type = minutes.to_data_type()
-    seconds_date_type = seconds.to_data_type()
-
-    if (
-        hours_date_type not in {DataType.INTEGER, DataType.INTEGER_ARRAY}
-        or minutes_date_type not in {DataType.INTEGER, DataType.INTEGER_ARRAY}
-        or seconds_date_type not in {DataType.INTEGER, DataType.INTEGER_ARRAY}
-    ):
-        raise ValueError(
-            f"TIME invalid with data types {hours_date_type}, {minutes_date_type}, "
-            f"{seconds_date_type}"
-        )
-
-    ret_data_type = (
-        DataType.TIME_ARRAY
-        if hours_date_type.is_array()
-        or minutes_date_type.is_array()
-        or seconds_date_type.is_array()
-        else DataType.TIME
-    )
-
-    return _TIME(ret_data_type, hours.to_string(), minutes.to_string(), seconds.to_string())
+    return _functions.Time(hours, minutes, seconds)
 
 
 def SETTIME(date: Operand, time: Operand) -> Formula:
@@ -3775,36 +1984,14 @@ def SETTIME(date: Operand, time: Operand) -> Formula:
         date:
             The date component. Can be a scalar date or DATE_ARRAY.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATE_ARRAY
-                - DATETIME
-                - DATETIME_ARRAY
         time:
             The time component.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - TIME
-                - DATETIME
-                - TIME_ARRAY
-                - DATETIME_ARRAY
 
     Returns:
         A `Formula` object representing the combined date and time. Returns an array if any
         input is an array; otherwise, a scalar DATETIME.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DATETIME
-            - DATETIME_ARRAY
 
     Raises:
         ValueError: If the `date` is not of type DATE/DATE_ARRAY/DATETIME/DATETIME_ARRAY or
@@ -3816,18 +2003,7 @@ def SETTIME(date: Operand, time: Operand) -> Formula:
             SETTIME(DATE(2025, 9, 3), TIME(14, 30, 0))
             # Returns a DATETIME representing 2025-09-03 14:30:00
     """
-
-    date_date_type = date.to_data_type()
-    time_date_type = time.to_data_type()
-
-    if date_date_type not in DATE_AND_ARRAY_TYPES or time_date_type not in TIME_AND_ARRAY_TYPES:
-        raise ValueError(f"SETTIME invalid with data types {date_date_type}, {time_date_type}")
-
-    ret_data_type = DataType.DATETIME
-    if date_date_type.is_array() or time_date_type.is_array():
-        ret_data_type = DataType.DATETIME_ARRAY
-
-    return _SETTIME(ret_data_type, date.to_string(), time.to_string())
+    return _functions.SetTime(date, time)
 
 
 def PLUSMINUTES(time: Operand, minutes: Operand | int) -> Formula:
@@ -3844,42 +2020,16 @@ def PLUSMINUTES(time: Operand, minutes: Operand | int) -> Formula:
             The starting time or datetime to which minutes will be added. Can be a scalar
             or an array.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATE_ARRAY
-                - TIME
-                - TIME_ARRAY
-                - DATETIME
-                - DATETIME_ARRAY
         minutes:
             The number of minutes to add. Can be a scalar integer or INTEGER_ARRAY. If negative, the
             minutes are subtracted.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         A `Formula` object representing the time or datetime after adding the specified
         minutes. Returns an array if any input is an array; otherwise, a scalar DATE, TIME or
         DATETIME.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DATE
-            - DATE_ARRAY
-            - TIME
-            - TIME_ARRAY
-            - DATETIME
-            - DATETIME_ARRAY
 
     Raises:
         ValueError: If the `time` input is not a valid DATE/TIME/DATETIME type or if `minutes`
@@ -3891,30 +2041,7 @@ def PLUSMINUTES(time: Operand, minutes: Operand | int) -> Formula:
             PLUSMINUTES(TIME(14, 30, 0), 45)
             # Returns a TIME representing 15:15:00
     """
-    if isinstance(minutes, int):
-        return PLUSMINUTES(time, CONST(minutes))
-
-    time_date_type = time.to_data_type()
-    minutes_date_type = minutes.to_data_type()
-
-    if (
-        time_date_type not in TIME_AND_ARRAY_TYPES and time_date_type not in DATE_AND_ARRAY_TYPES
-    ) or minutes_date_type not in {
-        DataType.INTEGER,
-        DataType.INTEGER_ARRAY,
-    }:
-        raise ValueError(
-            f"PLUSMINUTES invalid with data types {time_date_type}, {minutes_date_type}"
-        )
-
-    if isinstance(time_date_type, DataType):
-        ret_data_type = (
-            time_date_type if minutes_date_type == DataType.INTEGER else time_date_type.to_array()
-        )
-    else:
-        raise ValueError(f"PLUSMINUTES invalid with data types {time_date_type}")
-
-    return _PLUSMINUTES(ret_data_type, time.to_string(), minutes.to_string())
+    return _functions.PlusMinutes(time, minutes)
 
 
 def CHOOSE(index: Operand | int, *values: Operand | str | int | float | bool) -> Formula:
@@ -3929,30 +2056,15 @@ def CHOOSE(index: Operand | int, *values: Operand | str | int | float | bool) ->
         index:
             The position of the value to select. Indexing starts at 1.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
 
         *values:
             An arbitrary number of values to choose from. All values must share the same
             data type.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
     Returns:
         A `Formula` object representing the selected value.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - ANY
 
     Raises:
         ValueError:
@@ -3971,21 +2083,7 @@ def CHOOSE(index: Operand | int, *values: Operand | str | int | float | bool) ->
             CHOOSE(4, "apple", "banana", "cherry")
             # Returns an error value since index 4 is out of range.
     """
-    if not values:
-        raise ValueError("At least one input is required")
-
-    if isinstance(index, int):
-        return CHOOSE(CONST(index), *values)
-
-    converted_values = [value if isinstance(value, Operand) else CONST(value) for value in values]
-
-    data_type = converted_values[0].to_data_type()
-    for field in converted_values:
-        if field.to_data_type() != data_type:
-            raise ValueError("All provided fields of CHOOSE must have the same data type")
-
-    value_strings = [value.to_string() for value in converted_values]
-    return _CHOOSE(data_type, index.to_string(), *value_strings)
+    return _functions.Choose(index, *values)
 
 
 def ARRAY(ignore_null: Operand | bool, *fields: Operand | str | int | float | bool) -> Formula:
@@ -4001,11 +2099,6 @@ def ARRAY(ignore_null: Operand | bool, *fields: Operand | str | int | float | bo
             Boolean or model component indicating whether to exclude BLANK values from the
             resulting array.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
 
         *fields:
             An arbitrary number of scalar values, model components, or BLANK() values to include
@@ -4013,43 +2106,10 @@ def ARRAY(ignore_null: Operand | bool, *fields: Operand | str | int | float | bo
             MapDataTypes. At least one non-BLANK field must be provided to determine the array
             data type.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - INTEGER
-                - DECIMAL
-                - BOOLEAN
-                - DATE
-                - TIME
-                - DATETIME
-                - OBJECT
-                - STRING_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - BOOLEAN_ARRAY
-                - DATE_ARRAY
-                - TIME_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
-                - NULL (BLANK)
 
     Returns:
         A `Formula` object representing the constructed array.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING_ARRAY
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
-            - BOOLEAN_ARRAY
-            - DATE_ARRAY
-            - TIME_ARRAY
-            - DATETIME_ARRAY
-            - OBJECT_ARRAY
 
     Raises:
         ValueError: If no fields are provided.
@@ -4087,44 +2147,7 @@ def ARRAY(ignore_null: Operand | bool, *fields: Operand | str | int | float | bo
             ARRAY(False, ARRAY(False, 1, 2), ARRAY(False, 3, BLANK()))
             # Returns [1, 2, 3, BLANK()]
     """
-    if not fields:
-        raise ValueError("At least one input is required")
-
-    if isinstance(ignore_null, bool):
-        return ARRAY(CONST(ignore_null), *fields)
-
-    converted_fields = [field if isinstance(field, Operand) else CONST(field) for field in fields]
-
-    ignore_null_data_type = ignore_null.to_data_type()
-    if ignore_null_data_type != DataType.BOOLEAN:
-        raise ValueError(f"ARRAY invalid with data type {ignore_null_data_type}")
-
-    first_non_blank = next((f for f in converted_fields if f.to_data_type() != DataType.NULL), None)
-    if first_non_blank is None:
-        raise ValueError("ARRAY requires at least one non-BLANK field to determine data type")
-
-    data_type = first_non_blank.to_data_type()
-    base_data_type = data_type.from_array() if data_type.is_array() else data_type
-    for field in converted_fields:
-        field_data_type = field.to_data_type()
-        if field_data_type == DataType.NULL:
-            continue
-        base_field_data_type = (
-            field_data_type.from_array() if field_data_type.is_array() else field_data_type
-        )
-        if base_field_data_type != base_data_type:
-            raise ValueError("All provided fields of ARRAY must have the same data type")
-
-    ret_data_type: DataType | ObjectDataType
-    if isinstance(base_data_type, ObjectDataType):
-        ret_data_type = ObjectDataType(base_data_type._source_table, is_array=True)
-    elif isinstance(base_data_type, DataType):
-        ret_data_type = base_data_type.to_array()
-    else:
-        raise ValueError(f"ARRAY invalid with data type {base_data_type}")
-
-    field_strings = [field.to_string() for field in converted_fields]
-    return _ARRAY(ret_data_type, ignore_null.to_string(), *field_strings)
+    return _functions.Array(ignore_null, *fields)
 
 
 def ABS(value: int | float | Operand) -> Formula:
@@ -4138,27 +2161,11 @@ def ABS(value: int | float | Operand) -> Formula:
     Arguments:
         value: The numeric input whose absolute value is to be computed.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A `Formula` object representing the absolute value of the input. For arrays,
         the absolute value is computed element-wise.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - DECIMAL
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If the input is not a numeric type.
@@ -4185,15 +2192,7 @@ def ABS(value: int | float | Operand) -> Formula:
             ABS([-1, -2, 3])
             # Returns [1, 2, 3]
     """
-    if isinstance(value, int | float):
-        return ABS(CONST(value))
-
-    data_type = value.to_data_type()
-
-    if data_type not in NUMERIC_AND_ARRAY_TYPES or not isinstance(data_type, DataType):
-        raise ValueError(f"ABS invalid with data type {data_type}")
-
-    return _ABS(data_type, value.to_string())
+    return _functions.Abs(value)
 
 
 def GET(map_object: Operand, key: Operand) -> Formula:
@@ -4207,43 +2206,16 @@ def GET(map_object: Operand, key: Operand) -> Formula:
         map_object:
             The MAP-type model component containing key-value pairs.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING_MAP
-                - INTEGER_MAP
-                - DECIMAL_MAP
-                - BOOLEAN_MAP
-                - DATE_MAP
-                - TIME_MAP
-                - DATETIME_MAP
         key:
             The OBJECT-type key whose associated value is to be retrieved. Must reference the same
             table as the map and cannot be an array.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - OBJECT
 
     Returns:
         A `Formula` object representing the value associated with the specified key. The data type
         will match the underlying data type of the map's values. If the key does not exist in the,
         the formula will evaluate to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING
-            - INTEGER
-            - DECIMAL
-            - BOOLEAN
-            - DATE
-            - TIME
-            - DATETIME
 
     Raises:
         ValueError: If `map_object` is not a MAP type.
@@ -4264,21 +2236,7 @@ def GET(map_object: Operand, key: Operand) -> Formula:
             GET(my_map, another_table_object)
             # Raises `ValueError` because the key references a different table
     """
-
-    value_data_type = map_object.to_data_type()
-    if not isinstance(value_data_type, MapDataType):
-        raise ValueError("GET operation requires a MAP type as the first argument.")
-
-    key_data_type = key.to_data_type()
-    if not isinstance(key_data_type, ObjectDataType):
-        raise ValueError("Key must be an OBJECT type referencing the same table as the map.")
-
-    if key_data_type.is_array() or key_data_type._source_table != value_data_type._source_table:
-        raise ValueError("Key must be a singular OBJECT reference to the same table as the map.")
-
-    ret_data_type = value_data_type._data_type
-
-    return _GET(ret_data_type, map_object.to_string(), key.to_string())
+    return _functions.Get(map_object, key)
 
 
 def EXP(value: int | float | Operand) -> Formula:
@@ -4293,24 +2251,10 @@ def EXP(value: int | float | Operand) -> Formula:
         value:
             The numeric input to exponentiate.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A `Formula` object representing the computed exponential.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If `value` is not a numeric type or a numeric array.
@@ -4337,15 +2281,7 @@ def EXP(value: int | float | Operand) -> Formula:
             EXP([1, 2, 3])
             # Returns [2.718, 7.389, 20.085] approximately
     """
-    if isinstance(value, int | float):
-        return EXP(CONST(value))
-
-    data_type = value.to_data_type()
-
-    if data_type not in NUMERIC_AND_ARRAY_TYPES or not isinstance(data_type, DataType):
-        raise ValueError(f"EXP invalid with data type {data_type}")
-
-    return _EXP(data_type, value.to_string())
+    return _functions.Exp(value)
 
 
 def LOG(value: int | float | Operand) -> Formula:
@@ -4361,24 +2297,10 @@ def LOG(value: int | float | Operand) -> Formula:
         value:
             The numeric input whose natural logarithm is to be computed.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A `Formula` object representing the computed natural logarithm.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If `value` is not a numeric type or a numeric array.
@@ -4405,17 +2327,7 @@ def LOG(value: int | float | Operand) -> Formula:
             LOG([1, 2.718281828, 7.389056099])
             # Returns [0.0, 1.0, 2.0] approximately
     """
-    if isinstance(value, int | float):
-        return LOG(CONST(value))
-
-    data_type = value.to_data_type()
-
-    if data_type not in NUMERIC_AND_ARRAY_TYPES or not isinstance(data_type, DataType):
-        raise ValueError(f"LOG invalid with data type {data_type}")
-
-    ret_data_type = DataType.DECIMAL_ARRAY if data_type.is_array() else DataType.DECIMAL
-
-    return _LOG(ret_data_type, value.to_string())
+    return _functions.Log(value)
 
 
 def SIN(value: int | float | Operand) -> Formula:
@@ -4431,24 +2343,10 @@ def SIN(value: int | float | Operand) -> Formula:
         value:
             The numeric input, in radians, whose sine is to be computed.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A `Formula` object representing the computed sine.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If `value` is not a numeric type or a numeric array.
@@ -4475,17 +2373,7 @@ def SIN(value: int | float | Operand) -> Formula:
             SIN([0, 1.5707963, 3.1415927])
             # Returns [0.0, 1.0, 0.0] approximately
     """
-    if isinstance(value, int | float):
-        return SIN(CONST(value))
-
-    data_type = value.to_data_type()
-
-    if data_type not in NUMERIC_AND_ARRAY_TYPES or not isinstance(data_type, DataType):
-        raise ValueError(f"SIN invalid with data type {data_type}")
-
-    ret_data_type = DataType.DECIMAL_ARRAY if data_type.is_array() else DataType.DECIMAL
-
-    return _SIN(ret_data_type, value.to_string())
+    return _functions.Sin(value)
 
 
 def COS(value: int | float | Operand) -> Formula:
@@ -4501,24 +2389,10 @@ def COS(value: int | float | Operand) -> Formula:
         value:
             The numeric input, in radians, whose cosine is to be computed.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A `Formula` object representing the computed cosine.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If `value` is not a numeric type or a numeric array.
@@ -4545,17 +2419,7 @@ def COS(value: int | float | Operand) -> Formula:
             COS([0, 1.5707963, 3.1415927])
             # Returns [1.0, 0.0, -1.0] approximately
     """
-    if isinstance(value, int | float):
-        return COS(CONST(value))
-
-    data_type = value.to_data_type()
-
-    if data_type not in NUMERIC_AND_ARRAY_TYPES or not isinstance(data_type, DataType):
-        raise ValueError(f"COS invalid with data type {data_type}")
-
-    ret_data_type = DataType.DECIMAL_ARRAY if data_type.is_array() else DataType.DECIMAL
-
-    return _COS(ret_data_type, value.to_string())
+    return _functions.Cos(value)
 
 
 def INTERSECTION(ignore_blanks: Operand | bool, *arrays: Operand) -> Formula:
@@ -4571,42 +2435,15 @@ def INTERSECTION(ignore_blanks: Operand | bool, *arrays: Operand) -> Formula:
         ignore_blanks:
             A boolean specifying whether blank values should be ignored in the input arrays.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
 
         *arrays:
             One or more array objects to intersect. All arrays must have the same base data type.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - BOOLEAN_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
 
     Returns:
         A formula object representing the intersection of all input arrays. The output array
         contains only elements present in every input array, with duplicates removed.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
-            - STRING_ARRAY
-            - BOOLEAN_ARRAY
-            - DATE_ARRAY
-            - DATETIME_ARRAY
-            - OBJECT_ARRAY
 
     Raises:
         ValueError: If `ignore_blanks` is not BOOLEAN.
@@ -4636,36 +2473,7 @@ def INTERSECTION(ignore_blanks: Operand | bool, *arrays: Operand) -> Formula:
             INTERSECTION(False, [1, 2, 2, 3])
             # Returns [1, 2, 3]
     """
-    if isinstance(ignore_blanks, bool):
-        return INTERSECTION(CONST(ignore_blanks), *arrays)
-
-    ignore_blanks_data_type = ignore_blanks.to_data_type()
-    if ignore_blanks_data_type != DataType.BOOLEAN:
-        raise ValueError(
-            f"The 'ignore_blanks' argument must be of BOOLEAN type, but got "
-            f"{ignore_blanks_data_type}."
-        )
-
-    if len(arrays) < 1:
-        raise ValueError("At least one array is required. No arrays were provided.")
-
-    data_type = arrays[0].to_data_type()
-    if not data_type.is_array():
-        raise ValueError(
-            f"The UNION function only supports ARRAY types, but the provided input is of "
-            f"type {data_type}."
-        )
-
-    array_strings = []
-    for array in arrays:
-        if array.to_data_type() != data_type:
-            raise ValueError(
-                f"All input arrays must have the same data type. The first array has type "
-                f"{data_type}, but the provided array has type {array.to_data_type()}."
-            )
-        array_strings.append(array.to_string())
-
-    return _INTERSECTION(data_type, ignore_blanks.to_string(), *array_strings)
+    return _functions.Intersection(ignore_blanks, *arrays)
 
 
 def UNION(ignore_blanks: Operand | bool, *arrays: Operand) -> Formula:
@@ -4681,42 +2489,15 @@ def UNION(ignore_blanks: Operand | bool, *arrays: Operand) -> Formula:
         ignore_blanks:
             A boolean specifying whether blank values should be ignored in the input arrays.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
 
         *arrays:
             One or more array objects to union. All arrays must have the same base data type.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - BOOLEAN_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
 
     Returns:
         A formula object representing the union of all input arrays. The output array
         contains only elements present in every input array, with duplicates removed.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
-            - STRING_ARRAY
-            - BOOLEAN_ARRAY
-            - DATE_ARRAY
-            - DATETIME_ARRAY
-            - OBJECT_ARRAY
 
     Raises:
         ValueError: If `ignore_blanks` is not BOOLEAN.
@@ -4746,36 +2527,7 @@ def UNION(ignore_blanks: Operand | bool, *arrays: Operand) -> Formula:
             UNION(False, [1, 2, 2, 3])
             # Returns [1, 2, 3]
     """
-    if isinstance(ignore_blanks, bool):
-        return UNION(CONST(ignore_blanks), *arrays)
-
-    ignore_blanks_data_type = ignore_blanks.to_data_type()
-    if ignore_blanks_data_type != DataType.BOOLEAN:
-        raise ValueError(
-            f"The 'ignore_blanks' argument must be of BOOLEAN type, but got "
-            f"{ignore_blanks_data_type}."
-        )
-
-    if len(arrays) < 1:
-        raise ValueError("At least one array is required. No arrays were provided.")
-
-    data_type = arrays[0].to_data_type()
-    if not data_type.is_array():
-        raise ValueError(
-            f"The UNION function only supports ARRAY types, but the provided input is of type "
-            f"{data_type}."
-        )
-
-    array_strings = []
-    for array in arrays:
-        if array.to_data_type() != data_type:
-            raise ValueError(
-                f"All input arrays must have the same data type. The first array has type "
-                f"{data_type}, but the provided array has type {array.to_data_type()}."
-            )
-        array_strings.append(array.to_string())
-
-    return _UNION(data_type, ignore_blanks.to_string(), *array_strings)
+    return _functions.Union(ignore_blanks, *arrays)
 
 
 def AVERAGE(*values: Operand | int | float) -> Formula:
@@ -4790,24 +2542,11 @@ def AVERAGE(*values: Operand | int | float) -> Formula:
         *values:
             One or more numeric values or arrays to include in the average calculation.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A formula object representing the computed average. If all inputs are arrays,
         the result is a single aggregated numeric value.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
 
     Raises:
         ValueError: If no inputs are provided.
@@ -4829,19 +2568,7 @@ def AVERAGE(*values: Operand | int | float) -> Formula:
             # Returns 3.5
     """
 
-    if not values:
-        raise ValueError("At least one input is required")
-
-    # Convert all inputs to `Operand` if necessary
-    converted_fields = [field if isinstance(field, Operand) else CONST(field) for field in values]
-
-    for value in converted_fields:
-        data_type = value.to_data_type()
-        if data_type not in NUMERIC_AND_ARRAY_TYPES:
-            raise ValueError(f"Datatype {data_type} is not a valid input for this method")
-
-    string_values = [value.to_string() for value in converted_fields]
-    return _AVERAGE(*string_values)
+    return _functions.Average(*values)
 
 
 def CHAR(value: Operand | int) -> Formula:
@@ -4857,22 +2584,10 @@ def CHAR(value: Operand | int) -> Formula:
         value:
             The integer to convert to a character.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         A formula object that evaluates to the ASCII character.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING
-            - STRING_ARRAY
 
     Raises:
         ValueError: If the input is not an integer type or array of integers.
@@ -4892,22 +2607,9 @@ def CHAR(value: Operand | int) -> Formula:
             CHAR([65, 66, 67])
             # Returns ["A", "B", "C"]
     """
-
-    if isinstance(value, int):
-        if value not in range(0, 256):
-            raise ValueError(f"Input value: {value} is not in a valid ASCII range.")
-
-    if isinstance(value, int):
-        return CHAR(CONST(value))
-
-    value_data_type = value.to_data_type()
-    if value_data_type not in {DataType.INTEGER, DataType.INTEGER_ARRAY} or not isinstance(
-        value_data_type, DataType
-    ):
-        raise ValueError(f"CHAR is not compatible with data type {value_data_type}")
-
-    ret_data_type = DataType.STRING_ARRAY if value_data_type.is_array() else DataType.STRING
-    return _CHAR(ret_data_type, value.to_string())
+    if isinstance(value, int) and value not in range(0, 256):
+        raise ValueError(f"Input value: {value} is not in a valid ASCII range.")
+    return _functions.Char(value)
 
 
 def DISTINCT(array: Operand) -> Formula:
@@ -4921,34 +2623,10 @@ def DISTINCT(array: Operand) -> Formula:
         array:
             The array from which duplicates will be removed.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - BOOLEAN_ARRAY
-                - DATE_ARRAY
-                - TIME_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
 
     Returns:
         A formula object representing the array of distinct values.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
-            - STRING_ARRAY
-            - BOOLEAN_ARRAY
-            - DATE_ARRAY
-            - TIME_ARRAY
-            - DATETIME_ARRAY
-            - OBJECT_ARRAY
 
     Raises:
         ValueError: If the input is not an array type or is a MAP type.
@@ -4968,14 +2646,7 @@ def DISTINCT(array: Operand) -> Formula:
             DISTINCT(["apple", "banana", "apple", "cherry"])
             # Returns ["apple", "banana", "cherry"]
     """
-
-    array_data_type = array.to_data_type()
-    if isinstance(array_data_type, MapDataType):
-        raise ValueError(f"DISTINCT is not compatible with data type {array_data_type}")
-    if not array_data_type.is_array():
-        raise ValueError(f"DISTINCT is not compatible with data type {array_data_type}")
-
-    return _DISTINCT(cast("DataType | ObjectDataType", array_data_type), array.to_string())
+    return _functions.Distinct(array)
 
 
 def HOUR(
@@ -4991,24 +2662,10 @@ def HOUR(
         time:
             The time or array of times from which to extract the hour.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - TIME
-                - DATETIME
-                - TIME_ARRAY
-                - DATETIME_ARRAY
 
     Returns:
         The hour as an integer or array of integers.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If the input is not a time type.
@@ -5019,13 +2676,7 @@ def HOUR(
             HOUR(TIME(14, 32, 53))
             # Returns 14
     """
-    time_data_type = time.to_data_type()
-    if time_data_type not in TIME_AND_ARRAY_TYPES:
-        raise ValueError(f"HOUR invalid with the argument {time_data_type}")
-
-    ret_data_type = DataType.INTEGER_ARRAY if time_data_type.is_array() else DataType.INTEGER
-
-    return _HOUR(ret_data_type, time.to_string())
+    return _functions.Hour(time)
 
 
 def HOURSBETWEEN(
@@ -5044,37 +2695,15 @@ def HOURSBETWEEN(
         first_time:
             The starting time or date time.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - TIME
-                - DATETIME
-                - TIME_ARRAY
-                - DATETIME_ARRAY
 
         second_time:
             The ending time or date time.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - TIME
-                - DATETIME
-                - TIME_ARRAY
-                - DATETIME_ARRAY
 
     Returns:
         The number of hours between the two times. If input arrays have unequal lengths the returned
         formula will evaluate to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If either input is not a valid type.
@@ -5085,49 +2714,7 @@ def HOURSBETWEEN(
             HOURSBETWEEN(TIME(14, 30, 0), DATE(16, 0, 0))
             # Returns 1.5
     """
-
-    first_time_data_type = first_time.to_data_type()
-    second_time_data_type = second_time.to_data_type()
-
-    if (
-        first_time_data_type not in TIME_AND_ARRAY_TYPES
-        and first_time_data_type not in {DataType.DATE, DataType.DATE_ARRAY}
-    ) or (
-        second_time_data_type not in TIME_AND_ARRAY_TYPES
-        and second_time_data_type not in {DataType.DATE, DataType.DATE_ARRAY}
-    ):
-        raise ValueError(
-            f"HOURSBETWEEN invalid with arguments {first_time_data_type} and "
-            f"{second_time_data_type}"
-        )
-
-    if not isinstance(first_time_data_type, DataType) or not isinstance(
-        second_time_data_type, DataType
-    ):
-        raise ValueError(
-            f"HOURSBETWEEN invalid with arguments {first_time_data_type} and "
-            f"{second_time_data_type}"
-        )
-
-    singular_first_time_type = first_time_data_type
-    if first_time_data_type.is_array():
-        singular_first_time_type = first_time_data_type.from_array()
-
-    singular_second_time_type = second_time_data_type
-    if second_time_data_type.is_array():
-        singular_second_time_type = second_time_data_type.from_array()
-
-    if singular_first_time_type != singular_second_time_type:
-        raise ValueError(
-            f"Inputs are in different singular types {first_time_data_type} and "
-            f"{second_time_data_type}"
-        )
-
-    ret_data_type = DataType.DECIMAL
-    if first_time_data_type.is_array() or second_time_data_type.is_array():
-        ret_data_type = DataType.DECIMAL_ARRAY
-
-    return _HOURSBETWEEN(ret_data_type, first_time.to_string(), second_time.to_string())
+    return _functions.HoursBetween(first_time, second_time)
 
 
 def INTEGER(
@@ -5142,26 +2729,10 @@ def INTEGER(
         value:
             The input to convert. Can be a scalar or a model object.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN,
-                - BOOLEAN_ARRAY,
-                - DECIMAL,
-                - DECIMAL_ARRAY,
-                - STRING,
-                - STRING_ARRAY,
 
     Returns:
         A formula object of type INTEGER or INTEGER_ARRAY representing the converted value.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If the input value is not a supported type or model object.
@@ -5175,26 +2746,7 @@ def INTEGER(
             INTEGER(True)
             # Returns 1
     """
-    allow_data_types = {
-        DataType.BOOLEAN,
-        DataType.BOOLEAN_ARRAY,
-        DataType.DECIMAL,
-        DataType.DECIMAL_ARRAY,
-        DataType.STRING,
-        DataType.STRING_ARRAY,
-    }
-
-    if isinstance(value, bool | float | str):
-        return INTEGER(CONST(value))
-
-    value_data_type = value.to_data_type()
-
-    if value_data_type not in allow_data_types:
-        raise ValueError(f"INTEGER invalid with the argument {value_data_type}")
-
-    ret_data_type = DataType.INTEGER_ARRAY if value_data_type.is_array() else DataType.INTEGER
-
-    return _INTEGER(ret_data_type, value.to_string())
+    return _functions.Integer(value)
 
 
 def LEN(value: Operand | str | int | float) -> Formula:
@@ -5209,26 +2761,10 @@ def LEN(value: Operand | str | int | float) -> Formula:
         value:
             The value to measure.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - STRING
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
 
     Returns:
         A formula representing the length(s) of the input value(s).
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If the input value's data type is not one of the supported types.
@@ -5262,20 +2798,7 @@ def LEN(value: Operand | str | int | float) -> Formula:
             LEN([12, 345, 6])
             # Returns [2, 3, 1]
     """
-
-    if isinstance(value, str | int | float):
-        return LEN(CONST(value))
-
-    value_data_type = value.to_data_type()
-
-    if value_data_type not in NUMERIC_AND_ARRAY_TYPES and value_data_type not in {
-        DataType.STRING,
-        DataType.STRING_ARRAY,
-    }:
-        raise ValueError(f"LEN invalid with the argument {value_data_type}")
-
-    ret_data_type = DataType.INTEGER_ARRAY if value_data_type.is_array() else DataType.INTEGER
-    return _LEN(ret_data_type, value.to_string())
+    return _functions.Len(value)
 
 
 def ISERROR(value: Operand | Any) -> Formula:
@@ -5290,21 +2813,10 @@ def ISERROR(value: Operand | Any) -> Formula:
         value:
             The value to check for errors.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - ANY
 
     Returns:
         A formula indicating error status.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - BOOLEAN
-            - BOOLEAN_ARRAY
 
     Examples:
         Scalar value:
@@ -5321,15 +2833,7 @@ def ISERROR(value: Operand | Any) -> Formula:
             ISERROR([123, "abc", ERROR_VALUE])
             # Returns [False, False, True]
     """
-
-    if not isinstance(value, Operand):
-        return ISERROR(CONST(value))
-
-    value_data_type = value.to_data_type()
-
-    ret_data_type = DataType.BOOLEAN_ARRAY if value_data_type.is_array() else DataType.BOOLEAN
-
-    return _ISERROR(ret_data_type, value.to_string())
+    return _functions.IsError(value)
 
 
 def LOOKUPARRAY(source_array: Operand, match_array: Operand, result_array: Operand) -> Formula:
@@ -5351,50 +2855,17 @@ def LOOKUPARRAY(source_array: Operand, match_array: Operand, result_array: Opera
             The array containing values to look up. Must be an array type of the same type as
             `match_array`. Each element will be searched for in `match_array`.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - BOOLEAN_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
 
         match_array:
             The array containing reference values. Each element in `source_array` is
             compared to this array to find a match. Must be the same type as `source_array`
             and the same length as `result_array`.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - BOOLEAN_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
 
         result_array:
             The array containing values to return when matches are found in `match_array`.
             Must have the same length as `match_array`.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - BOOLEAN_ARRAY
-                - DATE_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
 
     Returns:
         A formula object representing the lookup operation. The resulting array has
@@ -5404,17 +2875,6 @@ def LOOKUPARRAY(source_array: Operand, match_array: Operand, result_array: Opera
               where `match_array[j] == source_array[i]`.
             - If `source_array[i]` is not found in `match_array`, return null.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
-            - STRING_ARRAY
-            - BOOLEAN_ARRAY
-            - DATE_ARRAY
-            - DATETIME_ARRAY
-            - OBJECT_ARRAY
 
     Raises:
         ValueError: If any input is not an array type, if `source_array` and `match_array`
@@ -5467,42 +2927,7 @@ def LOOKUPARRAY(source_array: Operand, match_array: Operand, result_array: Opera
             # - True again → "Yes"
             Basic usage:
     """
-    source_array_data_type = source_array.to_data_type()
-    match_array_data_type = match_array.to_data_type()
-    result_array_data_type = result_array.to_data_type()
-
-    if (
-        isinstance(source_array_data_type, MapDataType)
-        or isinstance(match_array_data_type, MapDataType)
-        or isinstance(result_array_data_type, MapDataType)
-    ):
-        raise ValueError(
-            f"LOOKUPARRAY invalid with the arguments {source_array_data_type}, "
-            f"{match_array_data_type} and {result_array_data_type}"
-        )
-
-    if (
-        not source_array_data_type.is_array()
-        or not match_array_data_type.is_array()
-        or not result_array_data_type.is_array()
-    ):
-        raise ValueError(
-            f"LOOKUPARRAY invalid with the arguments {source_array_data_type}, "
-            f"{match_array_data_type} and {result_array_data_type}"
-        )
-
-    if source_array_data_type != match_array_data_type:
-        raise ValueError(
-            f"Source array and match array are in different types of "
-            f"{source_array_data_type}, {match_array_data_type}"
-        )
-
-    return _LOOKUPARRAY(
-        cast("DataType | ObjectDataType", result_array_data_type),
-        source_array.to_string(),
-        match_array.to_string(),
-        result_array.to_string(),
-    )
+    return _functions.LookupArray(source_array, match_array, result_array)
 
 
 def LOWER(value: Operand | str) -> Formula:
@@ -5516,22 +2941,10 @@ def LOWER(value: Operand | str) -> Formula:
         value:
             The string or string array to convert.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
     Returns:
         A formula containing the lowercase transformation.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING
-            - STRING_ARRAY
 
     Raises:
         ValueError: If the input is not of type STRING or STRING_ARRAY.
@@ -5551,16 +2964,7 @@ def LOWER(value: Operand | str) -> Formula:
             LOWER(["Hello", "WORLD"])
             # Returns ["hello", "world"]
     """
-    if isinstance(value, str):
-        return LOWER(CONST(value))
-
-    value_data_type = value.to_data_type()
-    if value_data_type not in STRING_AND_ARRAY_TYPES:
-        raise ValueError(f"LOWER invalid with the argument {value_data_type}")
-
-    ret_data_type = DataType.STRING_ARRAY if value_data_type.is_array() else DataType.STRING
-
-    return _LOWER(ret_data_type, value.to_string())
+    return _functions.Lower(value)
 
 
 def MEDIAN(*values: Operand | int | float) -> Formula:
@@ -5575,24 +2979,11 @@ def MEDIAN(*values: Operand | int | float) -> Formula:
         *values:
             One or more numeric values or arrays to include in the median calculation.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A formula object representing the computed median. If all inputs are arrays,
         the result is a single aggregated numeric value.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
 
     Raises:
         ValueError: If no inputs are provided.
@@ -5613,19 +3004,7 @@ def MEDIAN(*values: Operand | int | float) -> Formula:
             MEDIAN([0, 2, 3], [4, 5, 8])
             # Returns 3.5
     """
-    if not values:
-        raise ValueError("At least one input is required")
-
-        # Convert all inputs to `Operand` if necessary
-    converted_fields = [field if isinstance(field, Operand) else CONST(field) for field in values]
-
-    for value in converted_fields:
-        data_type = value.to_data_type()
-        if data_type not in NUMERIC_AND_ARRAY_TYPES:
-            raise ValueError(f"Datatype {data_type} is not a valid input for this method")
-
-    string_values = [value.to_string() for value in converted_fields]
-    return _MEDIAN(*string_values)
+    return _functions.Median(*values)
 
 
 def MINUTE(
@@ -5641,24 +3020,10 @@ def MINUTE(
         time:
             The time or array of times from which to extract the hour.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - TIME
-                - DATETIME
-                - TIME_ARRAY
-                - DATETIME_ARRAY
 
     Returns:
         The minute as an integer or array of integers.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If the input is not a time type.
@@ -5669,15 +3034,7 @@ def MINUTE(
             MINUTE(TIME(14, 32, 53))
             # Returns 32
     """
-    time_data_type = time.to_data_type()
-    if time_data_type not in TIME_AND_ARRAY_TYPES:
-        raise ValueError(f"MINUTE invalid with the argument {time_data_type}")
-
-    ret_data_type = DataType.INTEGER
-    if time_data_type.is_array():
-        ret_data_type = DataType.INTEGER_ARRAY
-
-    return _MINUTE(ret_data_type, time.to_string())
+    return _functions.Minute(time)
 
 
 def MONTHSBETWEEN(
@@ -5695,37 +3052,15 @@ def MONTHSBETWEEN(
         first_date:
             The starting date or array of dates.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATETIME
-                - DATE_ARRAY
-                - DATETIME_ARRAY
 
         second_date:
             The ending date or array of dates.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATETIME
-                - DATE_ARRAY
-                - DATETIME_ARRAY
 
     Returns:
         The number of months between the two dates. If input arrays have unequal lengths the
         returned formula will evaluate to an error.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If either input is not a date or datetime type.
@@ -5736,23 +3071,7 @@ def MONTHSBETWEEN(
             MONTHSBETWEEN(DATE(2025, 1, 1), DATE(2025, 3, 10))
             # Returns 2
     """
-
-    first_date_data_type = first_date.to_data_type()
-    second_date_data_type = second_date.to_data_type()
-
-    if (
-        first_date_data_type not in DATE_AND_ARRAY_TYPES
-        or second_date_data_type not in DATE_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"MONTHSBETWEEN invalid with arguments {first_date_data_type} "
-            f"and {second_date_data_type}"
-        )
-    ret_data_type = DataType.INTEGER
-    if first_date_data_type.is_array() or second_date_data_type.is_array():
-        ret_data_type = DataType.INTEGER_ARRAY
-
-    return _MONTHSBETWEEN(ret_data_type, first_date.to_string(), second_date.to_string())
+    return _functions.MonthsBetween(first_date, second_date)
 
 
 def SECOND(
@@ -5768,24 +3087,10 @@ def SECOND(
         time:
             The time or array of times from which to extract the hour.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - TIME
-                - DATETIME
-                - TIME_ARRAY
-                - DATETIME_ARRAY
 
     Returns:
         The second as an integer or array of integers.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If the input is not a time type.
@@ -5796,15 +3101,7 @@ def SECOND(
             SECOND(TIME(14, 32, 53))
             # Returns 53
     """
-    time_data_type = time.to_data_type()
-    if time_data_type not in TIME_AND_ARRAY_TYPES:
-        raise ValueError(f"SECOND invalid with the argument {time_data_type}")
-
-    ret_data_type = DataType.INTEGER
-    if time_data_type.is_array():
-        ret_data_type = DataType.INTEGER_ARRAY
-
-    return _SECOND(ret_data_type, time.to_string())
+    return _functions.Second(time)
 
 
 def STDEV(*values: Operand | int | float) -> Formula:
@@ -5819,24 +3116,10 @@ def STDEV(*values: Operand | int | float) -> Formula:
         *values:
             One or more numeric values or arrays to compute the standard deviation.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
-                - DECIMAL
-                - DECIMAL_ARRAY
 
     Returns:
         A formula representing the standard deviation of the input values.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If any input value is not numeric.
@@ -5856,18 +3139,7 @@ def STDEV(*values: Operand | int | float) -> Formula:
             STDEV([2, 4, 4], [4, 5, 5], [7, 9])
             # Returns 2.0
     """
-    if not values:
-        raise ValueError("At least one input is required")
-
-    converted_fields = [value if isinstance(value, Operand) else CONST(value) for value in values]
-
-    for value in converted_fields:
-        data_type = value.to_data_type()
-        if data_type not in NUMERIC_AND_ARRAY_TYPES:
-            raise ValueError(f"Datatype {data_type} is not a valid input for this method")
-
-    string_values = [value.to_string() for value in converted_fields]
-    return _STDEV(*string_values)
+    return _functions.Stdev(*values)
 
 
 def TEXTJOIN(
@@ -5888,41 +3160,18 @@ def TEXTJOIN(
         delimiter:
             The string or string array to use as the delimiter between elements.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
         ignore_empty:
             Boolean flag indicating whether empty strings should be ignored.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
 
         *string_arrays:
             One or more strings or string arrays to concatenate.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
     Returns:
         A formula representing the concatenated string.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING
-            - STRING_ARRAY
 
     Raises:
         ValueError: If no input strings are provided.
@@ -5944,38 +3193,7 @@ def TEXTJOIN(
             TEXTJOIN("-", True, "x", "", "y")
             # Returns "x-y"
     """
-
-    if not string_arrays:
-        raise ValueError("At least one input is required")
-
-    if isinstance(delimiter, str):
-        return TEXTJOIN(CONST(delimiter), ignore_empty, *string_arrays)
-    if isinstance(ignore_empty, bool):
-        return TEXTJOIN(delimiter, CONST(ignore_empty), *string_arrays)
-
-    converted_string_arrays = [
-        string if isinstance(string, Operand) else CONST(string) for string in string_arrays
-    ]
-
-    delimiter_data_type = delimiter.to_data_type()
-    ignore_empty_data_type = ignore_empty.to_data_type()
-
-    if (
-        delimiter_data_type not in STRING_AND_ARRAY_TYPES
-        or ignore_empty_data_type != DataType.BOOLEAN
-    ):
-        raise ValueError(
-            f"TEXTJOIN invalid with the arguments {delimiter_data_type} "
-            f"and {ignore_empty_data_type}"
-        )
-
-    for string_array in converted_string_arrays:
-        string_array_data_type = string_array.to_data_type()
-        if string_array_data_type not in STRING_AND_ARRAY_TYPES:
-            raise ValueError(f"TEXTJOIN invalid with the argument {string_array_data_type}")
-
-    string_values = [value.to_string() for value in converted_string_arrays]
-    return _TEXTJOIN(delimiter.to_string(), ignore_empty.to_string(), *string_values)
+    return _functions.TextJoin(delimiter, ignore_empty, *string_arrays)
 
 
 def TRIM(value: Operand | str) -> Formula:
@@ -5989,22 +3207,10 @@ def TRIM(value: Operand | str) -> Formula:
         value:
             The string or string array to trim.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
     Returns:
         A formula representing the trimmed string(s).
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING
-            - STRING_ARRAY (if the input was an array)
 
     Raises:
         ValueError: If the input value is not STRING or STRING_ARRAY.
@@ -6024,18 +3230,7 @@ def TRIM(value: Operand | str) -> Formula:
             TRIM(["  foo  ", " bar "])
             # Returns ["foo", "bar"]
     """
-
-    if isinstance(value, str):
-        return TRIM(CONST(value))
-
-    value_data_type = value.to_data_type()
-
-    if value_data_type not in STRING_AND_ARRAY_TYPES:
-        raise ValueError(f"TRIM invalid with the argument {value_data_type}")
-
-    ret_data_type = DataType.STRING_ARRAY if value_data_type.is_array() else DataType.STRING
-
-    return _TRIM(ret_data_type, value.to_string())
+    return _functions.Trim(value)
 
 
 def UPPER(value: Operand | str) -> Formula:
@@ -6049,22 +3244,10 @@ def UPPER(value: Operand | str) -> Formula:
         value:
             The string or string array to convert.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
     Returns:
         A formula containing the uppercase transformation.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING
-            - STRING_ARRAY
 
     Raises:
         ValueError: If the input is not of type STRING or STRING_ARRAY.
@@ -6084,16 +3267,7 @@ def UPPER(value: Operand | str) -> Formula:
             UPPER(["Hello", "WorLD"])
             # Returns ["HELLO", "WORLD"]
     """
-    if isinstance(value, str):
-        return UPPER(CONST(value))
-
-    value_data_type = value.to_data_type()
-    if value_data_type not in STRING_AND_ARRAY_TYPES:
-        raise ValueError(f"UPPER invalid with the argument {value_data_type}")
-
-    ret_data_type = DataType.STRING_ARRAY if value_data_type.is_array() else DataType.STRING
-
-    return _UPPER(ret_data_type, value.to_string())
+    return _functions.Upper(value)
 
 
 def WEEKDAY(date: Operand, return_type: Operand | int | None = None) -> Formula:
@@ -6108,33 +3282,15 @@ def WEEKDAY(date: Operand, return_type: Operand | int | None = None) -> Formula:
         date:
             The date or date array to evaluate.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATE
-                - DATE_ARRAY
 
         return_type:
             Optional parameter specifying the day numbering scheme. Can be a scalar integer
             (1-3 or 11-17) or a numeric model object. Defaults to 1 (Sunday=1 through Saturday=7).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - INTEGER_ARRAY
 
     Returns:
         A formula representing the weekday(s).
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If `date` is not DATE or DATE_ARRAY, or if `return_type` is outside the
@@ -6167,36 +3323,13 @@ def WEEKDAY(date: Operand, return_type: Operand | int | None = None) -> Formula:
           For details see: <https://support.microsoft.com/en-us/office/\
                     weekday-function-60e44483-2ed1-439f-8bd0-e404c190949a>
     """
-
-    if return_type:
-        if isinstance(return_type, int):
-            if return_type not in range(1, 4) and return_type not in range(11, 18):
-                raise ValueError(f"Return type: {return_type} is out of range.")
-
-    if return_type:
-        if isinstance(return_type, int):
-            return WEEKDAY(date, CONST(return_type))
-
-    date_data_type = date.to_data_type()
-    if date_data_type not in DATE_AND_ARRAY_TYPES:
-        raise ValueError(f"WEEKDAY invalid with the argument {date_data_type}")
-
-    ret_data_type = DataType.INTEGER_ARRAY if date_data_type.is_array() else DataType.INTEGER
-
-    if return_type:
-        return_type_data_type = return_type.to_data_type()
-
-        if return_type_data_type not in NUMERIC_AND_ARRAY_TYPES:
-            raise ValueError(f"WEEKDAY invalid with the argument {return_type_data_type}")
-
-        ret_data_type = (
-            DataType.INTEGER
-            if not return_type_data_type.is_array() and ret_data_type == DataType.INTEGER
-            else DataType.INTEGER_ARRAY
-        )
-        return _WEEKDAY(ret_data_type, date.to_string(), return_type.to_string())
-
-    return _WEEKDAY(ret_data_type, date.to_string())
+    if (
+        isinstance(return_type, int)
+        and return_type not in range(1, 4)
+        and return_type not in range(11, 18)
+    ):
+        raise ValueError(f"Return type: {return_type} is out of range.")
+    return _functions.Weekday(date, return_type)
 
 
 def WEIBULL(x: Operand, shape: Operand, scale: Operand, cumulative: Operand) -> Formula:
@@ -6210,14 +3343,6 @@ def WEIBULL(x: Operand, shape: Operand, scale: Operand, cumulative: Operand) -> 
         x:
             The input value(s) at which to evaluate the distribution. Must be ≥ 0.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         shape:
             The shape parameter α (must be > 0). Determines the distribution shape:
@@ -6226,26 +3351,10 @@ def WEIBULL(x: Operand, shape: Operand, scale: Operand, cumulative: Operand) -> 
             - α = 1: Exponential distribution
             - α > 1: Increasing failure rate
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         scale:
             The scale parameter β (must be > 0). Characteristic life parameter.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         cumulative:
             Boolean flag (or numeric 0/1) to determine calculation type:
@@ -6253,12 +3362,6 @@ def WEIBULL(x: Operand, shape: Operand, scale: Operand, cumulative: Operand) -> 
             - False / 0: PDF
             - True / 1: CDF
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - BOOLEAN_ARRAY
 
     Returns:
         A formula object evaluating to the Weibull distribution value(s).
@@ -6266,12 +3369,6 @@ def WEIBULL(x: Operand, shape: Operand, scale: Operand, cumulative: Operand) -> 
         - Returns DECIMAL if all inputs are scalar
         - Returns DECIMAL_ARRAY if any input is an array
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If `x`, `shape`, or `scale` are not numeric types
@@ -6299,37 +3396,7 @@ def WEIBULL(x: Operand, shape: Operand, scale: Operand, cumulative: Operand) -> 
             WEIBULL([1, 2, 3], 1.5, 3, True)
             # Returns an array of CDF values at x=1,2,3
     """
-
-    x_data_type = x.to_data_type()
-    shape_data_type = shape.to_data_type()
-    scale_data_type = scale.to_data_type()
-    cumulative_data_type = cumulative.to_data_type()
-
-    if (
-        x_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or shape_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or scale_data_type not in NUMERIC_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"WEIBULL invalid with the argument {x_data_type}, "
-            f"{shape_data_type} and {scale_data_type}"
-        )
-
-    if cumulative_data_type not in BOOLEANISH_AND_ARRAY_TYPES:
-        raise ValueError(f"WEIBULL invalid with the argument {cumulative_data_type}")
-
-    ret_data_type = DataType.DECIMAL
-    if (
-        x_data_type.is_array()
-        or shape_data_type.is_array()
-        or scale_data_type.is_array()
-        or cumulative_data_type.is_array()
-    ):
-        ret_data_type = DataType.DECIMAL_ARRAY
-
-    return _WEIBULL(
-        ret_data_type, x.to_string(), shape.to_string(), scale.to_string(), cumulative.to_string()
-    )
+    return _functions.Weibull(x, shape, scale, cumulative)
 
 
 def NORMDIST(
@@ -6348,38 +3415,14 @@ def NORMDIST(
         x:
             The input value(s) at which to evaluate the distribution.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         mean:
             The arithmetic mean of the distribution.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         standard_dev:
             The standard deviation of the distribution (must be > 0).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         cumulative:
             Boolean flag to determine calculation type:
@@ -6387,12 +3430,6 @@ def NORMDIST(
             - False / 0: PDF
             - True / 1: CDF
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - BOOLEAN_ARRAY
 
     Returns:
         A formula object evaluating to the normal distribution value(s).
@@ -6400,12 +3437,6 @@ def NORMDIST(
         - Returns DECIMAL if all inputs are scalar
         - Returns DECIMAL_ARRAY if any input is an array
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If `x`, `mean`, or `standard_dev` are not numeric types
@@ -6433,49 +3464,7 @@ def NORMDIST(
             NORMDIST(my_table["value"], 0.0, 1.0, True)
             # Returns an array of CDF values for each row
     """
-    if isinstance(x, (int, float)):
-        return NORMDIST(CONST(x), mean, standard_dev, cumulative)
-    if isinstance(mean, (int, float)):
-        return NORMDIST(x, CONST(mean), standard_dev, cumulative)
-    if isinstance(standard_dev, (int, float)):
-        return NORMDIST(x, mean, CONST(standard_dev), cumulative)
-    if isinstance(cumulative, bool):
-        return NORMDIST(x, mean, standard_dev, CONST(cumulative))
-
-    x_data_type = x.to_data_type()
-    mean_data_type = mean.to_data_type()
-    standard_dev_data_type = standard_dev.to_data_type()
-    cumulative_data_type = cumulative.to_data_type()
-
-    if (
-        x_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or mean_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or standard_dev_data_type not in NUMERIC_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"NORMDIST invalid with the arguments {x_data_type}, "
-            f"{mean_data_type} and {standard_dev_data_type}"
-        )
-
-    if cumulative_data_type not in BOOLEANISH_AND_ARRAY_TYPES:
-        raise ValueError(f"NORMDIST invalid with the argument {cumulative_data_type}")
-
-    ret_data_type = DataType.DECIMAL
-    if (
-        x_data_type.is_array()
-        or mean_data_type.is_array()
-        or standard_dev_data_type.is_array()
-        or cumulative_data_type.is_array()
-    ):
-        ret_data_type = DataType.DECIMAL_ARRAY
-
-    return _NORMDIST(
-        ret_data_type,
-        x.to_string(),
-        mean.to_string(),
-        standard_dev.to_string(),
-        cumulative.to_string(),
-    )
+    return _functions.NormDist(x, mean, standard_dev, cumulative)
 
 
 def NORMINV(
@@ -6493,38 +3482,14 @@ def NORMINV(
         probability:
             The probability value(s) for which to find the inverse (must be between 0 and 1).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         mean:
             The arithmetic mean of the distribution.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         standard_dev:
             The standard deviation of the distribution (must be > 0).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A formula object evaluating to the inverse normal distribution value(s).
@@ -6532,12 +3497,6 @@ def NORMINV(
         - Returns DECIMAL if all inputs are scalar
         - Returns DECIMAL_ARRAY if any input is an array
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If `probability`, `mean`, or `standard_dev` are not numeric types
@@ -6557,41 +3516,7 @@ def NORMINV(
             NORMINV(my_table["probability"], 0.0, 1.0)
             # Returns an array of inverse normal values for each row
     """
-    if isinstance(probability, (int, float)):
-        return NORMINV(CONST(probability), mean, standard_dev)
-    if isinstance(mean, (int, float)):
-        return NORMINV(probability, CONST(mean), standard_dev)
-    if isinstance(standard_dev, (int, float)):
-        return NORMINV(probability, mean, CONST(standard_dev))
-
-    probability_data_type = probability.to_data_type()
-    mean_data_type = mean.to_data_type()
-    standard_dev_data_type = standard_dev.to_data_type()
-
-    if (
-        probability_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or mean_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or standard_dev_data_type not in NUMERIC_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"NORMINV invalid with the arguments {probability_data_type}, "
-            f"{mean_data_type} and {standard_dev_data_type}"
-        )
-
-    ret_data_type = DataType.DECIMAL
-    if (
-        probability_data_type.is_array()
-        or mean_data_type.is_array()
-        or standard_dev_data_type.is_array()
-    ):
-        ret_data_type = DataType.DECIMAL_ARRAY
-
-    return _NORMINV(
-        ret_data_type,
-        probability.to_string(),
-        mean.to_string(),
-        standard_dev.to_string(),
-    )
+    return _functions.NormInv(probability, mean, standard_dev)
 
 
 def BINOMDIST(
@@ -6610,38 +3535,14 @@ def BINOMDIST(
         number_s:
             The number of successes in the trials.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         trials:
             The number of independent trials.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         probability_s:
             The probability of success on each trial (must be between 0 and 1).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         cumulative:
             Boolean flag to determine calculation type:
@@ -6649,12 +3550,6 @@ def BINOMDIST(
             - False / 0: PMF
             - True / 1: CDF
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - BOOLEAN_ARRAY
 
     Returns:
         A formula object evaluating to the binomial distribution value(s).
@@ -6662,12 +3557,6 @@ def BINOMDIST(
         - Returns DECIMAL if all inputs are scalar
         - Returns DECIMAL_ARRAY if any input is an array
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If `number_s`, `trials`, or `probability_s` are not numeric types
@@ -6695,49 +3584,7 @@ def BINOMDIST(
             BINOMDIST(my_table["successes"], 10, 0.5, True)
             # Returns an array of CDF values for each row
     """
-    if isinstance(number_s, (int, float)):
-        return BINOMDIST(CONST(number_s), trials, probability_s, cumulative)
-    if isinstance(trials, (int, float)):
-        return BINOMDIST(number_s, CONST(trials), probability_s, cumulative)
-    if isinstance(probability_s, (int, float)):
-        return BINOMDIST(number_s, trials, CONST(probability_s), cumulative)
-    if isinstance(cumulative, bool):
-        return BINOMDIST(number_s, trials, probability_s, CONST(cumulative))
-
-    number_s_data_type = number_s.to_data_type()
-    trials_data_type = trials.to_data_type()
-    probability_s_data_type = probability_s.to_data_type()
-    cumulative_data_type = cumulative.to_data_type()
-
-    if (
-        number_s_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or trials_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or probability_s_data_type not in NUMERIC_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"BINOMDIST invalid with the arguments {number_s_data_type}, "
-            f"{trials_data_type} and {probability_s_data_type}"
-        )
-
-    if cumulative_data_type not in BOOLEANISH_AND_ARRAY_TYPES:
-        raise ValueError(f"BINOMDIST invalid with the argument {cumulative_data_type}")
-
-    ret_data_type = DataType.DECIMAL
-    if (
-        number_s_data_type.is_array()
-        or trials_data_type.is_array()
-        or probability_s_data_type.is_array()
-        or cumulative_data_type.is_array()
-    ):
-        ret_data_type = DataType.DECIMAL_ARRAY
-
-    return _BINOMDIST(
-        ret_data_type,
-        number_s.to_string(),
-        trials.to_string(),
-        probability_s.to_string(),
-        cumulative.to_string(),
-    )
+    return _functions.BinomDist(number_s, trials, probability_s, cumulative)
 
 
 def BINOMINV(
@@ -6755,38 +3602,14 @@ def BINOMINV(
         trials:
             The number of independent trials.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         probability_s:
             The probability of success on each trial (must be between 0 and 1).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         probability:
             The criterion probability (must be between 0 and 1).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A formula object evaluating to the inverse binomial distribution value(s).
@@ -6794,12 +3617,6 @@ def BINOMINV(
         - Returns INTEGER if all inputs are scalar
         - Returns INTEGER_ARRAY if any input is an array
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If `trials`, `probability_s`, or `probability` are not numeric types
@@ -6819,40 +3636,7 @@ def BINOMINV(
             BINOMINV(my_table["trials"], 0.5, 0.9)
             # Returns an array of inverse binomial values for each row
     """
-    if isinstance(trials, (int, float)):
-        return BINOMINV(CONST(trials), probability_s, probability)
-    if isinstance(probability_s, (int, float)):
-        return BINOMINV(trials, CONST(probability_s), probability)
-    if isinstance(probability, (int, float)):
-        return BINOMINV(trials, probability_s, CONST(probability))
-
-    trials_data_type = trials.to_data_type()
-    probability_s_data_type = probability_s.to_data_type()
-    probability_data_type = probability.to_data_type()
-
-    if (
-        trials_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or probability_s_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or probability_data_type not in NUMERIC_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"BINOMINV invalid with the arguments {trials_data_type}, "
-            f"{probability_s_data_type} and {probability_data_type}"
-        )
-
-    is_array = (
-        trials_data_type.is_array()
-        or probability_s_data_type.is_array()
-        or probability_data_type.is_array()
-    )
-
-    if is_array:
-        ret_formula = _BINOMINV(
-            trials.to_string(), probability_s.to_string(), probability.to_string()
-        )
-        return Formula(DataType.INTEGER_ARRAY, ret_formula.formula_string)
-
-    return _BINOMINV(trials.to_string(), probability_s.to_string(), probability.to_string())
+    return _functions.BinomInv(trials, probability_s, probability)
 
 
 def GAMMADIST(
@@ -6871,38 +3655,14 @@ def GAMMADIST(
         x:
             The input value(s) at which to evaluate the distribution (must be ≥ 0).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         alpha:
             The shape parameter α of the distribution (must be > 0).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         beta:
             The scale parameter β of the distribution (must be > 0).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         cumulative:
             Boolean flag to determine calculation type:
@@ -6910,12 +3670,6 @@ def GAMMADIST(
             - False / 0: PDF
             - True / 1: CDF
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - BOOLEAN_ARRAY
 
     Returns:
         A formula object evaluating to the gamma distribution value(s).
@@ -6923,12 +3677,6 @@ def GAMMADIST(
         - Returns DECIMAL if all inputs are scalar
         - Returns DECIMAL_ARRAY if any input is an array
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If `x`, `alpha`, or `beta` are not numeric types
@@ -6956,49 +3704,7 @@ def GAMMADIST(
             GAMMADIST(my_table["value"], 3.0, 1.0, True)
             # Returns an array of CDF values for each row
     """
-    if isinstance(x, (int, float)):
-        return GAMMADIST(CONST(x), alpha, beta, cumulative)
-    if isinstance(alpha, (int, float)):
-        return GAMMADIST(x, CONST(alpha), beta, cumulative)
-    if isinstance(beta, (int, float)):
-        return GAMMADIST(x, alpha, CONST(beta), cumulative)
-    if isinstance(cumulative, bool):
-        return GAMMADIST(x, alpha, beta, CONST(cumulative))
-
-    x_data_type = x.to_data_type()
-    alpha_data_type = alpha.to_data_type()
-    beta_data_type = beta.to_data_type()
-    cumulative_data_type = cumulative.to_data_type()
-
-    if (
-        x_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or alpha_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or beta_data_type not in NUMERIC_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"GAMMADIST invalid with the arguments {x_data_type}, "
-            f"{alpha_data_type} and {beta_data_type}"
-        )
-
-    if cumulative_data_type not in BOOLEANISH_AND_ARRAY_TYPES:
-        raise ValueError(f"GAMMADIST invalid with the argument {cumulative_data_type}")
-
-    ret_data_type = DataType.DECIMAL
-    if (
-        x_data_type.is_array()
-        or alpha_data_type.is_array()
-        or beta_data_type.is_array()
-        or cumulative_data_type.is_array()
-    ):
-        ret_data_type = DataType.DECIMAL_ARRAY
-
-    return _GAMMADIST(
-        ret_data_type,
-        x.to_string(),
-        alpha.to_string(),
-        beta.to_string(),
-        cumulative.to_string(),
-    )
+    return _functions.GammaDist(x, alpha, beta, cumulative)
 
 
 def GAMMAINV(
@@ -7016,38 +3722,14 @@ def GAMMAINV(
         probability:
             The probability value(s) for which to find the inverse (must be between 0 and 1).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         alpha:
             The shape parameter α of the distribution (must be > 0).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
         beta:
             The scale parameter β of the distribution (must be > 0).
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A formula object evaluating to the inverse gamma distribution value(s).
@@ -7055,12 +3737,6 @@ def GAMMAINV(
         - Returns DECIMAL if all inputs are scalar
         - Returns DECIMAL_ARRAY if any input is an array
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DECIMAL
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If `probability`, `alpha`, or `beta` are not numeric types
@@ -7080,37 +3756,7 @@ def GAMMAINV(
             GAMMAINV(my_table["probability"], 3.0, 1.0)
             # Returns an array of inverse gamma values for each row
     """
-    if isinstance(probability, (int, float)):
-        return GAMMAINV(CONST(probability), alpha, beta)
-    if isinstance(alpha, (int, float)):
-        return GAMMAINV(probability, CONST(alpha), beta)
-    if isinstance(beta, (int, float)):
-        return GAMMAINV(probability, alpha, CONST(beta))
-
-    probability_data_type = probability.to_data_type()
-    alpha_data_type = alpha.to_data_type()
-    beta_data_type = beta.to_data_type()
-
-    if (
-        probability_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or alpha_data_type not in NUMERIC_AND_ARRAY_TYPES
-        or beta_data_type not in NUMERIC_AND_ARRAY_TYPES
-    ):
-        raise ValueError(
-            f"GAMMAINV invalid with the arguments {probability_data_type}, "
-            f"{alpha_data_type} and {beta_data_type}"
-        )
-
-    ret_data_type = DataType.DECIMAL
-    if probability_data_type.is_array() or alpha_data_type.is_array() or beta_data_type.is_array():
-        ret_data_type = DataType.DECIMAL_ARRAY
-
-    return _GAMMAINV(
-        ret_data_type,
-        probability.to_string(),
-        alpha.to_string(),
-        beta.to_string(),
-    )
+    return _functions.GammaInv(probability, alpha, beta)
 
 
 def COUNT(array: Operand, value: Operand | int | float | str | bool) -> Formula:
@@ -7125,43 +3771,14 @@ def COUNT(array: Operand, value: Operand | int | float | str | bool) -> Formula:
             The array to search for occurrences of `value`. Must be a valid array type
             or object array.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - DATE_ARRAY
-                - TIME_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
 
         value:
             The value to count in the array. Must have the same data type as the array elements.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - INTEGER
-                - DECIMAL
-                - STRING
-                - DATE
-                - TIME
-                - DATETIME
-                - OBJECT
 
     Returns:
         A formula object evaluating to an INTEGER representing the count of `value` in `array`.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
 
     Raises:
         ValueError: If `array` is not an array type
@@ -7191,31 +3808,7 @@ def COUNT(array: Operand, value: Operand | int | float | str | bool) -> Formula:
             COUNT([True, False, True, True], True)
             # Returns 3
     """
-
-    if isinstance(value, int | float | str | bool):
-        return COUNT(array, CONST(value))
-
-    array_data_type = array.to_data_type()
-    value_data_type = value.to_data_type()
-
-    if isinstance(array_data_type, MapDataType) or isinstance(value_data_type, MapDataType):
-        raise ValueError("COUNT is not supported with MapDataType")
-
-    if not array_data_type.is_array():
-        raise ValueError("'array' must be an array type in this method")
-
-    if not isinstance(array_data_type, ObjectDataType):
-        if array_data_type.from_array() != value_data_type:
-            raise ValueError(
-                f"COUNT is not supported with the datatypes {array_data_type}"
-                f" and {value_data_type}"
-            )
-    elif not isinstance(value_data_type, ObjectDataType):
-        raise ValueError(
-            f"COUNT is not supported with the datatypes {array_data_type}" f" and {value_data_type}"
-        )
-
-    return _COUNT(array.to_string(), value.to_string())
+    return _functions.Count(array, value)
 
 
 def COUNTBLANKS(array: Operand) -> Formula:
@@ -7231,28 +3824,11 @@ def COUNTBLANKS(array: Operand) -> Formula:
     Arguments:
         array: The array to evaluate for blank elements. Must be a valid array type or object array.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - DATE_ARRAY
-                - TIME_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
 
     Returns:
         A formula object evaluating to an INTEGER representing the number of blank elements
         in the array.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
 
     Raises:
         ValueError: If `array` is not an array type
@@ -7274,12 +3850,7 @@ def COUNTBLANKS(array: Operand) -> Formula:
             # Returns 2
             # Explanation: Empty string and null are counted as blanks
     """
-    array_data_type = array.to_data_type()
-
-    if not array_data_type.is_array():
-        raise ValueError(f"COUNTBLANKS is not compatible with data type {array_data_type}")
-
-    return _COUNTBLANKS(array.to_string())
+    return _functions.CountBlanks(array)
 
 
 def COUNTDUPLICATES(
@@ -7296,48 +3867,21 @@ def COUNTDUPLICATES(
     Arguments:
         array: The array to check for duplicates. Must be a valid array type or object array.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - DATE_ARRAY
-                - TIME_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
 
         include_first_instance:  Determines whether the first occurrence of each duplicate should be
             included in the count. If True, first occurrence and duplicates are counted; if False,
             only subsequent duplicates are counted
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
 
         ignore_blanks:
             Determines whether blank values (null or empty strings) should be ignored in duplicate
                 counting.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
 
     Returns:
         A formula object evaluating to an INTEGER representing the count of duplicate elements
         according to the specified rules.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
 
     Raises:
         ValueError: If `array` is not an array type
@@ -7372,28 +3916,7 @@ def COUNTDUPLICATES(
             # - "A" occurs twice → only the second counted
             # - Blank ignored
     """
-
-    if isinstance(include_first_instance, bool):
-        return COUNTDUPLICATES(array, CONST(include_first_instance), ignore_blanks)
-    if isinstance(ignore_blanks, bool):
-        return COUNTDUPLICATES(array, include_first_instance, CONST(ignore_blanks))
-
-    array_data_type = array.to_data_type()
-    include_first_instance_type = include_first_instance.to_data_type()
-    ignore_blanks_type = ignore_blanks.to_data_type()
-
-    if not array_data_type.is_array():
-        raise ValueError(f"'array' is not compatible with data type {array_data_type}")
-
-    if include_first_instance_type != DataType.BOOLEAN or ignore_blanks_type != DataType.BOOLEAN:
-        raise ValueError(
-            f"'include_first_instance' and 'ignore_blanks' are not compatible with data types "
-            f"{include_first_instance_type} and {ignore_blanks_type}"
-        )
-
-    return _COUNTDUPLICATES(
-        array.to_string(), include_first_instance.to_string(), ignore_blanks.to_string()
-    )
+    return _functions.CountDuplicates(array, include_first_instance, ignore_blanks)
 
 
 def BITMASKSTRING(array: Operand) -> Formula:
@@ -7408,11 +3931,6 @@ def BITMASKSTRING(array: Operand) -> Formula:
         array:
             The boolean array to convert into a hexadecimal mask string.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
 
     Returns:
         A formula object that evaluates to a hexadecimal string representing the boolean array.
@@ -7422,11 +3940,6 @@ def BITMASKSTRING(array: Operand) -> Formula:
         - Each character encodes 4 boolean values (0-9, A-F)
         - String length is ceil(array_length / 4)
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - STRING
 
     Raises:
         ValueError: If `array` is not a BOOLEAN_ARRAY
@@ -7448,12 +3961,7 @@ def BITMASKSTRING(array: Operand) -> Formula:
             # Returns "0E"
             # Explanation: Binary 1110 (last bit padded with 0) → Hex 0E
     """
-    array_data_type = array.to_data_type()
-
-    if array_data_type != DataType.BOOLEAN_ARRAY:
-        raise ValueError(f"BITMASKSTRING is not supported with the data type {array_data_type}")
-
-    return _BITMASKSTRING(array.to_string())
+    return _functions.BitmaskString(array)
 
 
 def DISTRIBUTE(value: Operand | int, array: Operand) -> Formula:
@@ -7468,32 +3976,17 @@ def DISTRIBUTE(value: Operand | int, array: Operand) -> Formula:
             The total value to distribute. Can be an integer constant or a model object
             of type INTEGER.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
 
         array:
             The bucket capacities. Must be an integer array where each element represents
             a bucket's maximum capacity.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER_ARRAY
 
     Returns:
         A formula object evaluating to an integer array where each element indicates
         the portion of `value` allocated to the corresponding bucket. The array length
         matches the input bucket array length.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER_ARRAY
 
     Raises:
         ValueError: If `value` is not an INTEGER
@@ -7522,19 +4015,7 @@ def DISTRIBUTE(value: Operand | int, array: Operand) -> Formula:
             # 2 goes to second bucket (capacity 3, only 2 remaining)
             # third bucket remains empty
     """
-    if isinstance(value, int):
-        return DISTRIBUTE(CONST(value), array)
-
-    value_data_type = value.to_data_type()
-    array_data_type = array.to_data_type()
-
-    if value_data_type != DataType.INTEGER or array_data_type != DataType.INTEGER_ARRAY:
-        raise ValueError(
-            f"DISTRIBUTE is not supported with the data type {value_data_type}"
-            f" and {array_data_type}"
-        )
-
-    return _DISTRIBUTE(value.to_string(), array.to_string())
+    return _functions.Distribute(value, array)
 
 
 def FINDDUPLICATES(
@@ -7553,49 +4034,22 @@ def FINDDUPLICATES(
         array:
             The array to check for duplicates. Must be a valid array type or object array.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - DATE_ARRAY
-                - TIME_ARRAY
-                - DATETIME_ARRAY
-                - OBJECT_ARRAY
 
         include_first_instance:
             Determines whether the first occurrence of a duplicate should be marked as True.
             If True, the first occurrence is included; if False, only subsequent duplicates are
             marked.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
 
         ignore_blanks:
             Determines whether blank values (null or empty strings) should be ignored in duplicate
             detection.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
 
     Returns:
         A formula object that evaluates to a boolean array of the same length as `array`, where
         True indicates a duplicate element according to the specified rules.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - BOOLEAN_ARRAY
 
     Raises:
         ValueError:
@@ -7625,27 +4079,7 @@ def FINDDUPLICATES(
             )
             # Returns [False, False, True]
     """
-    if isinstance(include_first_instance, bool):
-        return FINDDUPLICATES(array, CONST(include_first_instance), ignore_blanks)
-    if isinstance(ignore_blanks, bool):
-        return FINDDUPLICATES(array, include_first_instance, CONST(ignore_blanks))
-
-    array_data_type = array.to_data_type()
-    include_first_instance_type = include_first_instance.to_data_type()
-    ignore_blanks_type = ignore_blanks.to_data_type()
-
-    if not array_data_type.is_array():
-        raise ValueError(f"'array' is not compatible with data type {array_data_type}")
-
-    if include_first_instance_type != DataType.BOOLEAN or ignore_blanks_type != DataType.BOOLEAN:
-        raise ValueError(
-            f"'include_first_instance' and 'ignore_blanks' are not compatible with data types "
-            f"{include_first_instance_type} and {ignore_blanks_type}"
-        )
-
-    return _FINDDUPLICATES(
-        array.to_string(), include_first_instance.to_string(), ignore_blanks.to_string()
-    )
+    return _functions.FindDuplicates(array, include_first_instance, ignore_blanks)
 
 
 def ROWVECTOR() -> Formula:
@@ -7664,11 +4098,6 @@ def ROWVECTOR() -> Formula:
         - All other elements are 0
         - Returns an empty array if no table context is available
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER_ARRAY
 
     Examples:
         Basic usage within a table context:
@@ -7686,7 +4115,7 @@ def ROWVECTOR() -> Formula:
             ROWVECTOR()
             # Returns []
     """
-    return _ROWVECTOR()
+    return _functions.RowVector()
 
 
 def ARRAYMAX(*values: Operand | int | float) -> Formula:
@@ -7704,14 +4133,6 @@ def ARRAYMAX(*values: Operand | int | float) -> Formula:
         *values: One or more numeric values or arrays to compare. Each value must be one of the
             supported types. Mixed inputs (scalars and arrays) are allowed.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A formula object representing the maximum scalar if all inputs are scalar values, an array
@@ -7719,14 +4140,6 @@ def ARRAYMAX(*values: Operand | int | float) -> Formula:
         input is present; otherwise INTEGER. Array outputs match the length of input arrays. All
         arrays must have equal length else an error value is returned.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - DECIMAL
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If no input is provided.
@@ -7761,28 +4174,7 @@ def ARRAYMAX(*values: Operand | int | float) -> Formula:
             # Returns [5, 7, 5]
     """
 
-    if not values:
-        raise ValueError("At least one input is required")
-
-    # Convert all inputs to `Operand` if necessary
-    converted_fields = [field if isinstance(field, Operand) else CONST(field) for field in values]
-
-    ret_data_type = DataType.INTEGER
-    is_array = False
-    for value in converted_fields:
-        data_type = value.to_data_type()
-        if data_type not in NUMERIC_AND_ARRAY_TYPES:
-            raise ValueError(f"Datatype {data_type} is not a valid input for this method")
-        if data_type in {DataType.DECIMAL, DataType.DECIMAL_ARRAY}:
-            ret_data_type = DataType.DECIMAL
-        if data_type.is_array():
-            is_array = True
-
-    ret_data_type = ret_data_type.to_array() if is_array else ret_data_type
-
-    string_values = [value.to_string() for value in converted_fields]
-
-    return _ARRAYMAX(ret_data_type, *string_values)
+    return _functions.ArrayMax(*values)
 
 
 def ARRAYMIN(*values: Operand | int | float) -> Formula:
@@ -7801,14 +4193,6 @@ def ARRAYMIN(*values: Operand | int | float) -> Formula:
             One or more numeric values or arrays to compare. Each value must be one of the
             supported types. Mixed inputs (scalars and arrays) are allowed.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - INTEGER
-                - DECIMAL
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
 
     Returns:
         A formula object representing the minimum scalar if all inputs are scalar values, an array
@@ -7816,14 +4200,6 @@ def ARRAYMIN(*values: Operand | int | float) -> Formula:
         input is present; otherwise INTEGER. Array outputs match the length of input arrays. All
         arrays must have equal length else an error value is returned.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
-            - DECIMAL
-            - INTEGER_ARRAY
-            - DECIMAL_ARRAY
 
     Raises:
         ValueError: If no input is provided.
@@ -7857,28 +4233,7 @@ def ARRAYMIN(*values: Operand | int | float) -> Formula:
             )
             # Returns [2, 5, 4]
     """
-    if not values:
-        raise ValueError("At least one input is required")
-
-    # Convert all inputs to `Operand` if necessary
-    converted_fields = [field if isinstance(field, Operand) else CONST(field) for field in values]
-
-    ret_data_type = DataType.INTEGER
-    is_array = False
-    for value in converted_fields:
-        data_type = value.to_data_type()
-        if data_type not in NUMERIC_AND_ARRAY_TYPES:
-            raise ValueError(f"Datatype {data_type} is not a valid input for this method")
-        if data_type in {DataType.DECIMAL, DataType.DECIMAL_ARRAY}:
-            ret_data_type = DataType.DECIMAL
-        if data_type.is_array():
-            is_array = True
-
-    ret_data_type = ret_data_type.to_array() if is_array else ret_data_type
-
-    string_values = [value.to_string() for value in converted_fields]
-
-    return _ARRAYMIN(ret_data_type, *string_values)
+    return _functions.ArrayMin(*values)
 
 
 def RANK(
@@ -7902,43 +4257,16 @@ def RANK(
             The value to rank within the array. Must be a primitive (non-array) type compatible
             with the elements of `array`.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
-                - INTEGER
-                - DECIMAL
-                - STRING
-                - DATE
-                - TIME
-                - DATETIME
 
         array:
             The array to search within. Must be an array of the same type as `comparison_value`.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - DATE_ARRAY
-                - TIME_ARRAY
-                - DATETIME_ARRAY
 
         ascending:
             Optional boolean indicating whether to rank in ascending order (True) or descending
             order (False). Defaults to False. Only BOOLEAN values are accepted; otherwise, a
             ValueError is raised.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN
 
     Returns:
         A formula object that evaluates to an INTEGER representing the 1-based rank of
@@ -7946,11 +4274,6 @@ def RANK(
 
         If `comparison_value` is not found, the formula evaluates to an error value.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - INTEGER
 
     Raises:
         ValueError: If `array` is not an array type
@@ -8001,36 +4324,7 @@ def RANK(
             RANK(10, [1, 2, 3])
             # Evaluates to #ERROR
     """
-
-    if isinstance(comparison_value, bool | int | float | str):
-        return RANK(CONST(comparison_value), array, ascending)
-
-    if isinstance(ascending, bool):
-        return RANK(comparison_value, array, CONST(ascending))
-
-    comparison_value_data_type = comparison_value.to_data_type()
-    array_data_type = array.to_data_type()
-
-    error_message = (
-        f"RANK is not supported with the data types {comparison_value_data_type} "
-        f"and {array_data_type}"
-    )
-
-    if isinstance(array_data_type, MapDataType | ObjectDataType) or isinstance(
-        comparison_value_data_type, MapDataType | ObjectDataType
-    ):
-        raise ValueError(error_message)
-
-    if comparison_value_data_type.is_array() or not array_data_type.is_array():
-        raise ValueError(error_message)
-
-    if comparison_value_data_type.to_array() != array_data_type:
-        raise ValueError(error_message)
-
-    if ascending.to_data_type() != DataType.BOOLEAN:
-        raise ValueError(f"'ascending' is not compatible with data type {ascending.to_data_type()}")
-
-    return _RANK(comparison_value.to_string(), array.to_string(), ascending.to_string())
+    return _functions.Rank(comparison_value, array, ascending)
 
 
 def TOTIMEZONE(date_time: Operand, time_zone: Operand | str) -> Formula:
@@ -8047,33 +4341,15 @@ def TOTIMEZONE(date_time: Operand, time_zone: Operand | str) -> Formula:
         date_time:
             The datetime or array of datetimes expressed in UTC.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATETIME
-                - DATETIME_ARRAY
 
         time_zone:
             The time zone or array of time zones to convert the UTC datetime(s) into.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
     Returns:
         A formula object that evaluates to the datetime (or array of datetimes if either input is
         an array type) converted from UTC into the specified time zone.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DATETIME
-            - DATETIME_ARRAY
 
     Raises:
         ValueError: If either input is not a valid type.
@@ -8116,24 +4392,7 @@ def TOTIMEZONE(date_time: Operand, time_zone: Operand | str) -> Formula:
             TOTIMEZONE(DATETIME(2024, 3, 10, 19, 0, 0), "Invalid/Zone")
             # Evaluates to #ERROR
     """
-    if isinstance(time_zone, str):
-        return TOTIMEZONE(date_time, CONST(time_zone))
-
-    date_time_type = date_time.to_data_type()
-    time_zone_type = time_zone.to_data_type()
-
-    error_message = (
-        f"TOTIMEZONE is not supported with the data types " f"{date_time_type} and {time_zone_type}"
-    )
-
-    if date_time_type not in [DataType.DATETIME, DataType.DATETIME_ARRAY]:
-        raise ValueError(error_message)
-    if time_zone_type not in [DataType.STRING, DataType.STRING_ARRAY]:
-        raise ValueError(error_message)
-
-    is_array = date_time_type.is_array() or time_zone_type.is_array()
-
-    return _TOTIMEZONE(is_array, date_time.to_string(), time_zone.to_string())
+    return _functions.ToTimezone(date_time, time_zone)
 
 
 def FROMTIMEZONE(date_time: Operand, time_zone: Operand | str) -> Formula:
@@ -8149,32 +4408,14 @@ def FROMTIMEZONE(date_time: Operand, time_zone: Operand | str) -> Formula:
     Arguments:
         date_time: The datetime or array of datetimes in the specified time zone.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - DATETIME
-                - DATETIME_ARRAY
 
         time_zone: The timezone or array of timezones the specified datetimes are in.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - STRING
-                - STRING_ARRAY
 
     Returns:
         A formula object that evaluates to the datetime (or array of datetimes if either input is
         an array type) converted to UTC time.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - DATETIME
-            - DATETIME_ARRAY
 
     Raises:
         ValueError: If either input is not a valid type
@@ -8217,25 +4458,7 @@ def FROMTIMEZONE(date_time: Operand, time_zone: Operand | str) -> Formula:
             FROMTIMEZONE(DATETIME(2024, 3, 10, 15, 0, 0), "Invalid/Zone")
             # Evaluates to #ERROR
     """
-    if isinstance(time_zone, str):
-        return FROMTIMEZONE(date_time, CONST(time_zone))
-
-    date_time_type = date_time.to_data_type()
-    time_zone_type = time_zone.to_data_type()
-
-    error_message = (
-        f"FROMTIMEZONE is not supported with the data types "
-        f"{date_time_type} and {time_zone_type}"
-    )
-
-    if date_time_type not in [DataType.DATETIME, DataType.DATETIME_ARRAY]:
-        raise ValueError(error_message)
-    if time_zone_type not in [DataType.STRING, DataType.STRING_ARRAY]:
-        raise ValueError(error_message)
-
-    is_array = date_time_type.is_array() or time_zone_type.is_array()
-
-    return _FROMTIMEZONE(is_array, date_time.to_string(), time_zone.to_string())
+    return _functions.FromTimezone(date_time, time_zone)
 
 
 def TOMAP(array: Operand, table: Table) -> Formula:
@@ -8251,41 +4474,14 @@ def TOMAP(array: Operand, table: Table) -> Formula:
     Arguments:
         array: The array of values to convert to a map.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - BOOLEAN_ARRAY
-                - INTEGER_ARRAY
-                - DECIMAL_ARRAY
-                - STRING_ARRAY
-                - DATE_ARRAY
-                - TIME_ARRAY
-                - DATETIME_ARRAY
 
         table: The table whose rows will be used as keys.
 
-            *Supported types*:
-
-            .. container:: supported-types
-
-                - TABLE
 
     Returns:
         A formula object that evaluates to a map whose keys are the rows of the
         given table and whose values come from the provided array.
 
-        *Supported types*:
-
-        .. container:: supported-types
-
-            - BOOLEAN_MAP
-            - INTEGER_MAP
-            - DECIMAL_MAP
-            - STRING_MAP
-            - DATE_MAP
-            - TIME_MAP
-            - DATETIME_MAP
 
     Raises:
         ValueError: If either input is not a valid type.
@@ -8305,11 +4501,105 @@ def TOMAP(array: Operand, table: Table) -> Formula:
             TOMAP([1, 2], MyTable)
             # Evaluates to #ERROR
     """
-    array_data_type = array.to_data_type()
+    return _functions.ToMap(array, table)
 
-    if not array_data_type.is_array():
-        raise ValueError(f"'array' is not compatible with data type {array.to_data_type()}")
 
-    ret_data_type = MapDataType(cast(DataType, array_data_type.from_array()), table)
+def BASELINE(
+    baseline: Baseline | str,
+    reference: Field | Calculation | Parameter,
+    fallback: Field | Calculation | Parameter | None = None,
+) -> Formula:
+    """
+    Returns the value of a tracked field or named value at a captured baseline.
 
-    return _TOMAP(ret_data_type, array.to_string(), table.id)
+    Until the baseline is captured at runtime, the function evaluates to blank (or to
+    ``fallback`` if supplied). Use :func:`HASBASELINE` to guard against the
+    not-yet-captured case. ``BASELINE`` does not create a dependency cycle with the
+    live value, so a field may reference its own baseline.
+
+    Arguments:
+        baseline:
+            The baseline to read from, or its name.
+
+        reference:
+            The tracked field or named value to read. Must be a single field or
+            named-value reference — expressions are not supported (write
+            ``BASELINE(b, [a]) + BASELINE(b, [c])`` instead of
+            ``BASELINE(b, [a] + [c])``).
+
+        fallback:
+            Optional. A field or named value supplying the value to use before the
+            baseline has been captured. Must share ``reference``'s data type.
+
+    Returns:
+        The baselined value of ``reference``, with the same data type.
+
+    Raises:
+        TypeError: If ``reference`` (or ``fallback``) is not a field or named value
+            — a baseline can only read a single tracked element, not an expression.
+        ValueError: If ``reference`` is not assigned to any tracking group, or if
+            ``fallback`` has a different data type to ``reference``.
+
+    Examples:
+        Delta since optimisation:
+
+        .. code-block:: python
+
+            revenue - BASELINE("optimised", revenue)
+
+        With a fallback to the live value:
+
+        .. code-block:: python
+
+            BASELINE("optimised", revenue, revenue)
+    """
+    if not isinstance(reference, (Field, Calculation, Parameter)):
+        raise TypeError(
+            "BASELINE reference must be a field, calculation, or parameter, "
+            f"not {type(reference).__name__} — expressions are not supported "
+            "(write BASELINE(b, [a]) + BASELINE(b, [c]) instead of BASELINE(b, [a] + [c]))"
+        )
+    if fallback is not None and not isinstance(fallback, (Field, Calculation, Parameter)):
+        raise TypeError(
+            "BASELINE fallback must be a field, calculation, or parameter, "
+            f"not {type(fallback).__name__}"
+        )
+
+    if not reference.tracking_groups:
+        raise ValueError(
+            f"BASELINE reference {reference.to_string()} is not assigned to any tracking "
+            "group — call set_tracking_groups([...]) on it before reading its baseline"
+        )
+
+    baseline_name = baseline.name if isinstance(baseline, Baseline) else baseline
+    data_type = reference.to_data_type()
+
+    if fallback is not None and fallback.to_data_type() != data_type:
+        raise ValueError(
+            f"BASELINE fallback type {fallback.to_data_type()} does not match "
+            f"reference type {data_type}"
+        )
+
+    if fallback is None:
+        return _functions.Baseline(CONST(baseline_name), reference)
+    return _functions.Baseline(CONST(baseline_name), reference, fallback)
+
+
+def HASBASELINE(baseline: Baseline | str) -> Formula:
+    """
+    Returns whether a baseline has been captured at runtime.
+
+    Arguments:
+        baseline:
+            The baseline to test, or its name.
+
+    Returns:
+        A ``BOOLEAN`` formula that is true once the baseline has been captured.
+
+    Examples:
+        .. code-block:: python
+
+            IF(HASBASELINE("optimised"), revenue - BASELINE("optimised", revenue), 0)
+    """
+    baseline_name = baseline.name if isinstance(baseline, Baseline) else baseline
+    return _functions.HasBaseline(CONST(baseline_name))

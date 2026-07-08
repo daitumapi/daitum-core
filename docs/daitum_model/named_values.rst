@@ -22,7 +22,6 @@ A :class:`~daitum_model.Calculation` represents a named formula-based value that
 - ``depends_on_decision``: Whether it depends on decision variables
 - ``model_level``: Whether it's a model-level value
 - ``required_by_output``: Whether it's required in the output
-- ``tracking_group``: Optional group for change tracking
 
 **Examples:**
 
@@ -76,7 +75,6 @@ A :class:`~daitum_model.Parameter` represents a named static value that can be r
 - ``value``: The static value
 - ``model_level``: Whether it's a model-level value
 - ``required_by_output``: Whether it's required in the output
-- ``tracking_group``: Optional group for change tracking
 
 **Examples:**
 

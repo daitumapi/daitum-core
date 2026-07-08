@@ -1,0 +1,458 @@
+{
+  "ABS literal": {
+    "to_data_type": "INTEGER",
+    "to_string": "ABS(-3)"
+  },
+  "ABS scalar": {
+    "to_data_type": "DECIMAL",
+    "to_string": "ABS([Cost])"
+  },
+  "AND": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "AND([Flag], TRUE)"
+  },
+  "ARRAY": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "ARRAY(TRUE, [Cost], 1.0)"
+  },
+  "ARRAYMAX": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "ARRAYMAX([Costs])"
+  },
+  "ARRAYMIN": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "ARRAYMIN([Costs])"
+  },
+  "AVERAGE": {
+    "to_data_type": "DECIMAL",
+    "to_string": "AVERAGE([Cost], 1.0)"
+  },
+  "BASELINE": {
+    "to_data_type": "DECIMAL",
+    "to_string": "BASELINE(\"optimised\", [Tracked])"
+  },
+  "BASELINE fallback": {
+    "to_data_type": "DECIMAL",
+    "to_string": "BASELINE(\"optimised\", [Tracked], [Tracked])"
+  },
+  "BINOMDIST": {
+    "to_data_type": "DECIMAL",
+    "to_string": "BINOMDIST(1, 10, 0.5, TRUE)"
+  },
+  "BINOMINV": {
+    "to_data_type": "INTEGER",
+    "to_string": "BINOMINV(10, 0.5, 0.5)"
+  },
+  "BITAND": {
+    "to_data_type": "INTEGER",
+    "to_string": "BITAND([Qty], 1)"
+  },
+  "BITMASK": {
+    "to_data_type": "INTEGER",
+    "to_string": "BITMASK([Flags])"
+  },
+  "BITMASKSTRING": {
+    "to_data_type": "STRING",
+    "to_string": "BITMASKSTRING([Flags])"
+  },
+  "BITOR": {
+    "to_data_type": "INTEGER",
+    "to_string": "BITOR([Qty], 1)"
+  },
+  "BLANK": {
+    "to_data_type": "NULL",
+    "to_string": "BLANK()"
+  },
+  "BLANK typed": {
+    "to_data_type": "DECIMAL",
+    "to_string": "BLANK()"
+  },
+  "CEILING": {
+    "to_data_type": "INTEGER",
+    "to_string": "CEILING([Cost])"
+  },
+  "CHAR": {
+    "to_data_type": "STRING",
+    "to_string": "CHAR([Qty])"
+  },
+  "CHOOSE": {
+    "to_data_type": "INTEGER",
+    "to_string": "CHOOSE([Qty], 1, 2, 3)"
+  },
+  "CONST bool": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "TRUE"
+  },
+  "CONST float": {
+    "to_data_type": "DECIMAL",
+    "to_string": "2.5"
+  },
+  "CONST int": {
+    "to_data_type": "INTEGER",
+    "to_string": "5"
+  },
+  "CONST str": {
+    "to_data_type": "STRING",
+    "to_string": "\"hi\""
+  },
+  "CONTAINS": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "CONTAINS([Costs], 1.0)"
+  },
+  "COS": {
+    "to_data_type": "DECIMAL",
+    "to_string": "COS([Cost])"
+  },
+  "COUNT": {
+    "to_data_type": "INTEGER",
+    "to_string": "COUNT([Costs], 1.0)"
+  },
+  "COUNTBLANKS": {
+    "to_data_type": "INTEGER",
+    "to_string": "COUNTBLANKS([Costs])"
+  },
+  "COUNTDUPLICATES": {
+    "to_data_type": "INTEGER",
+    "to_string": "COUNTDUPLICATES([Costs], TRUE, TRUE)"
+  },
+  "DATE": {
+    "to_data_type": "DATE",
+    "to_string": "DATE(2026, 1, 1)"
+  },
+  "DATETIME": {
+    "to_data_type": "DATETIME",
+    "to_string": "DATETIME(2026, 1, 1, 0, 0, 0)"
+  },
+  "DAY": {
+    "to_data_type": "INTEGER",
+    "to_string": "DAY([Day])"
+  },
+  "DAYSBETWEEN": {
+    "to_data_type": "INTEGER",
+    "to_string": "DAYSBETWEEN([Day], [Day])"
+  },
+  "DISTINCT": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "DISTINCT([Costs])"
+  },
+  "DISTRIBUTE": {
+    "to_data_type": "INTEGER_ARRAY",
+    "to_string": "DISTRIBUTE([Qty], [Qtys])"
+  },
+  "EOMONTH": {
+    "to_data_type": "DATE",
+    "to_string": "EOMONTH([Day], 0)"
+  },
+  "EOMONTH months": {
+    "to_data_type": "DATE",
+    "to_string": "EOMONTH([Day], 2)"
+  },
+  "EXP": {
+    "to_data_type": "DECIMAL",
+    "to_string": "EXP([Cost])"
+  },
+  "FILTER operand": {
+    "to_data_type": "OBJECT_ARRAY:Sites",
+    "to_string": "FILTER([SiteList], [Flags])"
+  },
+  "FILTER table": {
+    "to_data_type": "OBJECT_ARRAY:Jobs",
+    "to_string": "FILTER(Jobs, [Flags])"
+  },
+  "FIND": {
+    "to_data_type": "INTEGER",
+    "to_string": "FIND(\"x\", [Name])"
+  },
+  "FIND start": {
+    "to_data_type": "INTEGER",
+    "to_string": "FIND(\"x\", [Name], 2)"
+  },
+  "FINDDUPLICATES": {
+    "to_data_type": "BOOLEAN_ARRAY",
+    "to_string": "FINDDUPLICATES([Costs], TRUE, TRUE)"
+  },
+  "FLOOR": {
+    "to_data_type": "INTEGER",
+    "to_string": "FLOOR([Cost])"
+  },
+  "FROMTIMEZONE": {
+    "to_data_type": "DATETIME",
+    "to_string": "FROMTIMEZONE([Stamp], \"UTC\")"
+  },
+  "GAMMADIST": {
+    "to_data_type": "DECIMAL",
+    "to_string": "GAMMADIST(1.0, 1.0, 1.0, TRUE)"
+  },
+  "GAMMAINV": {
+    "to_data_type": "DECIMAL",
+    "to_string": "GAMMAINV(0.5, 1.0, 1.0)"
+  },
+  "GET": {
+    "to_data_type": "DECIMAL",
+    "to_string": "GET([CostMap], [Site])"
+  },
+  "HASBASELINE": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "HASBASELINE(\"optimised\")"
+  },
+  "HOUR": {
+    "to_data_type": "INTEGER",
+    "to_string": "HOUR([Clock])"
+  },
+  "HOURSBETWEEN": {
+    "to_data_type": "DECIMAL",
+    "to_string": "HOURSBETWEEN([Clock], [Clock])"
+  },
+  "IF null branch": {
+    "to_data_type": "DECIMAL",
+    "to_string": "IF([Flag], BLANK(), [Cost])"
+  },
+  "IF scalar": {
+    "to_data_type": "DECIMAL",
+    "to_string": "IF([Flag], 0.0, [Cost])"
+  },
+  "IFBLANK": {
+    "to_data_type": "DECIMAL",
+    "to_string": "IFBLANK([Cost], 0.0)"
+  },
+  "IFERROR": {
+    "to_data_type": "DECIMAL",
+    "to_string": "IFERROR([Cost], 0.0)"
+  },
+  "INDEX operand": {
+    "to_data_type": "OBJECT:Sites",
+    "to_string": "INDEX([SiteList], 1)"
+  },
+  "INDEX table": {
+    "to_data_type": "OBJECT:Jobs",
+    "to_string": "INDEX(Jobs, 1)"
+  },
+  "INTEGER": {
+    "to_data_type": "INTEGER",
+    "to_string": "INTEGER([Cost])"
+  },
+  "INTERSECTION": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "INTERSECTION(TRUE, [Costs], [Costs])"
+  },
+  "ISBLANK": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "ISBLANK([Cost])"
+  },
+  "ISERROR": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "ISERROR([Cost])"
+  },
+  "LEFT": {
+    "to_data_type": "STRING",
+    "to_string": "LEFT([Name], 3)"
+  },
+  "LEN": {
+    "to_data_type": "INTEGER",
+    "to_string": "LEN([Name])"
+  },
+  "LOG": {
+    "to_data_type": "DECIMAL",
+    "to_string": "LOG([Cost])"
+  },
+  "LOOKUP operand": {
+    "to_data_type": "OBJECT:Sites",
+    "to_string": "LOOKUP([SiteList], \"Region\", \"x\", FALSE)"
+  },
+  "LOOKUP table": {
+    "to_data_type": "OBJECT:Sites",
+    "to_string": "LOOKUP(Sites, \"Region\", \"x\", FALSE)"
+  },
+  "LOOKUPARRAY": {
+    "to_data_type": "STRING_ARRAY",
+    "to_string": "LOOKUP_ARRAY([Costs], [Costs], [Names])"
+  },
+  "LOWER": {
+    "to_data_type": "STRING",
+    "to_string": "LOWER([Name])"
+  },
+  "MATCH": {
+    "to_data_type": "INTEGER",
+    "to_string": "MATCH(1.0, [Costs], FALSE)"
+  },
+  "MAX": {
+    "to_data_type": "DECIMAL",
+    "to_string": "MAX([Cost], 1.0)"
+  },
+  "MEDIAN": {
+    "to_data_type": "DECIMAL",
+    "to_string": "MEDIAN([Cost], 1.0)"
+  },
+  "MIN": {
+    "to_data_type": "DECIMAL",
+    "to_string": "MIN([Cost], 1.0)"
+  },
+  "MINUTE": {
+    "to_data_type": "INTEGER",
+    "to_string": "MINUTE([Clock])"
+  },
+  "MOD": {
+    "to_data_type": "INTEGER",
+    "to_string": "MOD([Qty], 2)"
+  },
+  "MONTH": {
+    "to_data_type": "INTEGER",
+    "to_string": "MONTH([Day])"
+  },
+  "MONTHSBETWEEN": {
+    "to_data_type": "INTEGER",
+    "to_string": "MONTHSBETWEEN([Day], [Day])"
+  },
+  "NEXT": {
+    "to_data_type": "DECIMAL",
+    "to_string": "NEXT([Cost])"
+  },
+  "NORMDIST": {
+    "to_data_type": "DECIMAL",
+    "to_string": "NORMDIST(1.0, 0.0, 1.0, TRUE)"
+  },
+  "NORMINV": {
+    "to_data_type": "DECIMAL",
+    "to_string": "NORMINV(0.5, 0.0, 1.0)"
+  },
+  "NOT": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "NOT([Flag])"
+  },
+  "OR": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "OR([Flag], TRUE)"
+  },
+  "PLUSDAYS": {
+    "to_data_type": "DATE",
+    "to_string": "PLUSDAYS([Day], 1)"
+  },
+  "PLUSMINUTES": {
+    "to_data_type": "TIME",
+    "to_string": "PLUSMINUTES([Clock], 1)"
+  },
+  "POWER": {
+    "to_data_type": "DECIMAL",
+    "to_string": "POWER([Cost], 2)"
+  },
+  "PREV": {
+    "to_data_type": "DECIMAL",
+    "to_string": "PREV([Cost])"
+  },
+  "RANK": {
+    "to_data_type": "INTEGER",
+    "to_string": "RANK([Cost], [Costs], FALSE)"
+  },
+  "RIGHT": {
+    "to_data_type": "STRING",
+    "to_string": "RIGHT([Name], 3)"
+  },
+  "ROUND": {
+    "to_data_type": "INTEGER",
+    "to_string": "ROUND([Cost])"
+  },
+  "ROW": {
+    "to_data_type": "INTEGER",
+    "to_string": "ROW()"
+  },
+  "ROWS operand": {
+    "to_data_type": "INTEGER",
+    "to_string": "ROWS([SiteList])"
+  },
+  "ROWS table": {
+    "to_data_type": "INTEGER",
+    "to_string": "ROWS(Jobs)"
+  },
+  "ROWVECTOR": {
+    "to_data_type": "INTEGER_ARRAY",
+    "to_string": "ROWVECTOR()"
+  },
+  "SECOND": {
+    "to_data_type": "INTEGER",
+    "to_string": "SECOND([Clock])"
+  },
+  "SETTIME": {
+    "to_data_type": "DATETIME",
+    "to_string": "SETTIME([Day], [Clock])"
+  },
+  "SIN": {
+    "to_data_type": "DECIMAL",
+    "to_string": "SIN([Cost])"
+  },
+  "SIZE": {
+    "to_data_type": "INTEGER",
+    "to_string": "SIZE([Costs])"
+  },
+  "STDEV": {
+    "to_data_type": "DECIMAL",
+    "to_string": "STDEV([Cost], 1.0)"
+  },
+  "SUM array": {
+    "to_data_type": "DECIMAL",
+    "to_string": "SUM([Costs])"
+  },
+  "SUM decimal": {
+    "to_data_type": "DECIMAL",
+    "to_string": "SUM([Cost], 1.0)"
+  },
+  "SUM scalars": {
+    "to_data_type": "INTEGER",
+    "to_string": "SUM(1, 2)"
+  },
+  "TEXT": {
+    "to_data_type": "STRING",
+    "to_string": "TEXT([Cost])"
+  },
+  "TEXT fmt": {
+    "to_data_type": "STRING",
+    "to_string": "TEXT([Cost], \"0.00\")"
+  },
+  "TEXTJOIN": {
+    "to_data_type": "STRING",
+    "to_string": "TEXTJOIN(\",\", TRUE, [Names])"
+  },
+  "TIME": {
+    "to_data_type": "TIME",
+    "to_string": "TIME(1, 2, 3)"
+  },
+  "TOMAP": {
+    "to_data_type": "DECIMAL_MAP:Sites",
+    "to_string": "TOMAP([Costs], Sites)"
+  },
+  "TOTIMEZONE": {
+    "to_data_type": "DATETIME",
+    "to_string": "TOTIMEZONE([Stamp], \"UTC\")"
+  },
+  "TRIM": {
+    "to_data_type": "STRING",
+    "to_string": "TRIM([Name])"
+  },
+  "UNION": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "UNION(TRUE, [Costs], [Costs])"
+  },
+  "UPPER": {
+    "to_data_type": "STRING",
+    "to_string": "UPPER([Name])"
+  },
+  "VALUES": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "VALUES([CostMap])"
+  },
+  "WEEKDAY": {
+    "to_data_type": "INTEGER",
+    "to_string": "WEEKDAY([Day])"
+  },
+  "WEEKDAY rt": {
+    "to_data_type": "INTEGER",
+    "to_string": "WEEKDAY([Day], 1)"
+  },
+  "WEIBULL": {
+    "to_data_type": "DECIMAL",
+    "to_string": "WEIBULL(1.0, 1.0, 1.0, TRUE)"
+  },
+  "YEAR": {
+    "to_data_type": "INTEGER",
+    "to_string": "YEAR([Day])"
+  }
+}

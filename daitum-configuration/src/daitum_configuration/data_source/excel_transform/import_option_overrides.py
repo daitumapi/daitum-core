@@ -14,9 +14,8 @@
 
 """:class:`ImportOptionOverrides` — per-sheet overrides used by :class:`ExcelTransformConfig`."""
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
-
-from daitum_configuration._buildable import Buildable
 
 
 # pylint: disable=too-many-instance-attributes

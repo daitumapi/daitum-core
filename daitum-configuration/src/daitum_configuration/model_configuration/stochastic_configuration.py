@@ -16,9 +16,8 @@
 
 from enum import Enum
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
-
-from daitum_configuration._buildable import Buildable
 
 
 class MetricCombinationRule(Enum):

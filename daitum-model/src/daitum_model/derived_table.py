@@ -28,7 +28,8 @@ from enum import Enum
 
 from typeguard import typechecked
 
-from ._buildable import Buildable
+from daitum_model.serialisation import Buildable
+
 from .data_types import PRIMITIVE_DATA_TYPES, BaseDataType, DataType, MapDataType, ObjectDataType
 from .fields import DataField, Field
 from .tables import Table
@@ -247,9 +248,6 @@ class DerivedTable(Table):
         self.sort_keys: list[DerivedTable._SortKey] = []
 
         if group_by is not None:
-            for field in group_by:
-                if field.tracking_group is not None:
-                    raise ValueError("Currently do not support grouping by tracked fields")
             self.grouping_configuration = DerivedTable._GroupingConfiguration(group_by)
 
         if filter_field is not None:
@@ -298,11 +296,6 @@ class DerivedTable(Table):
                     context = "grouped fields." if self.grouping_configuration else "source table."
                     raise ValueError(f"The field {field.id} does not appear in the {context}")
 
-                if field.tracking_group is not None:
-                    tracked_field = self._source_table.get_field(field.tracking_id)
-                    if tracked_field not in field_list:
-                        field_list.append(tracked_field)
-
         if include_validators and source_fields is not None:
             self._append_validator_fields(field_list)
 
@@ -316,8 +309,6 @@ class DerivedTable(Table):
                 data_field.set_order_index(field.order_index)
             if field.description is not None:
                 data_field.set_description(field.description)
-            if field.tracking_group is not None:
-                data_field.set_tracking_group(field.tracking_group)
             self._add_field(data_field)
 
             if include_validators:
@@ -356,7 +347,6 @@ class DerivedTable(Table):
         id: str,
         source_field: Field,
         aggregation_method: AggregationMethod,
-        tracking_group: str | None = None,
     ) -> DataField:
         """
         Adds an aggregated field to the table.
@@ -365,7 +355,6 @@ class DerivedTable(Table):
             id (str): The unique identifier for the aggregated field.
             source_field (Field): The source field that will be aggregated.
             aggregation_method (AggregationMethod): The method used to aggregate the `source_field`.
-            tracking_group (str, optional): Group identifier for change tracking.
 
         Raises:
             ValueError: If no grouped fields are present in the table.
@@ -378,17 +367,7 @@ class DerivedTable(Table):
         data_type = _get_aggregated_data_type(source_field, aggregation_method)
         self.grouping_configuration.add_aggregated_field(id, source_field, aggregation_method)
         data_field = DataField(id, self, data_type)
-        if tracking_group is not None:
-            data_field.set_tracking_group(tracking_group)
         self._add_field(data_field)
-
-        if tracking_group is not None:
-            self.add_aggregated_field(
-                data_field.tracking_id,
-                self._source_table.get_field(source_field.tracking_id),
-                aggregation_method,
-            )
-
         return data_field
 
     class _SortKey(Buildable):

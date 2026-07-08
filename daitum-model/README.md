@@ -26,7 +26,7 @@ table.add_data_field("name", DataType.STRING)
 
 ## Documentation
 
-Full documentation is available at [daitum-core.readthedocs.io](https://daitum-core.readthedocs.io).
+Full documentation is available at [docs.daitum.com](https://docs.daitum.com).
 
 ## Changelog
 

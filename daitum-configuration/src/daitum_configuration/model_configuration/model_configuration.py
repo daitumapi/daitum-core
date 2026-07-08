@@ -19,10 +19,10 @@ of an optimisation problem, plus per-model solver flags.
 
 from daitum_model import Calculation, Parameter
 from daitum_model.fields import DataField, Field
+from daitum_model.serialisation import Buildable
 from daitum_model.tables import DataTable, Table
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.model_configuration.constraint import Constraint
 from daitum_configuration.model_configuration.decision_variable import DecisionVariable, DVType
 from daitum_configuration.model_configuration.external_configuration import (

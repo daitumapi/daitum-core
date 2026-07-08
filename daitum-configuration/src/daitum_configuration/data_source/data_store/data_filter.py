@@ -21,9 +21,9 @@ Concrete subclasses declare their ``@type`` discriminator via the
 
 from abc import ABC, abstractmethod
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.data_source.data_store.data_filter_type import DataFilterType
 
 

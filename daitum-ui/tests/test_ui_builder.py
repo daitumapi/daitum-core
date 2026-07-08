@@ -53,3 +53,23 @@ class TestUiBuilder:
         group = ui.add_navigation_group("My Group")
         assert group is not None
         assert isinstance(group, GroupViewNavItem)
+
+
+class TestSerialisationCore:
+    def test_template_binding_key_serialises_via_to_string(self):
+        from daitum_ui._buildable import Buildable
+        from daitum_ui.template_binding_key import TemplateBindingKey
+
+        obj = Buildable()
+        obj.binding = TemplateBindingKey("employeeName")
+        obj.bindings = [TemplateBindingKey("a"), TemplateBindingKey("b")]
+        built = obj.build()
+        assert built["binding"] == "employeeName"
+        assert built["bindings"] == ["a", "b"]
+
+    def test_dict_keys_not_camelised(self):
+        from daitum_ui._buildable import Buildable
+
+        obj = Buildable()
+        obj.field_mapping = {"start_date": "x", "MY_ID": "y"}
+        assert obj.build() == {"fieldMapping": {"start_date": "x", "MY_ID": "y"}}

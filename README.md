@@ -19,7 +19,7 @@ pip install daitum-core
 
 ## Documentation
 
-Full documentation is available at [daitum-core.readthedocs.io](https://daitum-core.readthedocs.io).
+Full documentation is available at [docs.daitum.com](https://docs.daitum.com).
 
 ## Licence
 

@@ -14,9 +14,9 @@
 
 """:class:`ScheduleConfiguration` — multi-step optimisation schedule."""
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.algorithm_configuration.algorithm import Algorithm
 from daitum_configuration.schedule_configuration.step_configuration import StepConfiguration
 

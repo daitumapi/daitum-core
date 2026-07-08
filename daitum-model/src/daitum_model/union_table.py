@@ -25,7 +25,8 @@ from typing import Any
 
 from typeguard import typechecked
 
-from ._buildable import Buildable
+from daitum_model.serialisation import Buildable
+
 from .data_types import BaseDataType
 from .fields import DataField, Field
 from .tables import Table
@@ -53,9 +54,9 @@ class UnionTable(Table):
     """
     Represents a table that is derived by performing a union operation on multiple source tables.
 
-    A union operation combines rows from multiple tables into a single table. Unlike joins,
-     a union does not merge columns based on key relationships but instead stacks rows from
-     different tables on top of each other.
+    A union operation combines rows from multiple tables into a single table.
+    Unlike joins, a union does not merge columns based on key relationships but instead stacks
+    rows from different tables on top of each other.
 
     Attributes:
         source_tables: The list of tables being combined into the `UnionTable`.
@@ -99,7 +100,6 @@ class UnionTable(Table):
         Returns:
             DataField: The newly created `DataField` instance.
         """
-        # tracking??
         data_field = DataField(id, self, data_type)
         if order_index is not None:
             data_field.set_order_index(order_index)

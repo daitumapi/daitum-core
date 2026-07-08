@@ -14,12 +14,11 @@
 
 """:class:`SetDataFilter` — a :class:`DataFilter` matching rows by set membership."""
 
-from typing import Any
-
 from daitum_model import Calculation, Parameter
+from daitum_model.references import Reference
+from daitum_model.serialisation import json_type_info
 from typeguard import typechecked
 
-from daitum_configuration._buildable import json_type_info
 from daitum_configuration.data_source.data_store.data_filter import DataFilter
 from daitum_configuration.data_source.data_store.data_filter_type import DataFilterType
 
@@ -44,14 +43,9 @@ class SetDataFilter(DataFilter):
     ):
         self.path = path
         self.values = list(values) if values is not None else None
-        self._source_keys = source_keys
+        # Emitted as the single ``sourceKey`` key (a list of references).
+        self.source_key = [Reference(key) for key in source_keys]
 
     @property
     def type(self) -> DataFilterType:
         return DataFilterType.SET
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        result = super().build()
-        result["sourceKey"] = [f"!!!{key.to_string()}" for key in self._source_keys]
-        return result

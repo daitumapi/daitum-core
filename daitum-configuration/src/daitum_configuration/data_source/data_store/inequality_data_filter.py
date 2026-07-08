@@ -14,12 +14,11 @@
 
 """:class:`InequalityDataFilter` — a :class:`DataFilter` matching numeric range rows."""
 
-from typing import Any
-
 from daitum_model import Calculation, Parameter
+from daitum_model.references import Reference
+from daitum_model.serialisation import json_type_info
 from typeguard import typechecked
 
-from daitum_configuration._buildable import json_type_info
 from daitum_configuration.data_source.data_store.data_filter import DataFilter
 from daitum_configuration.data_source.data_store.data_filter_type import DataFilterType
 
@@ -50,22 +49,9 @@ class InequalityDataFilter(DataFilter):
         self.path = path
         self.lower = lower
         self.upper = upper
-        self._lower_key = lower_key
-        self._upper_key = upper_key
+        self.lower_key = Reference(lower_key)
+        self.upper_key = Reference(upper_key)
 
     @property
     def type(self) -> DataFilterType:
         return DataFilterType.INEQUALITY
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        result = super().build()
-        result["lowerKey"] = f"!!!{self._format(self._lower_key)}"
-        result["upperKey"] = f"!!!{self._format(self._upper_key)}"
-        return result
-
-    @staticmethod
-    def _format(key: float | Parameter | Calculation) -> str:
-        if isinstance(key, (int, float)):
-            return str(key)
-        return key.to_string()

@@ -7,6 +7,8 @@ import pytest
 from daitum_model import (
     DataType,
     Formula,
+    JoinCondition,
+    JoinType,
     LengthValidator,
     ListValidator,
     ModelBuilder,
@@ -225,3 +227,150 @@ class TestUnionTable:
         # t2.Name is INTEGER but union.Name is STRING — auto-mapping must raise
         with pytest.raises(ValueError, match="Data type mismatch"):
             union.direct_field_mapping()
+
+
+class TestJoinedTable:
+    def _make_tables(self):
+        model = ModelBuilder()
+        orders = model.add_data_table("Orders")
+        orders.add_data_field("CustomerId", DataType.STRING)
+        customers = model.add_data_table("Customers")
+        customers.add_data_field("Id", DataType.STRING)
+        return model, orders, customers
+
+    def test_matching_join_with_fields_succeeds(self):
+        _, orders, customers = self._make_tables()
+        condition = JoinCondition(
+            orders,
+            customers,
+            JoinType.INNER,
+            left_field=orders.get_field("CustomerId"),
+            right_field=customers.get_field("Id"),
+        )
+        built = condition.build()
+        assert built["joinType"] == "INNER"
+        assert built["leftTableField"] == "CustomerId"
+        assert built["rightTableField"] == "Id"
+
+    def test_matching_join_without_fields_raises(self):
+        _, orders, customers = self._make_tables()
+        with pytest.raises(ValueError, match="requires both left_field and right_field"):
+            JoinCondition(orders, customers, JoinType.LEFT)
+
+    def test_cross_join_without_fields_succeeds(self):
+        _, orders, customers = self._make_tables()
+        condition = JoinCondition(orders, customers, JoinType.CROSS)
+        built = condition.build()
+        assert built["joinType"] == "CROSS"
+        # No match fields should be serialised for a CROSS join.
+        assert "leftTableField" not in built
+        assert "rightTableField" not in built
+        assert condition.left_field is None
+        assert condition.right_field is None
+
+    def test_cross_join_with_fields_raises(self):
+        _, orders, customers = self._make_tables()
+        with pytest.raises(ValueError, match="CROSS join.*no match fields"):
+            JoinCondition(
+                orders,
+                customers,
+                JoinType.CROSS,
+                left_field=orders.get_field("CustomerId"),
+                right_field=customers.get_field("Id"),
+            )
+
+    def test_cross_join_with_single_field_raises(self):
+        _, orders, customers = self._make_tables()
+        with pytest.raises(ValueError, match="CROSS join.*no match fields"):
+            JoinCondition(
+                orders,
+                customers,
+                JoinType.CROSS,
+                left_field=orders.get_field("CustomerId"),
+            )
+
+
+class TestTracking:
+    def test_tracking_groups_and_baselines_serialise(self):
+        from daitum_model import AutoCapture
+
+        model = ModelBuilder()
+        edits = model.add_tracking_group("edits")
+        model.add_baseline("optimised", [edits], auto_capture=AutoCapture.OPTIMISATION_COMPLETED)
+        table = model.add_data_table("Sales")
+        table.set_id_field("id")
+        table.add_data_field("id", DataType.STRING)
+        table.add_data_field("revenue", DataType.DECIMAL).set_tracking_groups([edits])
+
+        out = model.build()
+        assert out["trackingGroupDefinitions"] == {"edits": {"name": "edits"}}
+        assert out["baselineDefinitions"]["optimised"] == {
+            "name": "optimised",
+            "trackingGroups": ["edits"],
+            "autoCapture": "OPTIMISATION_COMPLETED",
+        }
+        revenue = out["tableDefinitions"]["Sales"]["fieldDefinitions"]["revenue"]
+        assert revenue["trackingGroups"] == ["edits"]
+
+    def test_untracked_model_omits_tracking_keys(self):
+        model = ModelBuilder()
+        model.add_data_table("Jobs").add_data_field("Cost", DataType.DECIMAL)
+        out = model.build()
+        assert "trackingGroupDefinitions" not in out
+        assert "baselineDefinitions" not in out
+
+    def test_set_tracking_groups_accepts_names(self):
+        model = ModelBuilder()
+        model.add_tracking_group("edits")
+        model.add_baseline("b", ["edits"])
+        table = model.add_data_table("Sales")
+        table.set_id_field("id")
+        table.add_data_field("id", DataType.STRING)
+        field = table.add_data_field("revenue", DataType.DECIMAL).set_tracking_groups(["edits"])
+        assert field.tracking_groups == ["edits"]
+
+    def test_tracked_field_without_id_field_raises(self):
+        model = ModelBuilder()
+        edits = model.add_tracking_group("edits")
+        model.add_baseline("b", [edits])
+        table = model.add_data_table("Sales")
+        table.add_data_field("revenue", DataType.DECIMAL).set_tracking_groups([edits])
+        with pytest.raises(ValueError, match="id_field"):
+            model.build()
+
+    def test_undeclared_group_on_element_raises(self):
+        model = ModelBuilder()
+        table = model.add_data_table("Sales")
+        table.set_id_field("id")
+        table.add_data_field("id", DataType.STRING)
+        table.add_data_field("revenue", DataType.DECIMAL).set_tracking_groups(["ghost"])
+        with pytest.raises(ValueError, match="undeclared tracking group"):
+            model.build()
+
+    def test_baseline_with_undeclared_group_raises(self):
+        model = ModelBuilder()
+        model.add_baseline("b", ["ghost"])
+        with pytest.raises(ValueError, match="undeclared tracking group"):
+            model.build()
+
+    def test_uncaptured_group_warns(self):
+        model = ModelBuilder()
+        lonely = model.add_tracking_group("lonely")
+        table = model.add_data_table("Sales")
+        table.set_id_field("id")
+        table.add_data_field("id", DataType.STRING)
+        table.add_data_field("x", DataType.DECIMAL).set_tracking_groups([lonely])
+        with pytest.warns(UserWarning, match="not captured by any baseline"):
+            model.build()
+
+    def test_duplicate_tracking_group_raises(self):
+        model = ModelBuilder()
+        model.add_tracking_group("edits")
+        with pytest.raises(ValueError, match="already exists"):
+            model.add_tracking_group("edits")
+
+    def test_duplicate_baseline_raises(self):
+        model = ModelBuilder()
+        model.add_baseline("b", [])
+        with pytest.raises(ValueError, match="already exists"):
+            model.add_baseline("b", [])

@@ -28,6 +28,7 @@ Usage::
 """
 
 from daitum_ui import (
+    _decoders,
     base_view,
     card_view,
     chart_view,
@@ -42,7 +43,7 @@ from daitum_ui import (
     icons,
     layout,
     map_view,
-    menu_configurations,
+    menu_configuration,
     modal,
     model_event,
     named_value_view,
@@ -70,7 +71,7 @@ __all__ = [
     "icons",
     "layout",
     "map_view",
-    "menu_configurations",
+    "menu_configuration",
     "modal",
     "model_event",
     "named_value_view",
@@ -82,3 +83,6 @@ __all__ = [
     "template_binding_key",
     "ui_builder",
 ]
+
+# Register every UI decoder on the shared registries (explicit call, not an import side effect).
+_decoders.register_all()

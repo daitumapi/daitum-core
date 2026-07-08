@@ -22,7 +22,7 @@ nav = builder.add_navigation_group("Results")
 
 ## Documentation
 
-Full documentation is available at [daitum-core.readthedocs.io](https://daitum-core.readthedocs.io).
+Full documentation is available at [docs.daitum.com](https://docs.daitum.com).
 
 ## Changelog
 

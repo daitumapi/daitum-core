@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daitum-configuration"
-version = "2.1.0"
+version = "2.2.0"
 description = "Model configuration generation library for the Daitum platform"
 readme = "README.md"
 license = "Apache-2.0"
@@ -17,11 +17,11 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
-dependencies = ["daitum-model>=1.0.0", "typeguard>=4.4,<5"]
+dependencies = ["daitum-model>=2.0.0", "typeguard>=4.4,<5"]
 
 [project.urls]
 Homepage = "https://daitum.com"
-Documentation = "https://daitum-core.readthedocs.io"
+Documentation = "https://docs.daitum.com"
 Repository = "https://github.com/daitumapi/daitum-core"
 
 [tool.setuptools.packages.find]

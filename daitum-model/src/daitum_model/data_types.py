@@ -30,7 +30,7 @@ from typing import Protocol, runtime_checkable
 
 from typeguard import typechecked
 
-from ._buildable import Buildable
+from daitum_model.serialisation import Buildable
 
 
 @runtime_checkable

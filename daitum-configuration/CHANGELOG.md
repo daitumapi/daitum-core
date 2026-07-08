@@ -1,5 +1,35 @@
 # Changelog
 
+## [2.2.0]
+
+### Added
+- Configuration decoder layer (`_decoders/`) that reconstructs typed, re-editable
+  `ConfigurationBuilder` graphs — algorithms, model configuration, data sources, schedule, and
+  model/report properties — from `build()` output, registered against the shared
+  `daitum_model.decoding` core. Configuration `!!!` references resolve against the loaded
+  model's symbol table.
+- `ConfigurationBuilder.read_from_file(model_directory, model)` — load
+  `model-configuration.json` into a re-editable `ConfigurationBuilder` (the inverse of
+  `write_to_file`).
+- `ConfigurationBuilder.read_from_dict(data, model)` — the dict-level equivalent;
+  `read_from_file` reads the JSON from disk and delegates to it.
+- `TrackChangesConfig` / `TrackChangesMode` and `ConfigurationBuilder.add_track_changes` —
+  capture/revert a baseline as a sequence-able `TRACK_CHANGES` data source. Decoded back into
+  a re-editable builder by the configuration decoder layer.
+- `NoDataPolicy` on `DataSourceConfig` and `ExcelTransformConfig` — controls how a data
+  source behaves when it produces no data.
+- `pre_optimise` on `DataSource`.
+
+### Changed
+- Requires `daitum-model>=2.0.0` (was `>=1.0.0`); the decoder layer depends on the
+  `daitum_model.decoding` module and shared serialisation core.
+- Serialisation now uses the shared `Buildable` core from `daitum_model.serialisation`
+  instead of a package-local copy (no public API or output change).
+
+### Removed
+- Internal `_buildable` module — `Buildable`, `json_type_info`, `snake_to_camel`, and
+  `camel_to_snake` now come from `daitum_model.serialisation`.
+
 ## [2.1.0]
 
 ### Added

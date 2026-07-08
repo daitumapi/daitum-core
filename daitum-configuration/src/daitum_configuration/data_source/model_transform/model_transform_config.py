@@ -27,9 +27,7 @@ from daitum_configuration.data_source.model_transform.model_transform_input impo
     DynamicValuesInput,
     ModelTransformInput,
 )
-from daitum_configuration.data_source.model_transform.validation_severity import (
-    ValidationSeverity,
-)
+from daitum_configuration.data_source.model_transform.validation_severity import ValidationSeverity
 
 
 @typechecked

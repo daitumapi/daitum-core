@@ -56,6 +56,7 @@ The SDK includes three main packages:
    tutorials/integration
    tutorials/templates_and_versioning
    tutorials/best_practices
+   tutorials/excel_processors
 
 .. toctree::
    :maxdepth: 2

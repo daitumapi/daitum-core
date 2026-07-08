@@ -26,7 +26,8 @@ from enum import Enum
 
 from typeguard import typechecked
 
-from ._buildable import Buildable
+from daitum_model.serialisation import Buildable
+
 from .fields import Field
 from .tables import Table
 
@@ -100,30 +101,67 @@ class JoinType(Enum):
         <blank>   C        Carol
     """
 
+    CROSS = "CROSS"
+    """
+    Pair every row from the left table with every row from the right table (the Cartesian
+    product). A ``CROSS`` join has no match fields: pass neither ``left_field`` nor
+    ``right_field`` to the :class:`JoinCondition` (supplying either raises ``ValueError``).
+
+    Same source tables as the LEFT example::
+
+        CROSS result (6 rows -- 3 Orders x 2 Customers):
+        order_id  cust_id  name
+        --------  -------  -----
+        1         A        Alice
+        1         A        Carol
+        2         B        Alice
+        2         B        Carol
+        3         D        Alice
+        3         D        Carol
+    """
+
 
 @typechecked
 class JoinCondition(Buildable):
     """
     Represents a condition for joining two tables.
+
+    For matching joins (:attr:`JoinType.LEFT`, :attr:`JoinType.RIGHT`,
+    :attr:`JoinType.INNER`, :attr:`JoinType.FULL`) both ``left_field`` and ``right_field``
+    must be supplied — they are the fields matched between the two tables. A
+    :attr:`JoinType.CROSS` join pairs every left row with every right row and takes no match
+    fields: ``left_field`` and ``right_field`` must both be omitted.
     """
 
     def __init__(
         self,
         left_table: Table,
-        left_field: Field,
         right_table: Table,
-        right_field: Field,
         join_type: JoinType,
+        left_field: Field | None = None,
+        right_field: Field | None = None,
     ):
+        if join_type is JoinType.CROSS:
+            if left_field is not None or right_field is not None:
+                raise ValueError(
+                    "A CROSS join pairs every row from both tables and takes no match fields; "
+                    "do not provide left_field or right_field."
+                )
+        elif left_field is None or right_field is None:
+            raise ValueError(
+                f"A {join_type.value} join requires both left_field and right_field to match "
+                f"rows between the two tables."
+            )
+
         self._left_table = left_table
         self._left_field = left_field
         self._right_table = right_table
         self._right_field = right_field
 
         self.left_table_id = left_table.id
-        self.left_table_field = left_field.id
+        self.left_table_field = left_field.id if left_field is not None else None
         self.right_table_id = right_table.id
-        self.right_table_field = right_field.id
+        self.right_table_field = right_field.id if right_field is not None else None
         self.join_type = join_type
 
     @property
@@ -131,7 +169,7 @@ class JoinCondition(Buildable):
         return self._left_table
 
     @property
-    def left_field(self) -> Field:
+    def left_field(self) -> Field | None:
         return self._left_field
 
     @property
@@ -139,7 +177,7 @@ class JoinCondition(Buildable):
         return self._right_table
 
     @property
-    def right_field(self) -> Field:
+    def right_field(self) -> Field | None:
         return self._right_field
 
 
@@ -153,15 +191,20 @@ class JoinedTable(Table):
     related field (column) between them. The `join_conditions` list defines how these tables are
     connected and which fields from the tables are used for the join.
 
-    Joins can be of different types, such as `INNER`, `LEFT`, `RIGHT`, and `FULL`, and they dictate
-    how the rows from the tables are combined and which rows are included in the final result.
+    Joins can be of different types, such as `INNER`, `LEFT`, `RIGHT`, `FULL`, and `CROSS`, and they
+    dictate how the rows from the tables are combined and which rows are included in the final
+    result.
 
     A `JoinCondition` consists of the following:
         - `left_table`: The left table involved in the join.
-        - `left_field`: The field in the left table that is used to match with the right table.
         - `right_table`: The right table involved in the join.
+        - `join_type`: The type of join (e.g., INNER, LEFT, RIGHT, FULL, CROSS).
+        - `left_field`: The field in the left table that is used to match with the right table.
+          Omitted for a `CROSS` join.
         - `right_field`: The field in the right table that is used to match with the left table.
-        - `join_type`: The type of join (e.g., INNER, LEFT, RIGHT, FULL).
+          Omitted for a `CROSS` join.
+
+    A `CROSS` join takes no match fields and pairs every left row with every right row.
 
     Multiple `JoinCondition` objects can be specified to represent more complex join scenarios. Each
     condition defines how a pair of tables are joined, and having multiple conditions allows for

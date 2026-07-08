@@ -108,10 +108,12 @@ class DefaultValueType(Enum):
     Attributes:
         FIELD: The default value is derived from another field.
         NAMED_VALUE: The default value is specified as a named constant or parameter.
+        BASELINE: The default value is the element's captured value at a named baseline.
     """
 
     FIELD = "FIELD"
     NAMED_VALUE = "NAMED_VALUE"
+    BASELINE = "BASELINE"
 
 
 class DefaultValueBehaviour(Enum):

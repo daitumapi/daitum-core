@@ -14,9 +14,9 @@
 
 """:class:`ModelProperty` — model-level UI/calculation flags and import options."""
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.model_property.model_import_options import ModelImportOptions
 from daitum_configuration.model_property.overlay_config import OverlayConfig
 

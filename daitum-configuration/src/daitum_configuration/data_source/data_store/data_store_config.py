@@ -19,6 +19,7 @@ from typeguard import typechecked
 from daitum_configuration.data_source.data_source_config import DataSourceConfig
 from daitum_configuration.data_source.data_source_type import DataSourceType
 from daitum_configuration.data_source.data_store.data_filter import DataFilter
+from daitum_configuration.no_data_policy import NoDataPolicy
 
 
 # pylint: disable=too-few-public-methods,too-many-instance-attributes
@@ -46,6 +47,7 @@ class DataStoreConfig(DataSourceConfig):
         self.direct_data_pull: bool = False
         self.model_filter: DataFilter | None = None
         self.tables = tables
+        self.no_data_policy: NoDataPolicy = NoDataPolicy.ALLOW
         super().__init__(track_changes_supported=True)
 
     def set_model_filter(self, model_filter: DataFilter) -> "DataStoreConfig":
@@ -66,6 +68,11 @@ class DataStoreConfig(DataSourceConfig):
     def set_direct_data_pull(self, direct_data_pull: bool) -> "DataStoreConfig":
         """Bypass any caching layer and pull rows directly each import."""
         self.direct_data_pull = direct_data_pull
+        return self
+
+    def set_no_data_policy(self, no_data_policy: NoDataPolicy) -> "DataStoreConfig":
+        """Fail this data source when an import loads no rows, per the given policy."""
+        self.no_data_policy = no_data_policy
         return self
 
     @property

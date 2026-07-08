@@ -24,14 +24,19 @@ daitum-model/
 │   ├── joined_table.py      # JoinedTable, JoinCondition, JoinType
 │   ├── union_table.py       # UnionTable, UnionSource
 │   ├── fields.py            # DataField, CalculatedField, ComboField
-│   ├── formula.py           # Formula class, CONST(), Operand base
+│   ├── formula.py           # Formula (abstract base node), Constant, CONST(), Operand base
+│   ├── expression.py        # Internal: operator nodes, OperatorDef registry, Function base, type engine
+│   ├── _functions.py        # Internal: per-function Function node classes (SUM, IF, LOOKUP, …)
+│   ├── _parser.py           # Internal: formula string → structured node tree parser
 │   ├── named_values.py      # Calculation, Parameter
 │   ├── data_types.py        # BaseDataType, DataType, ObjectDataType, MapDataType
 │   ├── validator.py         # Validator hierarchy + Severity, BoundType, SEVERITY_RANK
-│   ├── formulas.py          # 100+ formula functions (LOOKUP, IF, SUM, …) — separate module
-│   ├── _base_formulas.py    # Internal: low-level formula implementations
-│   ├── _helpers.py          # Internal: name validation, field replacement utilities
-│   └── change_calculator.py # Change-tracking utilities
+│   ├── formulas.py          # 90+ public formula functions (LOOKUP, IF, SUM, BASELINE, …) — thin wrappers
+│   ├── tracking.py          # TrackingGroup, Baseline, AutoCapture (change tracking)
+│   ├── serialisation.py     # Buildable base, snake/camel, json_type_info
+│   ├── decoding.py          # LoadContext, decoder registries, coercion (JSON → typed objects)
+│   ├── _decoders/           # Per-class decoders (model, tables, fields, formula, named values)
+│   └── _helpers.py          # Internal: name validation
 └── tests/
     ├── test_model.py
     └── test_formulas.py

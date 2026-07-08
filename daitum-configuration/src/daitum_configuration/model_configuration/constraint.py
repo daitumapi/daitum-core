@@ -18,9 +18,10 @@ from enum import Enum
 from typing import Any
 
 from daitum_model import Calculation, DataType, Parameter
+from daitum_model.references import Reference
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.model_configuration.priority import Priority
 
 
@@ -34,6 +35,50 @@ class ConstraintType(Enum):
 
     EQUALITY = "equality"
     INEQUALITY = "inequality"
+
+
+# pylint: disable=too-many-instance-attributes,too-many-arguments,too-many-positional-arguments
+@typechecked
+class ConstraintSpecification(Buildable):
+    """The nested ``specification`` object of a :class:`Constraint`.
+
+    A bound is emitted either as a literal (``lowerBound``/``upperBound``) or, when it is a
+    model named value, as a bare-id reference (``lowerBoundReference``/``upperBoundReference``).
+    All keys are always present (``null`` where unset), and ``@type`` is the constraint type.
+    """
+
+    _always_emit = (
+        "lower_bound",
+        "upper_bound",
+        "lower_bound_reference",
+        "upper_bound_reference",
+    )
+
+    def __init__(  # noqa: PLR0913
+        self,
+        constraint_type: ConstraintType,
+        lower: "float | Calculation | Parameter | None",
+        upper: "float | Calculation | Parameter | None",
+        lower_inclusive: bool,
+        upper_inclusive: bool,
+        priority: Priority,
+        hard_score: int,
+    ):
+        self._type_name = constraint_type.value
+        self.lower_bound = lower if isinstance(lower, float) else None
+        self.upper_bound = upper if isinstance(upper, float) else None
+        self.lower_bound_reference = self._reference(lower)
+        self.upper_bound_reference = self._reference(upper)
+        self.lower_bound_inclusive = lower_inclusive
+        self.upper_bound_inclusive = upper_inclusive
+        self.priority = priority
+        self.hard_score = hard_score
+
+    @staticmethod
+    def _reference(bound: "float | Calculation | Parameter | None") -> str | None:
+        if bound is None or isinstance(bound, float):
+            return None
+        return bound.to_string()
 
 
 # pylint: disable=too-many-instance-attributes
@@ -112,28 +157,19 @@ class Constraint(Buildable):
         return self
 
     def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        lower_bound_string: str | None = None
-        upper_bound_string: str | None = None
-
-        if self._lower_bound is not None and not isinstance(self._lower_bound, float):
-            lower_bound_string = self._lower_bound.to_string()
-        if self._upper_bound is not None and not isinstance(self._upper_bound, float):
-            upper_bound_string = self._upper_bound.to_string()
-
+        """Serialise to a dict; bound/reference splitting is delegated to the spec object."""
+        specification = ConstraintSpecification(
+            self._constraint_type,
+            self._lower_bound,
+            self._upper_bound,
+            self._lower_bound_inclusive,
+            self._upper_bound_inclusive,
+            self._priority,
+            self._hard_score,
+        )
         return {
-            "cellReference": f"!!!{self._constraint.to_string()}",
+            "cellReference": Reference(self._constraint).build(),
             "trackingId": self._tracking_id,
-            "specification": {
-                "@type": self._constraint_type.value,
-                "lowerBound": self._lower_bound if isinstance(self._lower_bound, float) else None,
-                "upperBound": self._upper_bound if isinstance(self._upper_bound, float) else None,
-                "lowerBoundReference": lower_bound_string,
-                "upperBoundReference": upper_bound_string,
-                "lowerBoundInclusive": self._lower_bound_inclusive,
-                "upperBoundInclusive": self._upper_bound_inclusive,
-                "priority": self._priority.value,
-                "hardScore": self._hard_score,
-            },
+            "specification": specification.build(),
             "name": self._name,
         }

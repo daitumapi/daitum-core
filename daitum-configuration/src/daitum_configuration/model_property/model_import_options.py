@@ -14,9 +14,8 @@
 
 """:class:`ModelImportOptions` — model-level import defaults."""
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
-
-from daitum_configuration._buildable import Buildable
 
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-instance-attributes

@@ -21,10 +21,9 @@ from typing import Any
 
 from daitum_model import Calculation, DataType, Parameter
 from daitum_model.fields import DataField, Field
+from daitum_model.serialisation import Buildable
 from daitum_model.tables import DataTable
 from typeguard import typechecked
-
-from daitum_configuration._buildable import Buildable
 
 
 class DVType(Enum):
@@ -39,6 +38,46 @@ class DVType(Enum):
     RANGE = "range"
     LIST = "list"
     REAL = "real"
+
+
+def _prefixed(value: str | None) -> str | None:
+    """Return ``"!!!<value>"`` for a non-None resolved reference string, else ``None``."""
+    return f"!!!{value}" if value is not None else None
+
+
+# pylint: disable=too-many-instance-attributes,too-many-arguments,too-many-positional-arguments
+@typechecked
+class DVSpecification(Buildable):
+    """The nested ``specification`` object of a :class:`DecisionVariable`.
+
+    A bound is emitted as a literal (``minimumValue``/``maximumValue``) when numeric, or as a
+    ``!!!``-prefixed reference (``minimumValueReference``/``maximumValueReference``) when it
+    resolves to a model object. ``@type`` is the DV type; all keys are always present.
+    """
+
+    _always_emit = (
+        "minimum_value",
+        "maximum_value",
+        "minimum_value_reference",
+        "maximum_value_reference",
+        "seed_source",
+    )
+
+    def __init__(
+        self,
+        dv_type: DVType,
+        min_value: "int | float | str",
+        max_value: "int | float | str | None",
+        scale: "int | float",
+        seed_source_string: str | None,
+    ):
+        self._type_name = dv_type.value
+        self.minimum_value = min_value if isinstance(min_value, (int, float)) else None
+        self.maximum_value = max_value if isinstance(max_value, (int, float)) else None
+        self.scale = scale
+        self.minimum_value_reference = _prefixed(min_value if isinstance(min_value, str) else None)
+        self.maximum_value_reference = _prefixed(max_value if isinstance(max_value, str) else None)
+        self.seed_source = _prefixed(seed_source_string)
 
 
 # pylint: disable=too-many-instance-attributes
@@ -265,35 +304,19 @@ class DecisionVariable(Buildable):
         setattr(self, f"_dv_{bound_type}_value", f"{table.id}[{field.id}]")
 
     def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        result: dict[str, Any] = {
+        """Serialise to a dict; the literal/reference split lives in :class:`DVSpecification`."""
+        specification = DVSpecification(
+            self._dv_type,
+            self._dv_min_value,
+            self._dv_max_value,
+            self._scale,
+            self._seed_source_string,
+        )
+        return {
             "cellReference": f"!!!{self._dv_string}",
             "trackingId": self._tracking_id,
-            "specification": {
-                "@type": self._dv_type.value,
-                "minimumValue": (
-                    self._dv_min_value if isinstance(self._dv_min_value, (int, float)) else None
-                ),
-                "maximumValue": (
-                    self._dv_max_value if isinstance(self._dv_max_value, (int, float)) else None
-                ),
-                "scale": self._scale,
-                "minimumValueReference": (
-                    f"!!!{self._dv_min_value}" if isinstance(self._dv_min_value, str) else None
-                ),
-                "maximumValueReference": (
-                    f"!!!{self._dv_max_value}" if isinstance(self._dv_max_value, str) else None
-                ),
-                "seedSource": (
-                    f"!!!{self._seed_source_string}"
-                    if self._seed_source_string is not None
-                    else None
-                ),
-            },
+            "specification": specification.build(),
             "disabled": self._disabled,
             "disabledIfInvalid": self._disabled_if_invalid,
-            "tagSource": (
-                f"!!!{self._tag_source_string}" if self._tag_source_string is not None else None
-            ),
+            "tagSource": _prefixed(self._tag_source_string),
         }
-        return result

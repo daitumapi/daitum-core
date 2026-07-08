@@ -1330,6 +1330,10 @@ class Text(Element):
             Whether the text should display a tooltip containing its full value. Useful when the
             displayed text is too long and may be truncated, but the user still needs access to
             the complete, non-truncated content.
+        wrap:
+            Whether the text should wrap onto multiple lines when it exceeds the available
+            width. Defaults to ``False``, keeping the text on a single line (which may be
+            truncated); enable via :meth:`set_wrap`.
     """
 
     def __init__(
@@ -1350,6 +1354,7 @@ class Text(Element):
         self.font_weight = font_weight
         self.variant = variant
         self.show_tool_tip = show_tool_tip
+        self.wrap = False
 
     def set_color(self, color: str) -> "Text":
         """Sets the CSS colour for this text element."""
@@ -1364,6 +1369,11 @@ class Text(Element):
     def set_variant(self, variant: TextVariant) -> "Text":
         """Sets the presentation variant (inline or paragraph) for this text element."""
         self.variant = variant
+        return self
+
+    def set_wrap(self, wrap: bool) -> "Text":
+        """Sets whether the text wraps onto multiple lines when it exceeds the available width."""
+        self.wrap = wrap
         return self
 
 

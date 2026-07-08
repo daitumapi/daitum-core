@@ -24,10 +24,11 @@ serialises the result into ``model-configuration.json``.
 import json
 import os
 import pathlib
+from typing import Any
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.algorithm_configuration.algorithm import Algorithm
 from daitum_configuration.data_source.batched_data_source.batched_data_source_config import (
     BatchedDataSourceConfig,
@@ -49,6 +50,7 @@ from daitum_configuration.data_source.run_external_model.run_external_model_conf
 )
 from daitum_configuration.data_source.run_report.run_report_config import RunReportConfig
 from daitum_configuration.data_source.set_features_config import SetFeaturesConfig
+from daitum_configuration.data_source.track_changes_config import TrackChangesConfig
 from daitum_configuration.model_configuration.model_configuration import ModelConfiguration
 from daitum_configuration.model_property.model_import_options import ModelImportOptions
 from daitum_configuration.model_property.model_property import ModelProperty
@@ -189,6 +191,11 @@ class ConfigurationBuilder(Buildable):
         return value."""
         return self._add_data_source(DataSource(name, config))
 
+    def add_track_changes(self, name: str, config: TrackChangesConfig) -> DataSource:
+        """Register a baseline capture/revert data source. See :meth:`add_excel_transform`
+        for the return value."""
+        return self._add_data_source(DataSource(name, config))
+
     def _add_data_source(self, data_source: DataSource) -> DataSource:
         self.data_sources.append(data_source)
         return data_source
@@ -200,3 +207,48 @@ class ConfigurationBuilder(Buildable):
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8") as fp:
             json.dump(self.build(), fp, indent=4, sort_keys=False)
+
+    @classmethod
+    def read_from_file(
+        cls, model_directory: str | os.PathLike[str], model: Any
+    ) -> "ConfigurationBuilder":
+        """Load ``model-configuration.json`` into a :class:`ConfigurationBuilder`.
+
+        Args:
+            model_directory: Directory containing ``model-configuration.json``.
+            model: The :class:`~daitum_model.ModelBuilder` already loaded via
+                :meth:`~daitum_model.ModelBuilder.read_from_file`; its symbol table
+                resolves the configuration's ``!!!`` references to live model objects.
+
+        Returns:
+            A re-editable :class:`ConfigurationBuilder` whose ``build()`` reproduces the file.
+        """
+        path = pathlib.Path(model_directory) / "model-configuration.json"
+        with path.open(encoding="utf-8") as fp:
+            data = json.load(fp)
+
+        return cls.read_from_dict(data, model)
+
+    @classmethod
+    def read_from_dict(cls, data: dict[str, Any], model: Any) -> "ConfigurationBuilder":
+        """Load an already-parsed configuration dict into a :class:`ConfigurationBuilder`.
+
+        The dict-level inverse of :meth:`build`. :meth:`read_from_file` delegates here after
+        reading ``model-configuration.json`` from disk.
+
+        Args:
+            data: The dict produced by :meth:`build` (``model-configuration.json``).
+            model: The :class:`~daitum_model.ModelBuilder` already loaded via
+                :meth:`~daitum_model.ModelBuilder.read_from_dict`; its symbol table
+                resolves the configuration's ``!!!`` references to live model objects.
+
+        Returns:
+            A re-editable :class:`ConfigurationBuilder` whose ``build()`` reproduces the dict.
+        """
+        from daitum_model.decoding import LoadContext, decode_into
+
+        import daitum_configuration._decoders  # noqa: F401  (ensures decoders are registered)
+
+        ctx = LoadContext(symbols=dict(model.load_context.symbols), model=model)
+        builder: ConfigurationBuilder = decode_into(cls, data, ctx)
+        return builder

@@ -14,11 +14,8 @@
 
 """:class:`ReportData` — sheet/feature prerequisites for a :class:`ReportProperty`."""
 
-from typing import Any
-
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
-
-from daitum_configuration._buildable import Buildable
 
 
 # pylint: disable=too-few-public-methods
@@ -40,12 +37,6 @@ class ReportData(Buildable):
         requires_monte_carlo: bool = False,
         requires_scenario_comparison: bool = False,
     ):
-        self._required_sheets = required_sheets if required_sheets is not None else set()
+        self.required_sheets = list(required_sheets) if required_sheets is not None else []
         self.requires_monte_carlo = requires_monte_carlo
         self.requires_scenario_comparison = requires_scenario_comparison
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict (the required-sheets set becomes a list)."""
-        result = {"requiredSheets": list(self._required_sheets)}
-        result.update(super().build())
-        return result

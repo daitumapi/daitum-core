@@ -1,0 +1,142 @@
+{
+  "accumulator loop": {
+    "to_data_type": "INTEGER",
+    "to_string": "(((0 + 1) + 2) + 3)"
+  },
+  "add array": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "([Costs] + 1.0)"
+  },
+  "add decimal": {
+    "to_data_type": "DECIMAL",
+    "to_string": "([Cost] + 1.0)"
+  },
+  "add ints": {
+    "to_data_type": "INTEGER",
+    "to_string": "([Qty] + 1)"
+  },
+  "column access": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "Jobs[Cost]"
+  },
+  "column access object": {
+    "to_data_type": "OBJECT_ARRAY:Sites",
+    "to_string": "Jobs[Site]"
+  },
+  "concat": {
+    "to_data_type": "STRING",
+    "to_string": "([Name] & \"x\")"
+  },
+  "concat array": {
+    "to_data_type": "STRING_ARRAY",
+    "to_string": "([Names] & \"x\")"
+  },
+  "div": {
+    "to_data_type": "DECIMAL",
+    "to_string": "([Cost] / [Qty])"
+  },
+  "equal_to": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "[Cost] = 1.0"
+  },
+  "equal_to array": {
+    "to_data_type": "BOOLEAN_ARRAY",
+    "to_string": "[Costs] = 1.0"
+  },
+  "equal_to str": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "[Name] = \"x\""
+  },
+  "ge": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "([Cost] >= 1.0)"
+  },
+  "gt": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "([Cost] > 1.0)"
+  },
+  "iadd": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "(Jobs[Cost] + 1.0)"
+  },
+  "imul": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "(Jobs[Cost] * 2)"
+  },
+  "isub": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "(Jobs[Cost] - 1.0)"
+  },
+  "itruediv": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "(Jobs[Cost] / 2)"
+  },
+  "le": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "([Cost] <= 1.0)"
+  },
+  "lt": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "([Cost] < [Qty])"
+  },
+  "lt array": {
+    "to_data_type": "BOOLEAN_ARRAY",
+    "to_string": "([Costs] < 1.0)"
+  },
+  "member access array": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "[SiteList].[Amount]"
+  },
+  "member access scalar": {
+    "to_data_type": "DECIMAL",
+    "to_string": "[Site].[Amount]"
+  },
+  "mul": {
+    "to_data_type": "DECIMAL",
+    "to_string": "([Cost] * [Qty])"
+  },
+  "neg": {
+    "to_data_type": "DECIMAL",
+    "to_string": "-([Cost])"
+  },
+  "neg array": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "-([Costs])"
+  },
+  "not_equal_to": {
+    "to_data_type": "BOOLEAN",
+    "to_string": "[Cost] <> 1.0"
+  },
+  "pow": {
+    "to_data_type": "DECIMAL",
+    "to_string": "([Cost] ^ 2)"
+  },
+  "radd": {
+    "to_data_type": "INTEGER",
+    "to_string": "(1 + [Qty])"
+  },
+  "rconcat": {
+    "to_data_type": "STRING",
+    "to_string": "(\"x\" & [Name])"
+  },
+  "rdiv": {
+    "to_data_type": "DECIMAL",
+    "to_string": "(1 / [Cost])"
+  },
+  "rmul": {
+    "to_data_type": "DECIMAL",
+    "to_string": "(2 * [Cost])"
+  },
+  "rpow": {
+    "to_data_type": "INTEGER",
+    "to_string": "(2 ^ [Qty])"
+  },
+  "rsub": {
+    "to_data_type": "INTEGER",
+    "to_string": "(1 - [Qty])"
+  },
+  "sub": {
+    "to_data_type": "DECIMAL",
+    "to_string": "([Cost] - [Qty])"
+  }
+}

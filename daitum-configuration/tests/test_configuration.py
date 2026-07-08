@@ -10,11 +10,8 @@ The suite is split into:
 
 import json
 
-import pytest
-from daitum_model import DataType, ModelBuilder
-from daitum_model.formula import CONST
-
 import daitum_configuration
+import pytest
 from daitum_configuration import (
     BatchDataSourceType,
     BatchedDataSourceConfig,
@@ -62,6 +59,8 @@ from daitum_configuration import (
     WildcardDataFilter,
 )
 from daitum_configuration.report_property.report_property import ReportProperty
+from daitum_model import DataType, ModelBuilder
+from daitum_model.formula import CONST
 
 # ----------------------------------------------------------------------------------------
 # Imports
@@ -1048,3 +1047,34 @@ class TestExternalMappings:
         assert out["mapByProperty"] == "id"
         assert out["preserveOrder"] is True
         assert out["clearExisting"] is False
+
+
+class TestTrackChangesSnapshots:
+    def test_track_changes_capture_default(self):
+        from daitum_configuration import TrackChangesConfig
+
+        cfg = TrackChangesConfig("optimised")
+        out = cfg.build()
+        assert out["type"] == "TRACK_CHANGES"
+        assert out["baseline"] == "optimised"
+        assert out["mode"] == "CAPTURE"
+        assert "trackingGroups" not in out
+
+    def test_track_changes_revert_with_groups(self):
+        from daitum_configuration import TrackChangesConfig, TrackChangesMode
+
+        cfg = TrackChangesConfig(
+            "optimised", mode=TrackChangesMode.REVERT, tracking_groups=["edits"]
+        )
+        out = cfg.build()
+        assert out["mode"] == "REVERT"
+        assert out["trackingGroups"] == ["edits"]
+
+    def test_track_changes_via_configuration(self):
+        from daitum_configuration import TrackChangesConfig
+
+        cfg = ConfigurationBuilder()
+        ds = cfg.add_track_changes("Snapshot", TrackChangesConfig("optimised"))
+        out = ds.build()
+        assert out["config"]["type"] == "TRACK_CHANGES"
+        assert out["config"]["baseline"] == "optimised"

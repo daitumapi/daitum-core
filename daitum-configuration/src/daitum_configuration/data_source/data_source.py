@@ -17,9 +17,9 @@
 visibility, behaviour flags).
 """
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.data_source.data_source_config import DataSourceConfig
 
 
@@ -46,6 +46,7 @@ class DataSource(Buildable):
         self.hidden: bool = False
         self.temp_export_id = DataSource._temp_export_id_counter
         DataSource._temp_export_id_counter += 1
+        self.pre_optimise: bool = False
         self.post_optimise: bool = False
         self.notify_on_new_data: bool = False
         self.update_new_data: bool = False
@@ -53,6 +54,11 @@ class DataSource(Buildable):
     def set_hidden(self, hidden: bool) -> "DataSource":
         """Hide this data source from the UI's data menu."""
         self.hidden = hidden
+        return self
+
+    def set_pre_optimise(self, pre_optimise: bool) -> "DataSource":
+        """The data source will run automatically before optimisation has started."""
+        self.pre_optimise = pre_optimise
         return self
 
     def set_post_optimise(self, post_optimise: bool) -> "DataSource":

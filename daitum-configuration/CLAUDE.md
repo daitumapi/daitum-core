@@ -238,3 +238,12 @@ dict serialisation; public, non-`None` attributes are emitted as camelCase keys 
 attribute names are converted automatically). `ConfigurationBuilder.write_to_file(model_directory)` is the canonical
 output method — it writes ``model-configuration.json`` into the given directory. Do not add
 alternative serialisation paths.
+
+### Decoding (loading JSON back into builders)
+
+The inverse — reconstructing typed builder objects from `build()` output — is provided by the
+shared decoder core in **`daitum_model.decoding`** (`LoadContext`, `decode_into`,
+`register_decoder`, `register_type`, `LoadError`). This package's decoders live in
+`_decoders/` and register themselves against that core. Entry point:
+`ConfigurationBuilder.read_from_file(model_directory, model)`. Import the decoder core from its
+public path `daitum_model.decoding`.

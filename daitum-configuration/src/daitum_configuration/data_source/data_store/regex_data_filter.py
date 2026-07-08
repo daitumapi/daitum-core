@@ -14,12 +14,11 @@
 
 """:class:`RegexDataFilter` — a :class:`DataFilter` matching rows by regex."""
 
-from typing import Any
-
 from daitum_model import Calculation, Parameter
+from daitum_model.references import Reference
+from daitum_model.serialisation import json_type_info
 from typeguard import typechecked
 
-from daitum_configuration._buildable import json_type_info
 from daitum_configuration.data_source.data_store.data_filter import DataFilter
 from daitum_configuration.data_source.data_store.data_filter_type import DataFilterType
 
@@ -44,14 +43,8 @@ class RegexDataFilter(DataFilter):
     ):
         self.path = path
         self.value = value
-        self._source_key = source_key
+        self.source_key = Reference(source_key)
 
     @property
     def type(self) -> DataFilterType:
         return DataFilterType.REGEX
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        result = super().build()
-        result["sourceKey"] = f"!!!{self._source_key.to_string()}"
-        return result

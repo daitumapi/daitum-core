@@ -60,8 +60,12 @@ import os
 import pathlib
 import random
 import string
+from typing import TYPE_CHECKING, Any
 
 from daitum_model import Calculation, Field, Parameter, Table
+
+if TYPE_CHECKING:
+    from daitum_model.model import ModelBuilder
 
 from ._buildable import Buildable
 from .base_view import BaseView
@@ -82,7 +86,7 @@ from .gantt_view import (
 )
 from .layout import FlexView, GridLayout, GridView
 from .map_view import MapType, MapView
-from .menu_configurations import MenuConfigurations
+from .menu_configuration import MenuConfiguration
 from .modal import Modal
 from .named_value_view import NamedValueView, Orientation
 from .navigation_items import GroupViewNavItem, SingleViewNavItem
@@ -108,7 +112,12 @@ class UiBuilder(Buildable):
         self.navigation = list()
         self.modals = list()
         self.variables = list()
-        self.menu_configurations: MenuConfigurations = MenuConfigurations()
+        # NOTE: the attribute must stay plural (``menu_configurations``) so the default Buildable
+        # walk emits the ``menuConfigurations`` build key the platform expects. main renamed the
+        # attribute to the singular ``menu_configuration``, which silently changed the serialised
+        # key to ``menuConfiguration`` — a bug. Keeping the plural attribute preserves the key.
+        # TODO: remove this note once the rename is corrected in the library upstream.
+        self.menu_configurations: MenuConfiguration = MenuConfiguration()
         self.filters = list()
         self.optimisation_validation_view_id = None
 
@@ -979,13 +988,13 @@ class UiBuilder(Buildable):
         self.modals.append(builder)
         return builder
 
-    def set_menu_configurations(
+    def set_menu_configuration(
         self,
         hide_optimisation: bool = False,
         hide_import: bool = False,
         hide_bulk_import: bool = False,
         hide_import_into_sheets: bool = False,
-    ) -> MenuConfigurations:
+    ) -> MenuConfiguration:
         """
         Configure the visibility of menu actions available within the view.
 
@@ -1005,20 +1014,20 @@ class UiBuilder(Buildable):
                 Defaults to `False`.
 
         Returns:
-            MenuConfigurations
+            MenuConfiguration
                 The configuration object created. This allows callers to chain further
                 customisation on the returned configuration instance if required.
 
         Example:
             >>> # Hide all import-related menu options
-            >>> builder.set_menu_configurations(
+            >>> builder.set_menu_configuration(
             ...     hide_import=True,
             ...     hide_bulk_import=True,
             ...     hide_import_into_sheets=True
             ... )
             >>>
             >>> # Hide only optimisation features
-            >>> builder.set_menu_configurations(
+            >>> builder.set_menu_configuration(
             ...     hide_optimisation=True
             ... )
         """
@@ -1242,3 +1251,65 @@ class UiBuilder(Buildable):
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("w", encoding="utf-8") as fp:
             json.dump(self.build(), fp, indent=4, sort_keys=False)
+
+    @classmethod
+    def read_from_file(
+        cls, model_directory: str | os.PathLike[str], model: "ModelBuilder"
+    ) -> "UiBuilder":
+        """
+        Reconstruct a :class:`UiBuilder` from a previously written ``ui-definition.json``.
+
+        The inverse of :meth:`write_to_file`. Reads ``ui-definition.json`` from the given
+        directory and rebuilds the navigation, modals, variables, menu configurations,
+        filters, and views. ``model`` is the :class:`~daitum_model.model.ModelBuilder` the
+        UI was authored against; its symbol table resolves any model references the views
+        carry.
+
+        The returned builder reproduces the original ``build()`` output byte-for-byte. It
+        targets the structural round-trip rather than full re-editability through the
+        fluent factory API.
+
+        Args:
+            model_directory: The directory previously written by :meth:`write_to_file`.
+            model: The model the UI references.
+
+        Returns:
+            A :class:`UiBuilder` equivalent to the one that produced the file.
+        """
+        path = pathlib.Path(model_directory) / "ui-definition.json"
+        with path.open(encoding="utf-8") as fp:
+            definition = json.load(fp)
+
+        return cls.read_from_dict(definition, model)
+
+    @classmethod
+    def read_from_dict(cls, definition: dict[str, Any], model: "ModelBuilder") -> "UiBuilder":
+        """
+        Reconstruct a :class:`UiBuilder` from an already-parsed ``ui-definition.json`` dict.
+
+        The dict-level inverse of :meth:`build`. :meth:`read_from_file` delegates here after
+        reading ``ui-definition.json`` from disk. ``model`` is the
+        :class:`~daitum_model.model.ModelBuilder` the UI was authored against; its symbol
+        table resolves any model references the views carry.
+
+        Args:
+            definition: The dict produced by :meth:`build` (``ui-definition.json``).
+            model: The model the UI references.
+
+        Returns:
+            A :class:`UiBuilder` equivalent to the one that produced the dict.
+        """
+        from daitum_model.decoding import LoadContext  # noqa: PLC0415
+
+        from ._decoders.ui import decode_ui  # noqa: PLC0415
+
+        existing = getattr(model, "load_context", None)
+        symbols = dict(existing.symbols) if existing is not None else {}
+        # Index the model's tables and fields by id so view references resolve.
+        for table in model.get_tables():
+            symbols[table.id] = table
+            for field in table.get_fields():
+                symbols[field.id] = field
+        ctx = LoadContext(symbols=symbols, model=model)
+
+        return decode_ui(definition, ctx)

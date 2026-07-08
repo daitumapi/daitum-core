@@ -18,8 +18,7 @@ from typing import Any
 
 from daitum_model import ModelBuilder, Table
 from daitum_model.fields import ComboField, DataField
-
-from daitum_configuration._buildable import Buildable
+from daitum_model.serialisation import Buildable
 
 
 class ModelTransform(Buildable):

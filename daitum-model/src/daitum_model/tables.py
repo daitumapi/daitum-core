@@ -28,7 +28,8 @@ from collections.abc import Sequence
 
 from typeguard import typechecked
 
-from ._buildable import Buildable
+from daitum_model.serialisation import Buildable
+
 from ._helpers import _validate_name
 from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType, _TableBase
 from .fields import CalculatedField, ComboField, DataField, Field
@@ -36,12 +37,19 @@ from .formula import CONST, Formula, Operand
 
 
 @typechecked
-class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attributes
+class Table(Buildable, _TableBase, Operand):  # pylint: disable=too-many-instance-attributes
     """
     The base class for all table types.
 
     This class defines the core structure and behavior of a table, including field management
     and relationships with derived tables.
+
+    A table also satisfies the :class:`~daitum_model.formula.Operand` contract: passed *into* a
+    formula function it behaves as an ``OBJECT_ARRAY`` operand whose rendered string is its id
+    (so ``LOOKUP``/``ROWS``/``FILTER``/``INDEX`` accept a bare table with no special-casing).
+    Note that ``table[field]`` (column access) is a *distinct* operator from
+    :meth:`Operand.__getitem__` (member access) — it renders ``table[field]`` with brackets, never
+    the dot form — so :meth:`__getitem__` is overridden below rather than inherited.
     """
 
     def __init__(
@@ -150,7 +158,6 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
         self,
         id: str,
         data_type: BaseDataType,
-        tracking_group: str | None = None,
     ) -> DataField:
         """
         Adds a data field to the table.
@@ -167,7 +174,6 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
         id: str,
         table: Table,
         is_array: bool = False,
-        tracking_group: str | None = None,
     ) -> DataField:
         """
         Adds an object reference field to the table.
@@ -176,23 +182,12 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
             id (str): The ID of the new field.
             table (Table): The table being referenced.
             is_array (bool, optional): Whether the object reference is an array.
-            tracking_group (str, optional): Group identifier for change tracking.
 
         Returns:
             DataField: The created object reference field.
         """
         object_reference_field = DataField(id, self, ObjectDataType(table, is_array))
-        if tracking_group is not None:
-            object_reference_field.set_tracking_group(tracking_group)
         self._add_field(object_reference_field)
-
-        if tracking_group is not None:
-            self.add_object_reference_field(
-                object_reference_field.tracking_id,
-                table,
-                is_array,
-            )
-
         return object_reference_field
 
     def add_map_field(
@@ -200,7 +195,6 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
         id: str,
         data_type: DataType,
         table: Table,
-        tracking_group: str | None = None,
     ) -> DataField:
         """
         Adds a map field to the table.
@@ -209,20 +203,13 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
             id (str): The ID of the new field.
             data_type (DataType): The underlying data type of the map values.
             table (Table): The table field maps into.
-            tracking_group (str, optional): Group identifier for change tracking.
 
         Returns:
             DataField: The created map field.
         """
         map_data_type = MapDataType(data_type, table)
         map_field = DataField(id, self, map_data_type)
-        if tracking_group is not None:
-            map_field.set_tracking_group(tracking_group)
         self._add_field(map_field)
-
-        if tracking_group is not None:
-            self.add_map_field(map_field.tracking_id, data_type, table)
-
         return map_field
 
     def add_calculated_field(
@@ -231,7 +218,6 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
         formula: Operand | float | int | bool | str,
         order_index: int | None = None,
         description: str | None = None,
-        tracking_group: str | None = None,
     ) -> CalculatedField:
         """
         Adds a `CalculatedField` to the table.
@@ -241,35 +227,18 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
             formula (Formula): The formula used to compute the field value.
             order_index (int | None): The order index of the field.
             description (str | None): Description of the field.
-            tracking_group (str | None): Group identifier for change tracking.
 
         Returns:
             CalculatedField: The created `CalculatedField` object.
         """
         if not isinstance(formula, Formula):
-            return self.add_calculated_field(
-                id,
-                CONST(formula),
-                order_index,
-                description,
-                tracking_group,
-            )
+            return self.add_calculated_field(id, CONST(formula), order_index, description)
         calculated_field = CalculatedField(id, self, formula)
         if order_index is not None:
             calculated_field.set_order_index(order_index)
         if description is not None:
             calculated_field.set_description(description)
-        if tracking_group is not None:
-            calculated_field.set_tracking_group(tracking_group)
         self._add_field(calculated_field)
-
-        if tracking_group is not None:
-            self.add_calculated_field(
-                calculated_field.tracking_id,
-                formula,
-                order_index,
-                description,
-            )
         return calculated_field
 
     def get_field(self, id: str) -> Field:
@@ -286,7 +255,11 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
             ValueError: If the field does not exist in the table.
         """
         if id not in self.field_definitions:
-            raise ValueError(f"The field {id} does not exist in the table")
+            available = ", ".join(self.field_definitions) or "<none>"
+            raise ValueError(
+                f"The field {id!r} does not exist in table {self.id!r} "
+                f"(available fields: {available})"
+            )
         return self.field_definitions[id]
 
     def get_fields(self) -> Sequence[Field]:
@@ -298,9 +271,21 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
         """
         return list(self.field_definitions.values())
 
+    def to_string(self) -> str:
+        """Render this table as a formula operand — its id (an ``OBJECT_ARRAY`` reference)."""
+        return self.id
+
+    def to_data_type(self) -> BaseDataType:
+        """The data type of this table used as an operand: an ``OBJECT_ARRAY`` over itself."""
+        return ObjectDataType(self, is_array=True)
+
     def __getitem__(self, id: str) -> Formula:
         """
         Return an array-typed formula referencing the entire column *id* of this table.
+
+        This is *column access* — a distinct operator from member access
+        (:meth:`Operand.__getitem__`): it renders ``table_id[field_id]`` with brackets, which the
+        platform requires for a raw-table column (the dot form is invalid there).
 
         Args:
             id: The field ID to look up.
@@ -312,23 +297,9 @@ class Table(Buildable, _TableBase):  # pylint: disable=too-many-instance-attribu
         Raises:
             ValueError: If *id* does not exist, is already an array type, or is a map type.
         """
-        field = self.field_definitions.get(id)
-        if not field:
-            raise ValueError(f"The field with ID {id} does not exist in this table")
+        from daitum_model import expression as _expr
 
-        field_data_type = field.data_type
-        if isinstance(field_data_type, DataType):
-            if field_data_type.is_array():
-                raise ValueError("Cannot call __getitem__ on table with an array field")
-            return Formula(field_data_type.to_array(), f"{self.id}[{id}]")
-        if isinstance(field_data_type, ObjectDataType):
-            if field_data_type.is_array():
-                raise ValueError("Cannot call __getitem__ on table with an array field")
-            return Formula(
-                ObjectDataType(field_data_type._source_table, is_array=True),
-                f"{self.id}[{id}]",
-            )
-        raise ValueError("Cannot call __getitem__ on table with a map field")
+        return _expr.ColumnAccess(self, id)
 
     def get_validation_state(self) -> Field | CalculatedField:
         """
@@ -380,15 +351,13 @@ class DataTable(Table):
     data that the optimiser writes.
 
     In addition to holding data fields, Data Tables often include calculated fields, which can
-    capture a significant portion of the model's logic. For instance, in the ElectraNet 18-month
-    planner, the `Work_Orders` table handles most of the model's logic.
+    capture a significant portion of the model's logic.
     """
 
     def add_data_field(
         self,
         id: str,
         data_type: BaseDataType,
-        tracking_group: str | None = None,
     ) -> DataField:
         """
         Adds a `DataField` to the table.
@@ -396,18 +365,11 @@ class DataTable(Table):
         Args:
             id (str): The id of the data field.
             data_type (DataType): The data type of the field.
-            tracking_group (str, optional): Group identifier for change tracking.
 
         Returns:
             DataField: The created `DataField` object.
         """
         data_field = DataField(id, self, data_type)
-        if tracking_group is not None:
-            data_field.set_tracking_group(tracking_group)
-
-        if tracking_group is not None:
-            self.add_data_field(data_field.tracking_id, data_type)
-
         self._add_field(data_field)
         return data_field
 

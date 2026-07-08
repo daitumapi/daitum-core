@@ -127,3 +127,4 @@ Supporting Components
     model_event
     context_variable
     filter_component
+    menu_configuration

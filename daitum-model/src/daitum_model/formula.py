@@ -22,83 +22,46 @@ data types.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
+from enum import Enum
+from typing import Any
 
 from typeguard import typechecked
 
-from ._buildable import Buildable
-from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType
+from daitum_model.serialisation import Buildable
+
+from .data_types import BaseDataType, DataType
 
 
-def _numerical_operation(
-    x: Operand,
-    y: Operand,
-    operator: str,
-) -> Formula:
+def escape_string_literal(value: str) -> str:
+    """Render *value* as a quoted formula string literal, backslash-escaping ``\\`` and ``"``.
+
+    The platform's string-literal syntax is ``"…"`` with ``\\"`` for an embedded quote and ``\\\\``
+    for a literal backslash. Backslash is escaped first so an escape introduced for a quote is not
+    itself re-escaped. :func:`unescape_string_literal` is the exact inverse.
     """
-    Build a ``Formula`` for a binary numeric or comparison operation between two operands.
+    escaped = value.replace("\\", "\\\\").replace('"', '\\"')
+    return f'"{escaped}"'
 
-    Validates that the data types of *x* and *y* are compatible with *operator*, infers the
-    result data type (preserving array-ness), and returns the composed formula string.
 
-    Args:
-        x: The left-hand operand.
-        y: The right-hand operand.
-        operator: One of ``+``, ``-``, ``*``, ``/``, ``^``, ``<``, ``>``, ``<=``, ``>=``.
+def unescape_string_literal(body: str) -> str:
+    """Recover the raw string from a literal's *body* (the characters between the quotes).
 
-    Returns:
-        A ``Formula`` with the appropriate result data type.
-
-    Raises:
-        ValueError: If *operator* is not one of the supported operators.
-        TypeError: If the operand data types are incompatible with *operator*.
+    The inverse of :func:`escape_string_literal`: ``\\"`` becomes ``"`` and ``\\\\`` becomes ``\\``.
+    A backslash before any other character is preserved verbatim (the platform only escapes those
+    two, so a lone backslash is a literal backslash).
     """
-    if operator not in {"+", "-", "*", "/", "^", "<", ">", "<=", ">="}:
-        raise ValueError(f"Operator {operator} is not supported")
-
-    x_data_type = x.to_data_type()
-    y_data_type = y.to_data_type()
-
-    data_type_exception = TypeError(
-        f"Operator {operator} is not supported with data types {x_data_type} and {y_data_type}"
-    )
-
-    if not isinstance(x_data_type, DataType) or not isinstance(y_data_type, DataType):
-        raise data_type_exception
-
-    x_is_array = x_data_type.is_array()
-    y_is_array = y_data_type.is_array()
-
-    non_array_x_data_type = x_data_type.from_array() if x_is_array else x_data_type
-    non_array_y_data_type = y_data_type.from_array() if y_is_array else y_data_type
-
-    if operator in {"+", "-", "*", "/", "^"}:
-        if non_array_x_data_type not in {
-            DataType.INTEGER,
-            DataType.DECIMAL,
-        } or non_array_y_data_type not in {DataType.INTEGER, DataType.DECIMAL}:
-            raise data_type_exception
-        ret_data_type = (
-            DataType.INTEGER
-            if operator in {"+", "-", "*", "^"}
-            and non_array_x_data_type == DataType.INTEGER
-            and non_array_y_data_type == DataType.INTEGER
-            else DataType.DECIMAL
-        )
-    else:
-        if non_array_x_data_type not in {
-            DataType.INTEGER,
-            DataType.DECIMAL,
-        } or non_array_y_data_type not in {DataType.INTEGER, DataType.DECIMAL}:
-            if (
-                non_array_x_data_type != non_array_y_data_type
-                or non_array_x_data_type == DataType.STRING
-            ):
-                raise data_type_exception
-        ret_data_type = DataType.BOOLEAN
-
-    ret_data_type = ret_data_type.to_array() if (x_is_array or y_is_array) else ret_data_type
-
-    return Formula(ret_data_type, f"({x.to_string()} {operator} {y.to_string()})")
+    out: list[str] = []
+    i, n = 0, len(body)
+    while i < n:
+        ch = body[i]
+        if ch == "\\" and i + 1 < n and body[i + 1] in ('"', "\\"):
+            out.append(body[i + 1])
+            i += 2
+        else:
+            out.append(ch)
+            i += 1
+    return "".join(out)
 
 
 # pylint: disable=invalid-name
@@ -117,19 +80,19 @@ def CONST(x: bool | float | int | str | Operand) -> Formula:
         Formula: A `Formula` object representing the given constant.
 
     Raises:
-        TypeError: If the input type is not supported.
+        ValueError: If the input type is not supported.
     """
     if isinstance(x, bool):
-        return Formula(DataType.BOOLEAN, "TRUE" if x else "FALSE")
+        return Constant(DataType.BOOLEAN, "TRUE" if x else "FALSE")
     if isinstance(x, float):
-        return Formula(DataType.DECIMAL, f"{x}")
+        return Constant(DataType.DECIMAL, f"{x}")
     if isinstance(x, int):
-        return Formula(DataType.INTEGER, f"{x}")
+        return Constant(DataType.INTEGER, f"{x}")
     if isinstance(x, str):
-        return Formula(DataType.STRING, f'"{x}"')
+        return Constant(DataType.STRING, escape_string_literal(x))
     if isinstance(x, Operand):
-        return Formula(x.to_data_type(), x.to_string())
-    raise TypeError(f"CONST not supported for the input {x}")
+        return Constant(x.to_data_type(), x.to_string())
+    raise ValueError(f"CONST: unsupported input: {x!r}.")
 
 
 @typechecked
@@ -151,170 +114,90 @@ class Operand(ABC):
         pass
 
     def __add__(self, other: Operand | float | int | str) -> Formula:
-        if isinstance(other, (float, int, str)):
-            return self + CONST(other)
-        other_data_type = other.to_data_type()
-        self_data_type = self.to_data_type()
+        from daitum_model import expression as _expr
 
-        string_concat = self_data_type in {
-            DataType.STRING,
-            DataType.STRING_ARRAY,
-        } or other_data_type in {DataType.STRING, DataType.STRING_ARRAY}
-
-        if string_concat:
-            if not (isinstance(other_data_type, DataType) and isinstance(self_data_type, DataType)):
-                raise TypeError(
-                    f"Operator + is not supported with data types {self_data_type} and "
-                    f"{other_data_type}"
-                )
-            ret_data_type = (
-                DataType.STRING_ARRAY
-                if self_data_type.is_array() or other_data_type.is_array()
-                else DataType.STRING
-            )
-            return Formula(ret_data_type, f"({self.to_string()} & {other.to_string()})")
-
-        return _numerical_operation(self, other, "+")
+        other = _expr.ensure_operand(other)
+        if _expr.is_stringish(self) or _expr.is_stringish(other):
+            return _expr.build_concat(self, other)
+        return _expr.build_numeric(_expr.ADD, self, other)
 
     def __radd__(self, other: Operand | float | int | str) -> Formula:
-        if isinstance(other, (float, int, str)):
-            return CONST(other) + self
-        other_data_type = other.to_data_type()
-        self_data_type = self.to_data_type()
+        from daitum_model import expression as _expr
 
-        string_concat = self_data_type in {
-            DataType.STRING,
-            DataType.STRING_ARRAY,
-        } or other_data_type in {DataType.STRING, DataType.STRING_ARRAY}
-
-        if string_concat:
-            if not (isinstance(other_data_type, DataType) and isinstance(self_data_type, DataType)):
-                raise TypeError(
-                    f"Operator + is not supported with data types {self_data_type} and "
-                    f"{other_data_type}"
-                )
-            ret_data_type = (
-                DataType.STRING_ARRAY
-                if self_data_type.is_array() or other_data_type.is_array()
-                else DataType.STRING
-            )
-            return Formula(ret_data_type, f"({other.to_string()} & {self.to_string()})")
-
-        return _numerical_operation(other, self, "+")
+        other = _expr.ensure_operand(other)
+        if _expr.is_stringish(self) or _expr.is_stringish(other):
+            return _expr.build_concat(other, self)
+        return _expr.build_numeric(_expr.ADD, other, self)
 
     def __mul__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return self * CONST(other)
-        return _numerical_operation(self, other, "*")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.MULTIPLY, self, _expr.ensure_operand(other))
 
     def __rmul__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return CONST(other) * self
-        return _numerical_operation(other, self, "*")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.MULTIPLY, _expr.ensure_operand(other), self)
 
     def __sub__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return self - CONST(other)
-        return _numerical_operation(self, other, "-")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.SUBTRACT, self, _expr.ensure_operand(other))
 
     def __rsub__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return CONST(other) - self
-        return _numerical_operation(other, self, "-")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.SUBTRACT, _expr.ensure_operand(other), self)
 
     def __truediv__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return self / CONST(other)
-        return _numerical_operation(self, other, "/")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.DIVIDE, self, _expr.ensure_operand(other))
 
     def __rtruediv__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return CONST(other) / self
-        return _numerical_operation(other, self, "/")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.DIVIDE, _expr.ensure_operand(other), self)
 
     def __xor__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return self ^ CONST(other)
-        return _numerical_operation(self, other, "^")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.POWER_OP, self, _expr.ensure_operand(other))
 
     def __rxor__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return CONST(other) ^ self
-        return _numerical_operation(other, self, "^")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.POWER_OP, _expr.ensure_operand(other), self)
 
     def __lt__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return self < CONST(other)
-        return _numerical_operation(self, other, "<")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.LESS_THAN, self, _expr.ensure_operand(other))
 
     def __gt__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return self > CONST(other)
-        return _numerical_operation(self, other, ">")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.GREATER_THAN, self, _expr.ensure_operand(other))
 
     def __le__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return self <= CONST(other)
-        return _numerical_operation(self, other, "<=")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.LESS_EQUAL, self, _expr.ensure_operand(other))
 
     def __ge__(self, other: Operand | float | int) -> Formula:
-        if isinstance(other, (float, int)):
-            return self >= CONST(other)
-        return _numerical_operation(self, other, ">=")
+        from daitum_model import expression as _expr
+
+        return _expr.build_numeric(_expr.GREATER_EQUAL, self, _expr.ensure_operand(other))
 
     def __neg__(self) -> Formula:
-        if isinstance(self.to_data_type(), DataType) and self.to_data_type() in [
-            DataType.INTEGER,
-            DataType.INTEGER_ARRAY,
-            DataType.DECIMAL,
-            DataType.DECIMAL_ARRAY,
-        ]:
-            return Formula(self.to_data_type(), f"-({self.to_string()})")
+        from daitum_model import expression as _expr
 
-        raise TypeError(f"Cannot negate the data type {self.to_data_type()}")
+        return _expr.build_negate(self)
 
     def __getitem__(self, other_id: str) -> Formula:
-        self_data_type = self.to_data_type()
+        from daitum_model import expression as _expr
 
-        if not isinstance(self_data_type, ObjectDataType):
-            raise TypeError(
-                "Cannot call __getitem__ on field which is not of type OBJECT or OBJECT_ARRAY"
-            )
-
-        fields = self_data_type._source_table.get_fields()
-
-        other_field = next((field for field in fields if field.id == other_id), None)
-        if not other_field:
-            raise ValueError(f"Field with ID {other_id} does not exist in this object")
-
-        other_data_type = other_field.to_data_type()
-
-        if isinstance(other_data_type, DataType):
-            if other_data_type.is_array() and self_data_type.is_array():
-                raise TypeError(
-                    "Cannot call __getitem__ on OBJECT_ARRAY with an array type as input"
-                )
-            ret_data_type: DataType = (
-                other_data_type.to_array() if self_data_type.is_array() else other_data_type
-            )
-            return Formula(ret_data_type, f"{self.to_string()}.{other_field.to_string()}")
-        if isinstance(other_data_type, ObjectDataType):
-            if other_data_type.is_array() and self_data_type.is_array():
-                raise TypeError(
-                    "Cannot call __getitem__ on OBJECT_ARRAY with an array type as input"
-                )
-            return Formula(
-                ObjectDataType(
-                    other_data_type._source_table,
-                    self_data_type.is_array() or other_data_type.is_array(),
-                ),
-                f"{self.to_string()}.{other_field.to_string()}",
-            )
-        if isinstance(other_data_type, MapDataType):
-            if self_data_type.is_array():
-                raise TypeError("Cannot call __getitem__ on OBJECT_ARRAY with a map type as input")
-            return Formula(other_data_type, f"{self.to_string()}.{other_field.to_string()}")
-        raise TypeError("Invalid data type")
+        return _expr.MemberAccess(self, other_id)
 
     def equal_to(self, other: Operand | float | int | bool | str) -> Formula:
         """
@@ -328,16 +211,9 @@ class Operand(ABC):
         Returns:
             A ``Formula`` that evaluates to ``True`` when this operand equals *other*.
         """
-        if isinstance(other, (float, int, bool, str)):
-            return self.equal_to(CONST(other))
+        from daitum_model import expression as _expr
 
-        data_type = (
-            DataType.BOOLEAN_ARRAY
-            if (self.to_data_type().is_array() or other.to_data_type().is_array())
-            else DataType.BOOLEAN
-        )
-
-        return Formula(data_type, f"{self.to_string()} = {other.to_string()}")
+        return _expr.build_equality(_expr.EQUALS, self, _expr.ensure_operand(other))
 
     def not_equal_to(self, other: Operand | float | int | bool | str) -> Formula:
         """
@@ -351,70 +227,120 @@ class Operand(ABC):
         Returns:
             A ``Formula`` that evaluates to ``True`` when this operand does not equal *other*.
         """
-        if isinstance(other, (float, int, bool, str)):
-            return self.not_equal_to(CONST(other))
+        from daitum_model import expression as _expr
 
-        data_type = (
-            DataType.BOOLEAN_ARRAY
-            if (self.to_data_type().is_array() or other.to_data_type().is_array())
-            else DataType.BOOLEAN
-        )
+        return _expr.build_equality(_expr.NOT_EQUALS, self, _expr.ensure_operand(other))
 
-        return Formula(data_type, f"{self.to_string()} <> {other.to_string()}")
+    # In-place operators return the structured result node; Python rebinds the name (``x += y`` is
+    # ``x = x.__iadd__(y)``), so ``x`` becomes the real operator node — identical to ``x = x + y``,
+    # with full ``children()`` / ``dependencies()``. No state is mutated on ``self``.
+    def __iadd__(self, other: Operand | float | int | str) -> Formula:
+        return self + other
+
+    def __imul__(self, other: Operand | float | int) -> Formula:
+        return self * other
+
+    def __isub__(self, other: Operand | float | int) -> Formula:
+        return self - other
+
+    def __itruediv__(self, other: Operand | float | int) -> Formula:
+        return self / other
+
+    def __ixor__(self, other: Operand | float | int) -> Formula:
+        return self ^ other
 
 
 @typechecked
-class Formula(Buildable, Operand):
+class Formula(Buildable, Operand, ABC):
     """
-    Represents a formula used in calculations or data processing.
+    Abstract base for every structured formula expression.
 
-    Attributes:
-        data_type (DataType | ObjectDataType): The type of data that the formula returns.
-        formula_string (str): The Excel formula as a string.
+    A formula *is* its structured expression tree: ``Constant``, the operator nodes
+    (``BinaryOperator``/``UnaryOperator``/``MemberAccess``/``ColumnAccess``), and every per-function
+    node subclass this base. ``data_type`` and ``formula_string`` are **projections** of the tree
+    (how it type-checks and how it is written to JSON), derived from ``to_data_type()`` /
+    ``to_string()`` rather than stored.
+
+    Subclasses implement ``to_string`` / ``to_data_type`` (from :class:`Operand`) and
+    :meth:`children`.
     """
+
+    @abstractmethod
+    def children(self) -> Sequence[Operand]:
+        """The immediate operand children of this formula node."""
+
+    def dependencies(self) -> set[Operand]:
+        """The reference leaves (``Field`` / ``Calculation`` / ``Parameter`` / ``Table``) this
+        formula transitively uses.
+
+        The returned set is keyed by object identity (``Operand`` defines no value ``__eq__`` /
+        ``__hash__``), so each referenced object appears once. Reference leaves are operands that
+        are not themselves :class:`Formula` nodes; a child that *is* a structured formula recurses.
+        """
+        found: set[Operand] = set()
+        for child in self.children():
+            if isinstance(child, Formula):
+                found |= child.dependencies()
+            else:
+                found.add(child)
+        return found
+
+    def is_equivalent(self, other: object) -> bool:
+        """Whether *other* is a formula equivalent to this one.
+
+        Two formulas are equivalent when they render to the same platform expression and infer the
+        same data type. Because rendering is deterministic (the same node tree always produces the
+        same string, brackets and spacing included), this reliably distinguishes structurally
+        different formulas — e.g. ``(x + y) - z`` from ``x + (y - z)`` — and is exactly the check
+        the parser round-trip needs (``parse(f.to_string())`` ≡ ``f``).
+
+        This is a dedicated method rather than an ``__eq__`` override, which would perturb the
+        identity-keyed :meth:`dependencies` set and the ``equal_to`` / ``not_equal_to`` operators.
+        """
+        if not isinstance(other, Operand):
+            return False
+        return self.to_string() == other.to_string() and self.to_data_type() == other.to_data_type()
+
+    @property
+    def data_type(self) -> BaseDataType:
+        """The formula's return data type (a projection of the tree)."""
+        return self.to_data_type()
+
+    @property
+    def formula_string(self) -> str:
+        """The rendered platform expression string (a projection of the tree)."""
+        return self.to_string()
+
+    def build(self) -> dict[str, Any]:
+        """Serialise to ``{"dataType", "formulaString"}``.
+
+        A custom override: the node's real state lives in ``_``-prefixed attributes that the default
+        :class:`~daitum_model.serialisation.Buildable` walk skips, so this emits the two projections
+        explicitly. The data type serialises as its enum value (``DataType``) or its nested build
+        (``ObjectDataType`` / ``MapDataType``) — matching the legacy output.
+        """
+        dt = self.to_data_type()
+        if isinstance(dt, Enum):
+            data_type: Any = dt.value
+        elif isinstance(dt, Buildable):
+            data_type = dt.build()
+        else:  # pragma: no cover - BaseDataType is always an Enum or Buildable
+            data_type = dt
+        return {"dataType": data_type, "formulaString": self.to_string()}
+
+
+class Constant(Formula):
+    """A literal constant formula (the body of :func:`CONST`): a leaf with no children."""
 
     def __init__(self, data_type: BaseDataType, formula_string: str):
-        self.data_type = data_type
-        self.formula_string = formula_string
+        self._data_type = data_type
+        self._formula_string = formula_string
 
     def to_data_type(self) -> BaseDataType:
-        """
-        Retrieves the data type of the formula.
-
-        Returns:
-            BaseDataType: The data type associated with the formula.
-        """
-        return self.data_type
+        return self._data_type
 
     def to_string(self) -> str:
-        """
-        Converts the formula expression to its string representation.
+        return self._formula_string
 
-        Returns:
-            str: The string representation of the formula expression.
-        """
-        return self.formula_string
-
-    def __iadd__(self, other: Operand | float | int | str) -> Formula:
-        formula = self + other
-        self.data_type = formula.data_type
-        self.formula_string = formula.formula_string
-        return self
-
-    def __imul__(self, other: Operand | float | int) -> Formula:
-        formula = self * other
-        self.data_type = formula.data_type
-        self.formula_string = formula.formula_string
-        return self
-
-    def __isub__(self, other: Operand | float | int) -> Formula:
-        formula = self - other
-        self.data_type = formula.data_type
-        self.formula_string = formula.formula_string
-        return self
-
-    def __itruediv__(self, other: Operand | float | int) -> Formula:
-        formula = self / other
-        self.data_type = formula.data_type
-        self.formula_string = formula.formula_string
-        return self
+    def children(self) -> Sequence[Operand]:
+        return ()

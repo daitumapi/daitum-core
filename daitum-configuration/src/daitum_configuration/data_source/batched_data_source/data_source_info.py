@@ -14,9 +14,9 @@
 
 """:class:`DataSourceInfo` — one entry inside a :class:`BatchedDataSourceConfig`."""
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.data_source.batched_data_source.batch_data_source_type import (
     BatchDataSourceType,
 )

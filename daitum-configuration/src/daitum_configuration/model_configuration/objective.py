@@ -14,12 +14,11 @@
 
 """:class:`Objective` — a quantity to optimise within a :class:`ModelConfiguration`."""
 
-from typing import Any
-
 from daitum_model import Calculation, DataType
+from daitum_model.references import Reference
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.model_configuration.priority import Priority
 
 
@@ -36,6 +35,9 @@ class Objective(Buildable):
 
     _tracking_counter = 0
 
+    #: ``name`` is emitted even when None (the platform schema requires the key).
+    _always_emit = ("name",)
+
     def __init__(
         self,
         objective: Calculation,
@@ -48,26 +50,11 @@ class Objective(Buildable):
         if objective_datatype not in {DataType.INTEGER, DataType.DECIMAL}:
             raise ValueError(f"{objective_datatype} is not integer or decimal")
 
-        self._objective = objective
-        self._tracking_id = Objective._tracking_counter
+        # Public attributes emitted in declaration order matching the platform shape.
+        self.cell_reference = Reference(objective)
+        self.tracking_id = Objective._tracking_counter
         Objective._tracking_counter += 1
-        self._maximise = maximise
-        self._priority = priority
-        self._weight = weight
-        self._name = name
-
-    @property
-    def name(self) -> str | None:
-        """Optional display name for this objective."""
-        return self._name
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        return {
-            "cellReference": f"!!!{self._objective.to_string()}",
-            "trackingId": self._tracking_id,
-            "maximise": self._maximise,
-            "priority": self._priority.value,
-            "weight": self._weight,
-            "name": self._name,
-        }
+        self.maximise = maximise
+        self.priority = priority
+        self.weight = weight
+        self.name = name

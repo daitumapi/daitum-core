@@ -14,14 +14,15 @@
 
 """:class:`ExcelTransformConfig` — Excel-based data source with sheet mappings."""
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.data_source.data_source_config import DataSourceConfig
 from daitum_configuration.data_source.data_source_type import DataSourceType
 from daitum_configuration.data_source.excel_transform.import_option_overrides import (
     ImportOptionOverrides,
 )
+from daitum_configuration.no_data_policy import NoDataPolicy
 
 
 # pylint: disable=too-few-public-methods,too-many-instance-attributes
@@ -62,6 +63,7 @@ class ExcelTransformConfig(DataSourceConfig):
         ]
         self.import_object_references_as_keys: bool = False
         self.per_sheet_overrides: dict[str, ImportOptionOverrides] = {}
+        self.no_data_policy: NoDataPolicy = NoDataPolicy.ALLOW
         super().__init__()
 
     def set_debug_file(self, debug_file: bool) -> "ExcelTransformConfig":
@@ -86,6 +88,11 @@ class ExcelTransformConfig(DataSourceConfig):
     ) -> "ExcelTransformConfig":
         """Override import options per source sheet name."""
         self.per_sheet_overrides = per_sheet_overrides
+        return self
+
+    def set_no_data_policy(self, no_data_policy: NoDataPolicy) -> "ExcelTransformConfig":
+        """Fail this data source when an import loads no rows, per the given policy."""
+        self.no_data_policy = no_data_policy
         return self
 
     @property

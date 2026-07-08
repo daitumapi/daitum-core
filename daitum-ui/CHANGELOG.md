@@ -1,5 +1,54 @@
 # Changelog
 
+## [2.0.0]
+
+### Added
+- UI decoder layer (`_decoders/`) that reconstructs typed `UiBuilder` graphs from
+  `build()` output, registered against the shared `daitum_model.decoding` core. UI classes
+  set attributes via `set_*`/`add_*`, so they decode through a template mechanism that learns
+  each attribute's type from a reference instance.
+- `UiBuilder.read_from_file(model_directory, model)` — reconstruct a `UiBuilder` from a
+  previously written `ui-definition.json` (the inverse of `write_to_file`).
+- `UiBuilder.read_from_dict(definition, model)` — the dict-level equivalent; `read_from_file`
+  reads the JSON from disk and delegates to it.
+- Baseline capture/revert support: `ModelEvent.add_capture_baseline_action` and
+  `add_revert_baseline_action` (a `CAPTURE_BASELINE` / `REVERT_BASELINE` action, with an
+  optional tracking-group subset and conditional execution), and
+  `ViewField.set_baseline_reset` / `FormElement.set_baseline_reset` for a per-cell baseline
+  reset icon (a `BASELINE` `DefaultValueReference`). All round-trip through the UI decoders.
+- Custom data-menu support: `MenuConfiguration` with a `data_menu` list and the fluent
+  `add_import_sheet_entry` / `add_import_entry` / `add_bulk_import_entry` /
+  `add_data_source_entry` / `add_report_entry` / `add_divider_entry` / `add_event_entry`
+  methods, plus the `DataMenuItem` / `DataMenuEntryType` entry types (covering import, bulk
+  import, import-into-sheet, data source, report, divider, and model-event actions, with an
+  optional icon and confirmation prompt).
+- `Text.set_wrap` — controls whether text wraps onto multiple lines when it exceeds the
+  available width (defaults to `False`).
+- `ModelVariableSource` — a `Source` wrapping a `ModelVariable`, so values for set-value
+  actions can be read at runtime from a `Field`, `Parameter`, `Calculation`, or
+  `ContextVariable`.
+- `ModelEvent.add_run_optimisation_action` — adds a `RUN_OPTIMISATION` action that triggers an
+  optimisation run, with optional conditional execution via a `ContextVariable`.
+
+### Changed
+- Requires `daitum-model>=2.0.0` (was `>=1.0.0`); the decoder layer depends on the
+  `daitum_model.decoding` module and shared serialisation core.
+- The internal `Buildable` base now derives from the shared core in
+  `daitum_model.serialisation` rather than defining its own `snake_to_camel`,
+  `json_type_info`, and `Buildable` (no public API or output change).
+- `ModelEvent.add_set_table_value_action` and `add_set_named_value_action` now accept any of
+  `Value`, `Field`, `Parameter`, `Calculation`, or `ContextVariable` as `value_source` (and
+  `add_set_table_value_action` accepts the same model variables as `target_row`). A `Value`
+  becomes a `ConstantSource`; a model variable becomes a `ModelVariableSource`.
+
+### Removed
+- **Breaking:** `ContextVariableSource` — replaced by `ModelVariableSource`, which covers
+  context variables and the other model variable kinds via the wrapped `ModelVariable`.
+
+### Renamed
+- **Breaking:** `ModelEvent.add_set_name_value_action` → `add_set_named_value_action`; its
+  `name_value_target` parameter → `named_value_target`.
+
 ## [1.1.0]
 
 ### Added

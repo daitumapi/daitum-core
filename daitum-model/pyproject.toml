@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daitum-model"
-version = "1.0.2"
+version = "2.0.0"
 description = "Model and formula generation library for the Daitum platform"
 readme = "README.md"
 license = "Apache-2.0"
@@ -21,7 +21,7 @@ dependencies = ["typeguard>=4.4"]
 
 [project.urls]
 Homepage = "https://daitum.com"
-Documentation = "https://daitum-core.readthedocs.io"
+Documentation = "https://docs.daitum.com"
 Repository = "https://github.com/daitumapi/daitum-core"
 
 [tool.setuptools.packages.find]

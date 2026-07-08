@@ -27,8 +27,8 @@ from dataclasses import dataclass
 from typing import Any
 
 from daitum_model import Calculation, Parameter
+from daitum_model.serialisation import Buildable
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.algorithm_configuration.numeric_expression import NumericExpression
 
 # A numeric algorithm parameter that may be a plain expression or a model named value.

@@ -22,8 +22,7 @@ the external evaluator's input entities and where its outputs should land.
 from typing import Any
 
 from daitum_model import Calculation, Field, Parameter, Table
-
-from daitum_configuration._buildable import Buildable
+from daitum_model.serialisation import Buildable
 
 
 class ParameterMapping(Buildable):
@@ -31,24 +30,16 @@ class ParameterMapping(Buildable):
     to an external evaluator parameter name."""
 
     def __init__(self, parameter_name: str, named_value: Parameter | Calculation):
-        self._parameter_name = parameter_name
-        self._named_value = named_value
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        return {"parameterName": self._parameter_name, "location": self._named_value.id}
+        self.parameter_name = parameter_name
+        self.location = named_value.id
 
 
 class ColumnMapping(Buildable):
     """Map an external-entity property name to a specific :class:`~daitum_model.Field`."""
 
     def __init__(self, property_name: str, column: Field):
-        self._property_name = property_name
-        self._column = column
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        return {"propertyName": self._property_name, "columnName": self._column.id}
+        self.property_name = property_name
+        self.column_name = column.id
 
 
 class InputDataMapping(Buildable):
@@ -63,24 +54,16 @@ class InputDataMapping(Buildable):
         table: Table,
         column_mappings: list[ColumnMapping] | None = None,
     ):
-        self._entity_name = entity_name
-        self._table = table
-        self._column_mappings: list[ColumnMapping] = (
+        self.entity_name = entity_name
+        self.table_name = table.id
+        self.column_mappings: list[ColumnMapping] = (
             column_mappings if column_mappings is not None else []
         )
 
     def add_column_mapping(self, property_name: str, column: Field) -> "InputDataMapping":
         """Append a :class:`ColumnMapping` linking ``property_name`` to ``column``."""
-        self._column_mappings.append(ColumnMapping(property_name, column))
+        self.column_mappings.append(ColumnMapping(property_name, column))
         return self
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        return {
-            "entityName": self._entity_name,
-            "tableName": self._table.id,
-            "columnMappings": [cm.build() for cm in self._column_mappings],
-        }
 
 
 class OutputDataMapping(InputDataMapping):
@@ -103,21 +86,23 @@ class OutputDataMapping(InputDataMapping):
         clear_existing: bool = True,
     ):
         super().__init__(entity_name, table, column_mappings)
-        self._key_column = key_column
-        self._preserve_order = preserve_order
-        self._clear_existing = clear_existing
+        # Emitted after the inherited keys: mapByProperty, preserveOrder, clearExisting.
+        # ``map_by_property`` is emitted even when None, so it is handled in ``build``
+        # below rather than as a plain attribute (the default walk drops None values).
+        self._map_by_property = key_column
+        self.preserve_order = preserve_order
+        self.clear_existing = clear_existing
 
     def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
+        """Serialise to a dict, always emitting ``mapByProperty`` (even when null)."""
         result = super().build()
-        result.update(
-            {
-                "mapByProperty": self._key_column,
-                "preserveOrder": self._preserve_order,
-                "clearExisting": self._clear_existing,
-            }
-        )
-        return result
+        # Insert mapByProperty ahead of preserveOrder/clearExisting to match key order.
+        ordered: dict[str, Any] = {}
+        for key, value in result.items():
+            if key == "preserveOrder":
+                ordered["mapByProperty"] = self._map_by_property
+            ordered[key] = value
+        return ordered
 
 
 class ExternalModelConfiguration(Buildable):
@@ -128,31 +113,23 @@ class ExternalModelConfiguration(Buildable):
     """
 
     def __init__(self, requires_reload: bool = True):
-        self._input_data_mappings: list[InputDataMapping] = []
-        self._parameter_mappings: list[ParameterMapping] = []
-        self._output_data_mappings: list[OutputDataMapping] = []
-        self._requires_reload: bool = requires_reload
+        # Emitted in declaration order to match the platform shape.
+        self.input_data_mappings: list[InputDataMapping] = []
+        self.parameter_mappings: list[ParameterMapping] = []
+        self.output_data_mappings: list[OutputDataMapping] = []
+        self.requires_reload: bool = requires_reload
 
     def add_input_data_mapping(self, mapping: InputDataMapping) -> "ExternalModelConfiguration":
         """Register an :class:`InputDataMapping`."""
-        self._input_data_mappings.append(mapping)
+        self.input_data_mappings.append(mapping)
         return self
 
     def add_parameter_mapping(self, mapping: ParameterMapping) -> "ExternalModelConfiguration":
         """Register a :class:`ParameterMapping`."""
-        self._parameter_mappings.append(mapping)
+        self.parameter_mappings.append(mapping)
         return self
 
     def add_output_data_mapping(self, mapping: OutputDataMapping) -> "ExternalModelConfiguration":
         """Register an :class:`OutputDataMapping`."""
-        self._output_data_mappings.append(mapping)
+        self.output_data_mappings.append(mapping)
         return self
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        return {
-            "inputDataMappings": [m.build() for m in self._input_data_mappings],
-            "parameterMappings": [m.build() for m in self._parameter_mappings],
-            "outputDataMappings": [m.build() for m in self._output_data_mappings],
-            "requiresReload": self._requires_reload,
-        }

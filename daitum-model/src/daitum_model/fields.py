@@ -29,12 +29,15 @@ from typing import TYPE_CHECKING, Any
 
 from typeguard import typechecked
 
-from ._buildable import Buildable, json_type_info
+from daitum_model.serialisation import Buildable, json_type_info
+
 from .data_types import BaseDataType, _FieldBase
 from .formula import Formula, Operand
+from .tracking import normalise_tracking_groups
 
 if TYPE_CHECKING:
     from .tables import Table
+    from .tracking import TrackingGroup
     from .validator import Severity, Validator
 
 
@@ -83,7 +86,8 @@ class Field(Buildable, _FieldBase, Operand):
         self.order_index: int | None = None
         #: Free-text description shown in the UI.
         self.description: str | None = None
-        self._tracking_group: str | None = None
+        #: Names of the tracking groups this field belongs to (``None`` when untracked).
+        self.tracking_groups: list[str] | None = None
 
         self._validators: list[Validator] = []
         self._combined_message_field: Field | None = None
@@ -93,15 +97,22 @@ class Field(Buildable, _FieldBase, Operand):
         """The :class:`~daitum_model.Table` that owns this field."""
         return self._table
 
-    @property
-    def tracking_group(self) -> str | None:
-        """Tracking-group identifier, or ``None`` when change tracking is disabled."""
-        return self._tracking_group
+    def set_tracking_groups(self, groups: list[str | TrackingGroup]) -> Field:
+        """
+        Assign this field to one or more change-tracking groups.
 
-    @property
-    def tracking_id(self) -> str:
-        """ID of the matching tracking field, or empty string when this field is not tracked."""
-        return "" if self._tracking_group is None else self._tracking_group + "_TRACKING_" + self.id
+        A tracked field requires its table to declare an ``id_field``. Passing an
+        empty list clears tracking.
+
+        Args:
+            groups: Tracking groups (or their names) this field belongs to.
+
+        Returns:
+            This field, for chaining.
+        """
+        normalised = normalise_tracking_groups(groups)
+        self.tracking_groups = normalised or None
+        return self
 
     def set_order_index(self, idx: int | None) -> Field:
         """Set the field's position within its table (lower values come first)."""
@@ -111,16 +122,6 @@ class Field(Buildable, _FieldBase, Operand):
     def set_description(self, desc: str | None) -> Field:
         """Set the field's free-text description."""
         self.description = desc
-        return self
-
-    def set_tracking_group(self, group: str | None) -> Field:
-        """Enable change tracking by assigning this field to a tracking group.
-
-        When set, :meth:`~daitum_model.ModelBuilder.build` generates a sibling
-        ``<group>_TRACKING_<id>`` field; references to other tracked fields
-        within the same group are rewritten to their tracking ids.
-        """
-        self._tracking_group = group
         return self
 
     def to_string(self) -> str:
@@ -256,6 +257,11 @@ class CalculatedField(Field):
         #: The formula evaluated to produce this field's value.
         self.formula = formula
 
+    def dependencies(self) -> set[Operand]:
+        """The reference leaves (fields / calculations / parameters / tables) this field's formula
+        uses. Empty when the formula is a literal constant."""
+        return self.formula.dependencies()
+
 
 @json_type_info("data")
 @typechecked
@@ -334,6 +340,10 @@ class ComboField(Field):
         self.default_value: Any = None
         #: Import format hint applied when parsing input rows.
         self.import_format: str | None = None
+
+    def dependencies(self) -> set[Operand]:
+        """The reference leaves this field's formula uses (empty for a string-only formula)."""
+        return self.formula.dependencies()
 
     def set_default_value(self, value: Any) -> ComboField:
         """Set the default value used when no imported value is present."""

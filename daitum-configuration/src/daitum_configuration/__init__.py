@@ -21,6 +21,7 @@ report/model properties; :meth:`ConfigurationBuilder.write_to_file` emits
 ``model-configuration.json``.
 """
 
+from . import _decoders  # noqa: E402
 from .algorithm_configuration.alns_algorithm import (
     AcceptanceCriterion,
     AcceptanceCriterionType,
@@ -60,6 +61,7 @@ from .data_source.model_transform.model_transform import ModelTransform
 from .data_source.model_transform.model_transform_config import ModelTransformConfig
 from .data_source.model_transform.validation_severity import ValidationSeverity
 from .data_source.set_features_config import SetFeaturesConfig
+from .data_source.track_changes_config import TrackChangesConfig, TrackChangesMode
 from .model_configuration.constraint import ConstraintType
 from .model_configuration.decision_variable import DVType
 from .model_configuration.external_configuration import (
@@ -128,6 +130,8 @@ __all__ = [
     "Metric",
     "GeoLocationConfig",
     "SetFeaturesConfig",
+    "TrackChangesConfig",
+    "TrackChangesMode",
     "VariableNeighbourhoodSearch",
     "AdaptiveLargeNeighbourhoodSearch",
     "AcceptanceCriterion",
@@ -137,3 +141,6 @@ __all__ = [
     "OutputDataMapping",
     "ParameterMapping",
 ]
+
+# Register every configuration decoder once the public classes the decoders import are defined.
+_decoders.register_all()

@@ -14,12 +14,9 @@
 
 """:class:`ScenarioOutput` — a value exposed in scenario comparison views."""
 
-from typing import Any
-
 from daitum_model import Calculation, Field, Parameter, Table
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
-
-from daitum_configuration._buildable import Buildable
 
 
 # pylint: disable=too-many-arguments,too-many-positional-arguments,too-many-instance-attributes
@@ -43,45 +40,19 @@ class ScenarioOutput(Buildable):
         scenario_output_value: Calculation | Parameter | Field,
         scenario_output_table: Table | None = None,
     ):
-        self._scenario_output: str | None = None
-        self._tracking_id = ScenarioOutput._tracking_counter
+        # Public attributes are emitted in declaration order: cellReference, trackingId, name.
+        self.cell_reference = f"!!!{self._resolve(scenario_output_value, scenario_output_table)}"
+        self.tracking_id = ScenarioOutput._tracking_counter
         ScenarioOutput._tracking_counter += 1
-        self._scenario_output_value = scenario_output_value
-        self._scenario_output_table = scenario_output_table
-        self._name = name
+        self.name = name
 
-        self._set_scenario_output()
-
-    def _set_scenario_output(self):
-        if self._scenario_output_table is None:
-            if not isinstance(self._scenario_output_value, (Calculation, Parameter)):
+    @staticmethod
+    def _resolve(value: Calculation | Parameter | Field, table: Table | None) -> str:
+        if table is None:
+            if not isinstance(value, (Calculation, Parameter)):
                 raise ValueError("Scenario output value is not a calculation or parameter")
-            self._scenario_output = self._scenario_output_value.to_string()
-        else:
-            if not isinstance(self._scenario_output_value, Field):
-                raise ValueError("Scenario output value is not a field")
-            self._set_scenario_output_field(
-                self._scenario_output_value, self._scenario_output_table
-            )
-
-    def _set_scenario_output_field(self, field: Field, table: Table):
-        table.get_field(field.id)
-        self._scenario_output = f"{table.id}[{field.id}]"
-
-    @property
-    def name(self) -> str:
-        """Display name for this scenario output."""
-        return self._name
-
-    @property
-    def cell_reference(self) -> str:
-        """Resolved cell reference (``!!!<id>`` form) used in serialisation."""
-        return f"!!!{self._scenario_output}"
-
-    def build(self) -> dict[str, Any]:
-        """Serialise to a JSON-compatible dict."""
-        return {
-            "cellReference": self.cell_reference,
-            "trackingId": self._tracking_id,
-            "name": self._name,
-        }
+            return value.to_string()
+        if not isinstance(value, Field):
+            raise ValueError("Scenario output value is not a field")
+        table.get_field(value.id)
+        return f"{table.id}[{value.id}]"

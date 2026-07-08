@@ -43,6 +43,7 @@ function.
    formulas/ARRAYMAX
    formulas/ARRAYMIN
    formulas/AVERAGE
+   formulas/BASELINE
    formulas/BINOMDIST
    formulas/BINOMINV
    formulas/BITAND
@@ -75,6 +76,7 @@ function.
    formulas/GAMMADIST
    formulas/GAMMAINV
    formulas/GET
+   formulas/HASBASELINE
    formulas/HOUR
    formulas/HOURSBETWEEN
    formulas/IF
@@ -132,3 +134,5 @@ function.
    formulas/WEEKDAY
    formulas/WEIBULL
    formulas/YEAR
+   operators
+

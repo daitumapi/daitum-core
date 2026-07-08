@@ -67,7 +67,16 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, TypeVar, cast
 
-from daitum_model import Calculation, DataType, Field, ObjectDataType, Parameter, Severity, Table
+from daitum_model import (
+    Baseline,
+    Calculation,
+    DataType,
+    Field,
+    ObjectDataType,
+    Parameter,
+    Severity,
+    Table,
+)
 from daitum_model.formula import Operand
 from daitum_model.named_values import NamedValue
 from typeguard import typechecked
@@ -273,6 +282,28 @@ class FormElement(BaseElement):
         )
         value_id = value.id if isinstance(value, Field) else value.id
         self.default_value_reference = DefaultValueReference(value_type, value_id, behaviour)
+        return self
+
+    def set_baseline_reset(
+        self,
+        baseline: Baseline | str,
+        behaviour: DefaultValueBehaviour = DefaultValueBehaviour.DEFAULT,
+    ) -> "FormElement":
+        """
+        Show a reset icon that reverts this element to its value at a baseline.
+
+        The icon appears when the current value differs from the baseline value; clicking
+        it reverts that one element. Only meaningful on editable elements.
+
+        Args:
+            baseline (Baseline | str): The baseline to revert to, or its name.
+            behaviour (DefaultValueBehaviour, optional): Controls the reset behaviour.
+                Defaults to `DefaultValueBehaviour.DEFAULT`.
+        """
+        baseline_name = baseline.name if isinstance(baseline, Baseline) else baseline
+        self.default_value_reference = DefaultValueReference(
+            DefaultValueType.BASELINE, baseline_name, behaviour
+        )
         return self
 
     def set_list_validation(self, reference_field: str) -> "FormElement":

@@ -14,9 +14,8 @@
 
 """:class:`OverlayConfig` — toggles for spreadsheet result overlays."""
 
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
-
-from daitum_configuration._buildable import Buildable
 
 
 # pylint: disable=too-few-public-methods,too-many-positional-arguments

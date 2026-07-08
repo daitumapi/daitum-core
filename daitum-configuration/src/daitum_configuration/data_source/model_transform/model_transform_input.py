@@ -23,15 +23,13 @@ from abc import ABC, abstractmethod
 from typing import Any
 
 from daitum_model import Calculation, Parameter
+from daitum_model.serialisation import Buildable
 
-from daitum_configuration._buildable import Buildable
 from daitum_configuration.data_source.data_store.data_filter import DataFilter
 from daitum_configuration.data_source.model_transform.data_input_source_type import (
     DataInputSourceType,
 )
-from daitum_configuration.data_source.model_transform.validation_severity import (
-    ValidationSeverity,
-)
+from daitum_configuration.data_source.model_transform.validation_severity import ValidationSeverity
 
 
 class ModelTransformInput(Buildable, ABC):

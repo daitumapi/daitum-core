@@ -34,13 +34,16 @@ from typing import TYPE_CHECKING, Any
 
 from typeguard import typechecked
 
-from ._buildable import Buildable
+from daitum_model.serialisation import Buildable
+
 from ._helpers import _validate_name
 from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType
 from .formula import Formula, Operand
+from .tracking import normalise_tracking_groups
 
 if TYPE_CHECKING:
     from .model import ModelBuilder
+    from .tracking import TrackingGroup
     from .validator import Severity, Validator
 
 
@@ -100,7 +103,7 @@ class Calculation(Buildable, Operand):
         self.depends_on_decision: bool = False
         self.model_level = model_level
         self.required_by_output: bool = False
-        self._tracking_group: str | None = None
+        self.tracking_groups: list[str] | None = None
 
         self._model = model
         self._validators: list[Validator] = []
@@ -111,19 +114,14 @@ class Calculation(Buildable, Operand):
         """The unique identifier for this calculation."""
         return self._id
 
-    @property
-    def tracking_group(self) -> str | None:
-        """The tracking group identifier, or ``None`` if change tracking is not enabled."""
-        return self._tracking_group
+    def set_tracking_groups(self, groups: list[str | TrackingGroup]) -> Calculation:
+        """
+        Assign this calculation to one or more change-tracking groups.
 
-    @property
-    def tracking_id(self) -> str:
-        """The ID of the corresponding tracking calculation, or an empty string if not tracked."""
-        return "" if self._tracking_group is None else self._tracking_group + "_TRACKING_" + self.id
-
-    def set_tracking_group(self, group: str | None) -> Calculation:
-        """Sets the tracking group for this calculation. Returns self."""
-        self._tracking_group = group
+        Passing an empty list clears tracking. Returns self.
+        """
+        normalised = normalise_tracking_groups(groups)
+        self.tracking_groups = normalised or None
         return self
 
     def set_depends_on_decision(self, depends_on_decision: bool) -> Calculation:
@@ -141,6 +139,13 @@ class Calculation(Buildable, Operand):
 
     def to_data_type(self) -> BaseDataType:
         return self.data_type
+
+    def dependencies(self) -> set[Operand]:
+        """The reference leaves this calculation's formula uses (empty for a string-only formula).
+
+        Note this is the calculation's *own direct* formula dependencies; as a leaf operand a
+        ``Calculation`` is itself collected by formulas that reference it (it is not expanded)."""
+        return self.formula.dependencies()
 
     def add_validator(self, validator: Validator) -> None:
         """
@@ -274,8 +279,7 @@ class Parameter(Buildable, Operand):
         self._value = value
         self.model_level = model_level
         self.import_format: str | None = None
-
-        self._tracking_group: str | None = None
+        self.tracking_groups: list[str] | None = None
 
         self._model: ModelBuilder | None = None
         self._validators: list[Validator] = []
@@ -286,19 +290,14 @@ class Parameter(Buildable, Operand):
         """The unique identifier for this parameter."""
         return self._id
 
-    @property
-    def tracking_group(self) -> str | None:
-        """The tracking group identifier, or ``None`` if change tracking is not enabled."""
-        return self._tracking_group
+    def set_tracking_groups(self, groups: list[str | TrackingGroup]) -> Parameter:
+        """
+        Assign this parameter to one or more change-tracking groups.
 
-    @property
-    def tracking_id(self) -> str:
-        """The ID of the corresponding tracking parameter, or an empty string if not tracked."""
-        return "" if self._tracking_group is None else self._tracking_group + "_TRACKING_" + self.id
-
-    def set_tracking_group(self, group: str | None) -> Parameter:
-        """Sets the tracking group for this parameter. Returns self."""
-        self._tracking_group = group
+        Passing an empty list clears tracking. Returns self.
+        """
+        normalised = normalise_tracking_groups(groups)
+        self.tracking_groups = normalised or None
         return self
 
     def set_model(self, model: ModelBuilder) -> Parameter:

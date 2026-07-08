@@ -16,7 +16,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from daitum_model import Calculation, DataType, Field, ObjectDataType, Parameter, Table
+from daitum_model import Baseline, Calculation, DataType, Field, ObjectDataType, Parameter, Table
 from typeguard import typechecked
 
 from ._buildable import Buildable, json_type_info
@@ -301,6 +301,28 @@ class ViewField(Buildable):
         self.default_value_reference = DefaultValueReference(value_type, value_id, behaviour)
         return self
 
+    def set_baseline_reset(
+        self,
+        baseline: Baseline | str,
+        behaviour: DefaultValueBehaviour = DefaultValueBehaviour.DEFAULT,
+    ) -> "ViewField":
+        """
+        Show a reset icon that reverts this cell to its value at a baseline.
+
+        The icon appears when the current value differs from the baseline value; clicking
+        it reverts that one cell. Only meaningful on editable fields.
+
+        Args:
+            baseline (Baseline | str): The baseline to revert to, or its name.
+            behaviour (DefaultValueBehaviour, optional): Controls the reset behaviour.
+                Defaults to `DefaultValueBehaviour.DEFAULT`.
+        """
+        baseline_name = baseline.name if isinstance(baseline, Baseline) else baseline
+        self.default_value_reference = DefaultValueReference(
+            DefaultValueType.BASELINE, baseline_name, behaviour
+        )
+        return self
+
     def set_edit_override(
         self, target_reference_field: str, target_field_id: str, map_key_field: str | None = None
     ) -> "ViewField":
@@ -554,7 +576,7 @@ class BaseTableView(BaseView, FilterableView):
         self.band_even_row_background_color: str | None = None
         self.background_color: str | None = None
         self.row_height: int | None = None
-        self.column_width_adjustable: bool = False
+        self.column_width_adjustable: bool = self.display_state != DisplayState.PRESENTATION
 
         self.header_style: BaseStyle | None = None
         self.read_only_style: BaseStyle | None = None
@@ -644,7 +666,6 @@ class TableView(BaseTableView):
         self,
         field_id,
         readonly: bool | Field = False,
-        allow_reset: bool = False,
     ) -> ViewField:
         """
         Adds a column to the table view.
@@ -652,7 +673,6 @@ class TableView(BaseTableView):
         Args:
             field_id (str): ID of the field to include.
             readonly (Optional[Union[bool, Field]]): Optional readonly condition.
-            allow_reset (bool): If True, adds a default value reset reference to the field.
 
         Returns:
             ViewField: The constructed view field.
@@ -664,12 +684,6 @@ class TableView(BaseTableView):
         view_field = ViewField(field_id, readonly)
 
         self.fields.append(_validation_view_field(table_field, view_field))
-
-        if allow_reset:
-            if table_field.tracking_group is None:
-                raise ValueError("allow_reset invalid on fields without change tracking set")
-            tracked_field = self._table.get_field(table_field.tracking_id)
-            view_field.set_default_value_reference(tracked_field)
 
         return view_field
 
@@ -783,7 +797,6 @@ class TreeView(BaseTableView):
         field_id,
         children: list[str | None] | str | None = None,
         read_only: bool = False,
-        allow_reset: bool = False,
     ) -> TreeViewField:
         """
         Adds a tree-aware field to the view.
@@ -791,7 +804,6 @@ class TreeView(BaseTableView):
         Args:
             field_id (str): ID of the field to add.
             children (Optional[List[str] | str]): Child field names per hierarchy level.
-            allow_reset (bool): If True, adds a default value reset reference to the field.
 
         Returns:
             TreeViewField: The created tree field.
@@ -830,13 +842,5 @@ class TreeView(BaseTableView):
             self.fields.append(_validation_view_field(deepest_child, view_field))
         else:
             self.fields.append(view_field)
-
-        if allow_reset:
-            if deepest_child is None:
-                raise ValueError("allow_reset is not supported for fields with null children")
-            if deepest_child.tracking_group is None:
-                raise ValueError("allow_reset invalid on fields without change tracking set")
-            tracked_field = self._table.get_field(deepest_child.tracking_id)
-            view_field.set_default_value_reference(tracked_field)
 
         return view_field
