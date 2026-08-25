@@ -50,7 +50,7 @@ from typeguard import typechecked
 
 from daitum_ui._buildable import json_type_info
 from daitum_ui.base_view import BaseView
-from daitum_ui.data import MatchRowFilterMode
+from daitum_ui.data import FilterMode
 from daitum_ui.elements import Card
 from daitum_ui.filter_component import FilterableView, FilterComponent
 
@@ -69,8 +69,10 @@ class CardView(BaseView, FilterableView):
             The card template used to render each row/item in the view.
         source_table (Optional[str]):
             The ID of the source table providing the data for the view.
-        match_row_filter_mode (Optional[MatchRowFilterMode]):
-            Controls how rows are included or excluded based on filtering rules.
+        filter_mode (Optional[FilterMode]):
+            The FilterMode selecting which single row the card displays. A `MatchRowFilterMode`
+            names the row by index (or, for a keyed table, by key); a `MatchFieldFilterMode`
+            finds it by matching a context variable's value against `filter_target_field`.
     """
 
     def __init__(
@@ -92,16 +94,21 @@ class CardView(BaseView, FilterableView):
 
         self.card_template = card_template
         self.source_table: str | None = None
-        self.match_row_filter_mode: MatchRowFilterMode | None = None
+        self.filter_mode: FilterMode | None = None
 
     def set_table(self, table: Table) -> "CardView":
         """Sets the source data table for this card view."""
         self.source_table = table.id
         return self
 
-    def set_match_row_filter_mode(self, match_row_filter_mode: MatchRowFilterMode) -> "CardView":
-        """Sets the row filter mode controlling how rows are included or excluded."""
-        self.match_row_filter_mode = match_row_filter_mode
+    def set_filter_mode(self, filter_mode: FilterMode) -> "CardView":
+        """Sets the filter mode controlling which row the card view is bound to.
+
+        Accepts any :class:`~daitum_ui.data.FilterMode` — a
+        :class:`~daitum_ui.data.MatchRowFilterMode` (select the row by index or key) or a
+        :class:`~daitum_ui.data.MatchFieldFilterMode` (select the row by matching a field value).
+        """
+        self.filter_mode = filter_mode
         return self
 
     def set_use_filter(self, use_filter: FilterComponent) -> "CardView":

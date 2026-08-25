@@ -17,7 +17,7 @@ Filter component system for creating filterable data views.
 
 This module provides a comprehensive filtering system that allows users to filter
 data in views by applying comparison operators to field values. It supports defining
-reusable filter configurations with customizable display options and default filters.
+reusable filter configurations with customisable display options and default filters.
 
 Main Components
 ---------------
@@ -69,7 +69,7 @@ Invalid operator/field combinations raise ValueError with helpful error messages
 
 Filter Architecture
 -------------------
-Filters are organized in a three-tier structure:
+Filters are organised in a three-tier structure:
 
 1. **FilterField**: Defines individual filterable fields
    - Specifies field to filter, display name, and formatting
@@ -432,7 +432,7 @@ class DefaultFilter(ABC, Buildable):
         operator: FilterOperator,
     ):
         """
-        Initialize a default filter with a field and operator.
+        Initialise a default filter with a field and operator.
 
         Args:
             field (Field):
@@ -473,7 +473,7 @@ class SingleValueDefaultFilter(DefaultFilter):
         value: Value | Calculation,
     ):
         """
-        Initialize a single-value default filter.
+        Initialise a single-value default filter.
 
         Args:
             field (Field):
@@ -521,7 +521,7 @@ class TwoValueDefaultFilter(DefaultFilter):
         second_value: Value | Calculation,
     ):
         """
-        Initialize a two-value default filter.
+        Initialise a two-value default filter.
 
         Args:
             field (Field):
@@ -572,7 +572,7 @@ class MultiValueDefaultFilter(DefaultFilter):
 
     def __init__(self, field: Field, operator: FilterOperator, values: list[Value | Calculation]):
         """
-        Initialize a multi-value default filter.
+        Initialise a multi-value default filter.
 
         Args:
             field (Field):
@@ -631,7 +631,7 @@ class FilterField(Buildable):
         include_in_search: bool = False,
     ):
         """
-        Initialize a filter component.
+        Initialise a filter component.
 
         Args:
             field (Field):
@@ -674,7 +674,7 @@ class HorizontalAlignment(Enum):
 
 class SearchType(Enum):
     """
-    Defines search behavior for filter search functionality.
+    Defines search behaviour for filter search functionality.
 
     This enumeration specifies how search queries should match against
     filterable data.
@@ -703,7 +703,7 @@ class SearchConfiguration(Buildable):
 
     Attributes:
         search_type (SearchType):
-            The type of search behavior to use (phrase or word matching).
+            The type of search behaviour to use (phrase or word matching).
     """
 
     search_type: SearchType
@@ -751,7 +751,7 @@ class FilterComponent(Buildable):
         opacity: float = 1.0,
     ):
         """
-        Initialize a FilterComponent.
+        Initialise a FilterComponent.
 
         Args:
             filter_name (str):
@@ -901,7 +901,7 @@ class FilterComponent(Buildable):
 
     def set_search_configuration(self, search_type: SearchType):
         """
-        Configure the search behavior for this filter component.
+        Configure the search behaviour for this filter component.
 
         This method sets how search queries should match against filter options.
         Once configured, users can search through available filter values using
@@ -909,7 +909,7 @@ class FilterComponent(Buildable):
 
         Args:
             search_type (SearchType):
-                The type of search behavior to use. Use CONTAINS_PHRASE for
+                The type of search behaviour to use. Use CONTAINS_PHRASE for
                 exact phrase matching or CONTAINS_WORDS for flexible word matching.
         """
         self.search_configuration = SearchConfiguration(search_type)
@@ -934,7 +934,7 @@ class FilterableView(Buildable):
 
     def __init__(self, use_filter: FilterComponent | None = None):
         """
-        Initialize a filterable view.
+        Initialise a filterable view.
 
         Args:
             use_filter (FilterComponent | None):

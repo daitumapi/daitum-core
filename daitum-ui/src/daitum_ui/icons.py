@@ -17,13 +17,13 @@ Icon enumeration for UI components.
 
 This module provides the Icon enum, which contains identifiers for all available
 icons that can be used in UI components. Icons come from FontAwesome 6 and
-custom Daitum application icon sets, organized by category and purpose.
+custom Daitum application icon sets, organised by category and purpose.
 
 Main Components
 ---------------
 
 **Icon Enum:**
-    Single enumeration containing all available icon identifiers organized into:
+    Single enumeration containing all available icon identifiers organised into:
 
     - FontAwesome 6 solid icons (standard filled icons)
     - FontAwesome 6 regular icons (outlined variants)
@@ -114,7 +114,7 @@ Usage Patterns
 Icons are typically used in two contexts:
 
 1. **IconConfig for UI Elements:**
-   Used with IconConfig to configure icon appearance with color
+   Used with IconConfig to configure icon appearance with colour
 
 2. **Direct Icon References:**
    Used directly in component properties that accept icons
@@ -270,7 +270,7 @@ class Icon(Enum):
     """
     Enumeration of available icons for UI components.
 
-    Icons are organized into several categories:
+    Icons are organised into several categories:
 
     **FontAwesome 6 Icons:**
         - Standard icons (solid variants)

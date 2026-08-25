@@ -16,8 +16,8 @@
 Fixed value view components for the UI Generator framework.
 
 This module provides the FixedValueView class, which enables displaying structured
-data in a fixed grid layout with customizable cells. Fixed value views are ideal for
-presenting parameters, calculations, and constant values in an organized tabular
+data in a fixed grid layout with customisable cells. Fixed value views are ideal for
+presenting parameters, calculations, and constant values in an organised tabular
 format with rich styling and conditional formatting capabilities.
 
 Fixed value views create grid-based layouts where each cell can display either static
@@ -123,7 +123,7 @@ class Cell(Buildable):
         read_only: bool = False,
     ):
         """
-        Initializes a Cell instance, which can display either a literal string
+        Initialises a Cell instance, which can display either a literal string
         or a dynamic value referenced by a Parameter or Calculation.
 
         Args:
@@ -286,7 +286,7 @@ class FixedValueView(BaseView):
         Inserts a cell into the layout at the specified row and column.
 
         This method ensures the internal cell structure remains consistent:
-            - Automatically initializes the row dictionary if it does not exist.
+            - Automatically initialises the row dictionary if it does not exist.
             - Ensures the column index is valid relative to the defined header columns.
             - Automatically updates `total_rows` when adding cells beyond the current range.
 

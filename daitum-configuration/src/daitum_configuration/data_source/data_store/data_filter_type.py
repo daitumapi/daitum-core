@@ -20,12 +20,16 @@ from enum import Enum
 class DataFilterType(Enum):
     """Identifies the kind of row filter applied by :class:`DataFilter` subclasses.
 
-    Values:
-        EQUALITY: Match rows whose value equals a source key.
-        INEQUALITY: Match rows whose value falls within a numeric range.
-        SET: Match rows whose value is in a set of source keys.
-        WILDCARD: Match rows whose value matches a glob pattern.
-        REGEX: Match rows whose value matches a regular expression.
+    EQUALITY
+        Match rows whose value equals a source key.
+    INEQUALITY
+        Match rows whose value falls within a numeric range.
+    SET
+        Match rows whose value is in a set of source keys.
+    WILDCARD
+        Match rows whose value matches a glob pattern.
+    REGEX
+        Match rows whose value matches a regular expression.
     """
 
     EQUALITY = "equality"

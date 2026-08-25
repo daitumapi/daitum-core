@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 
 import pytest
-
 from daitum_model._doc_spec import function_doc_rows, operator_doc_rows
 from daitum_model.expression import BINARY_OPERATORS
 
@@ -121,10 +120,9 @@ class TestFunctionDocTypes:
         (``_doc_spec.derive_return_types``); this gate cross-checks that against the independent
         test-fixture probe (``true_returns``) so neither pool can silently under-sample. This is the
         gate that pins ``VALUES`` to every ``<T>_ARRAY`` and keeps ``UNION`` ≡ ``INTERSECTION``."""
+        from daitum_model._doc_spec import _function_classes, _resolve_spec, derive_return_types
         from fixtures.accept_probe import true_returns
         from fixtures.contract_model import build_fixture
-
-        from daitum_model._doc_spec import _function_classes, _resolve_spec, derive_return_types
 
         published = derive_return_types()
         fx = build_fixture()
@@ -152,10 +150,9 @@ class TestFunctionDocTypes:
         unlike the corpus cross-check above, which only catches under-declaration over the narrow
         slice the corpus happens to exercise. This is the gate that would have caught the
         ``ARRAY``/map and ``TOMAP``/object-array over-declarations."""
+        from daitum_model._doc_spec import _function_classes, _resolve_spec
         from fixtures.accept_probe import declared_accepted, true_accepted
         from fixtures.contract_model import build_fixture
-
-        from daitum_model._doc_spec import _function_classes, _resolve_spec
 
         fx = build_fixture()
         mismatches: list[str] = []

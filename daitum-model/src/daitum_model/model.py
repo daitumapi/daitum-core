@@ -39,6 +39,28 @@ from .tables import DataTable, Table
 from .tracking import AutoCapture, Baseline, TrackingGroup
 from .union_table import UnionSource, UnionTable
 
+#: Top-level keys :meth:`ModelBuilder.build` always emits.
+_ALWAYS_MODEL_KEYS: tuple[str, ...] = (
+    "calculationDefinitions",
+    "parameterDefinitions",
+    "tableDefinitions",
+    "optimisationCheckNamedValue",
+    "partialEvaluationAllowed",
+)
+
+#: Top-level keys :meth:`ModelBuilder.build` emits only when at least one tracking group or
+#: baseline is declared.
+_TRACKING_MODEL_KEYS: tuple[str, ...] = (
+    "trackingGroupDefinitions",
+    "baselineDefinitions",
+)
+
+#: The complete top-level key vocabulary of a built model definition — the single source of truth
+#: shared by :meth:`ModelBuilder.build` (which emits from it) and the model decoder (which accepts
+#: exactly these). Keeping both sides bound to this set makes drift impossible: a new top-level key
+#: must be added here, so ``build`` and the decoder learn about it together.
+MODEL_DEFINITION_KEYS: frozenset[str] = frozenset(_ALWAYS_MODEL_KEYS + _TRACKING_MODEL_KEYS)
+
 
 @typechecked
 class ModelBuilder:
@@ -550,24 +572,25 @@ class ModelBuilder:
         """
         self._validate_tracking()
 
-        definition: dict[str, Any] = {
-            "calculationDefinitions": {calc.id: calc.build() for calc in self._calculations},
-            "parameterDefinitions": {param.id: param.build() for param in self._parameters},
-            "tableDefinitions": {table.id: table.build() for table in self._tables},
-            "optimisationCheckNamedValue": (
+        # Keyed by the shared ``MODEL_DEFINITION_KEYS`` vocabulary (via its always/conditional
+        # split) so ``build`` and the decoder can never disagree on the top-level key set.
+        emitters: dict[str, Any] = {
+            "calculationDefinitions": lambda: {c.id: c.build() for c in self._calculations},
+            "parameterDefinitions": lambda: {p.id: p.build() for p in self._parameters},
+            "tableDefinitions": lambda: {t.id: t.build() for t in self._tables},
+            "optimisationCheckNamedValue": lambda: (
                 self._validation_named_val.id if self._validation_named_val else None
             ),
-            "partialEvaluationAllowed": self._partial_evaluation_allowed,
+            "partialEvaluationAllowed": lambda: self._partial_evaluation_allowed,
+            "trackingGroupDefinitions": lambda: {g.name: g.build() for g in self._tracking_groups},
+            "baselineDefinitions": lambda: {b.name: b.build() for b in self._baselines},
         }
 
+        definition: dict[str, Any] = {key: emitters[key]() for key in _ALWAYS_MODEL_KEYS}
         if self._tracking_groups:
-            definition["trackingGroupDefinitions"] = {
-                group.name: group.build() for group in self._tracking_groups
-            }
+            definition["trackingGroupDefinitions"] = emitters["trackingGroupDefinitions"]()
         if self._baselines:
-            definition["baselineDefinitions"] = {
-                baseline.name: baseline.build() for baseline in self._baselines
-            }
+            definition["baselineDefinitions"] = emitters["baselineDefinitions"]()
 
         return definition
 

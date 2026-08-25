@@ -20,17 +20,26 @@ from enum import Enum
 class DataSourceType(Enum):
     """Identifies the kind of data source emitted in the JSON output.
 
-    Values:
-        GEOLOCATION: Geocoding of address rows.
-        DISTANCE_MATRIX: Computed distance/duration matrix.
-        EXCEL_TRANSFORM: Spreadsheet-driven transform.
-        DATA_STORE: External or internal data store.
-        SET_FEATURES: Feature-flag toggles.
-        BATCHED_DATA_SOURCE: Group of other data sources run together.
-        RUN_REPORT: Run a report. Useful to batch reports with other data sources.
-        MODEL_TRANSFORM: Secondary model used to transform data.
-        RUN_EXTERNAL_MODEL: Run the model's configured external evaluator.
-        TRACK_CHANGES: Capture or revert a baseline.
+    GEOLOCATION
+        Geocoding of address rows.
+    DISTANCE_MATRIX
+        Computed distance/duration matrix.
+    EXCEL_TRANSFORM
+        Spreadsheet-driven transform.
+    DATA_STORE
+        External or internal data store.
+    SET_FEATURES
+        Feature-flag toggles.
+    BATCHED_DATA_SOURCE
+        Group of other data sources run together.
+    RUN_REPORT
+        Run a report. Useful to batch reports with other data sources.
+    MODEL_TRANSFORM
+        Secondary model used to transform data.
+    RUN_EXTERNAL_MODEL
+        Run the model's configured external evaluator.
+    TRACK_CHANGES
+        Capture or revert a baseline.
     """
 
     GEOLOCATION = "GEOLOCATION"

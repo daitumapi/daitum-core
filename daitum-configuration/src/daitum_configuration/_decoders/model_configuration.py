@@ -56,13 +56,17 @@ def decode_decision_variable(data: dict[str, Any], ctx: LoadContext) -> Decision
     cell = require(data, "cellReference", "DecisionVariable")
     target = resolve_value(cell, ctx)
     table = resolve_table(cell, ctx)
-    dv = DecisionVariable(target, table, DVType(spec["@type"]))
+    dv_type = DVType(spec["@type"])
+    dv = DecisionVariable(target, table, dv_type)
 
     dv._dv_string = strip_prefix(cell)
     dv._tracking_id = data["trackingId"]
-    dv._scale = spec["scale"]
-    dv._dv_min_value = _spec_bound(spec, "minimumValue", "minimumValueReference")
-    dv._dv_max_value = _spec_bound(spec, "maximumValue", "maximumValueReference")
+    if dv_type == DVType.INJECTIVE:
+        dv._domain_string = _unref(spec["domainReference"])
+    else:
+        dv._scale = spec["scale"]
+        dv._dv_min_value = _spec_bound(spec, "minimumValue", "minimumValueReference")
+        dv._dv_max_value = _spec_bound(spec, "maximumValue", "maximumValueReference")
     dv._seed_source_string = _unref(spec["seedSource"])
     dv._tag_source_string = _unref(data["tagSource"])
     dv._disabled = data["disabled"]

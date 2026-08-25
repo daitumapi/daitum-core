@@ -63,8 +63,14 @@ from daitum_ui.layout import FlexView, GridLayout, GridView
 from daitum_ui.map_view import MapType, MapView
 from daitum_ui.model_event import EditorEvent
 from daitum_ui.named_value_view import NamedValueView
-from daitum_ui.roster_view import RosterColumn, RosterView
-from daitum_ui.styles import ColumnStyle, ConditionalFormattingRule, Title
+from daitum_ui.roster_view import (
+    RosterAxis,
+    RosterColumn,
+    RosterDropWrite,
+    RosterTaskDefinition,
+    RosterView,
+)
+from daitum_ui.styles import AxisLabelStyle, ColumnStyle, ConditionalFormattingRule, Title
 from daitum_ui.tabbed_view import TabbedView, TabDefinition
 from daitum_ui.tabular import TableView, TreeView, ViewField
 
@@ -195,6 +201,32 @@ def _roster_view_template(data: dict[str, Any], ctx: LoadContext) -> RosterView:
     return RosterView(resolve_table(data["sourceTable"], ctx))
 
 
+def _roster_column_template(data: dict[str, Any], ctx: LoadContext) -> RosterColumn:
+    # RosterColumn requires a table field reference or a card-template key; the walk fills the
+    # rest, so the factory only needs to satisfy that constructor invariant.
+    field_ref = data.get("tableFieldReference")
+    return RosterColumn(
+        table_field_reference=resolve_field(field_ref, ctx) if field_ref is not None else None,
+        default_card_template_key=data.get("defaultCardTemplateKey"),
+    )
+
+
+def _roster_task_template(data: dict[str, Any], ctx: LoadContext) -> RosterTaskDefinition:
+    return RosterTaskDefinition(
+        resolve_field(data["enableDragAndDropField"], ctx),
+        resolve_field(data["dropEnabledField"], ctx),
+        data["highlightWholeColumnOnDrag"],
+    )
+
+
+def _roster_drop_write_template(data: dict[str, Any], ctx: LoadContext) -> RosterDropWrite:
+    return RosterDropWrite(
+        RosterAxis(data["axis"]),
+        resolve_field(data["identityField"], ctx),
+        resolve_field(data["enabledField"], ctx),
+    )
+
+
 def _chart_series_template(data: dict[str, Any], ctx: LoadContext) -> ChartSeries:
     # ChartSeries/gantt task definitions take a live Field but store its id string; build()
     # emits only ids, so the walk restores the id strings — the factory just needs the
@@ -256,7 +288,11 @@ def register() -> None:
     register_template(
         FormView,
         factory=_form_view_template,
-        elements={"form_elements": FormElement, "form_columns": _FormColumn},
+        elements={
+            "form_elements": FormElement,
+            "form_columns": _FormColumn,
+            "filter_mode": FilterMode,
+        },
     )
     register_template(
         FixedValueView,
@@ -287,12 +323,14 @@ def register() -> None:
         factory=_chart_view_template(CombinationChartView),
         elements={"chart_components": CombinationChartComponent},
     )
-    register_template(
-        CardView, factory=_card_view_template, elements={"match_row_filter_mode": FilterMode}
-    )
+    register_template(CardView, factory=_card_view_template, elements={"filter_mode": FilterMode})
     register_template(
         CategoryGanttView,
         factory=_gantt_view_template(CategoryGanttView, CategoryGanttTaskDefinition),
+        elements={
+            "y_axis_reference_edit_override": EditOverride,
+            "y_axis_label": AxisLabelStyle,
+        },
     )
     register_template(
         TreeGridGanttView,
@@ -309,14 +347,37 @@ def register() -> None:
             "summary_column": RosterColumn,
         },
     )
+    register_template(
+        RosterColumn,
+        factory=_roster_column_template,
+        elements={"task_definition": RosterTaskDefinition},
+    )
+    register_template(
+        RosterTaskDefinition,
+        factory=_roster_task_template,
+        elements={"drop_writes": RosterDropWrite},
+    )
+    register_template(
+        RosterDropWrite,
+        factory=_roster_drop_write_template,
+        elements={"edit_override": EditOverride},
+    )
 
     # Nested chart/gantt value types that take a live Field but store only its id string.
     register_template(ChartSeries, factory=_chart_series_template)
+    gantt_task_elements: dict[str, type | MapOf] = {
+        "start_date_edit_override": EditOverride,
+        "end_date_edit_override": EditOverride,
+    }
     register_template(
-        CategoryGanttTaskDefinition, factory=_gantt_task_template(CategoryGanttTaskDefinition)
+        CategoryGanttTaskDefinition,
+        factory=_gantt_task_template(CategoryGanttTaskDefinition),
+        elements=gantt_task_elements,
     )
     register_template(
-        TreeGridGanttTaskDefinition, factory=_gantt_task_template(TreeGridGanttTaskDefinition)
+        TreeGridGanttTaskDefinition,
+        factory=_gantt_task_template(TreeGridGanttTaskDefinition),
+        elements=gantt_task_elements,
     )
 
     # title is a body-assigned BaseView attribute shared by every concrete view; registering it

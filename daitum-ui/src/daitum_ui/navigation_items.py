@@ -13,17 +13,17 @@
 # limitations under the License.
 
 """
-Navigation item system for organizing and structuring UI views.
+Navigation item system for organising and structuring UI views.
 
-This module provides classes for creating navigation menus and organizing views
+This module provides classes for creating navigation menus and organising views
 into hierarchical structures. Navigation items can link to individual views or
-group multiple views together with customizable appearance and behavior.
+group multiple views together with customisable appearance and behaviour.
 
 Main Components
 ---------------
 
 **Base Class:**
-    - NavItem: Abstract base class for all navigation items with color styling
+    - NavItem: Abstract base class for all navigation items with colour styling
 
 **Navigation Item Types:**
     - SingleViewNavItem: Links directly to a single view
@@ -36,27 +36,27 @@ Navigation Item Types
     Links directly to one view. When clicked, navigates to that view.
 
     - Simple one-to-one view mapping
-    - Customizable colors for active/inactive states
+    - Customisable colours for active/inactive states
     - Ideal for standalone views or frequently accessed pages
 
 **GroupViewNavItem:**
-    Organizes multiple views into a collapsible group.
+    Organises multiple views into a collapsible group.
 
     - Contains multiple child views
     - Can auto-collapse when navigating away
     - Supports conditional visibility
     - Enforces unique group names across the application
-    - Useful for organizing related views (e.g., "Reports", "Settings")
+    - Useful for organising related views (e.g., "Reports", "Settings")
 
-Color Customization
--------------------
-All navigation items support three color properties:
+Colour Customisation
+--------------------
+All navigation items support three colour properties:
 
-- **background_color**: Default background color when inactive
-- **active_color**: Background color when selected/active
-- **font_color**: Text color for the navigation item label
+- **background_color**: Default background colour when inactive
+- **active_color**: Background colour when selected/active
+- **font_color**: Text colour for the navigation item label
 
-All colors accept CSS-compatible strings (hex codes, color names, rgb/rgba).
+All colours accept CSS-compatible strings (hex codes, colour names, rgb/rgba).
 
 Conditional Visibility
 ----------------------
@@ -67,8 +67,8 @@ GroupViewNavItem supports conditional visibility through:
 
 When any hidden condition evaluates to True, the group is hidden from navigation.
 
-Auto-Collapse Behavior
-----------------------
+Auto-Collapse Behaviour
+-----------------------
 Groups can automatically collapse when navigating away:
 
 - **auto_collapse=True** (default): Group collapses when user navigates elsewhere
@@ -194,7 +194,7 @@ Creating a hidden group::
     debug_group.add_view(debug_console_view)
     debug_group.add_view(api_explorer_view)
 
-Styling navigation with custom colors::
+Styling navigation with custom colours::
 
     # Create views
     advanced_analytics_view = builder.add_chart_view(...)

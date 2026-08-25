@@ -1,5 +1,37 @@
 # Changelog
 
+## [2.3.0]
+
+### Added
+- `DVType.INJECTIVE` and `InjectiveDVSpecification` — a decision variable spanning a whole
+  integer table column whose rows must all hold distinct values, drawn from `1` to the number
+  of rows. Table-only (a `DataField`, not a `Parameter`) and carries no numeric bounds.
+  `DecisionVariable.set_domain(field)` sets an optional per-row allowed-values column (a STRING
+  field holding a comma-separated list of 1-based row numbers), emitted as a `!!!`-prefixed
+  `domainReference`. Supported by VNS only. Round-trips through `read_from_file`.
+- `terminate_on_failure` option on `BatchedDataSourceConfig.add_data_source` (defaults to
+  `False`) — when set, the batch stops rather than continuing with the remaining data sources
+  if this one fails. Emitted as `terminateOnFailure` on the batched data source entry.
+- `ModelTransformConfig.add_log_table(model)` — build the model's validation list
+  table and write the transform's validation/error log into it. Calls
+  `daitum_model.validation_list.get_validation_list_table(model)`, which aggregates
+  every table's validation errors into a single sorted table, then registers that
+  table as the transform's log table (emitted as `logTable` and
+  `logTableColumns`). The log-entry roles map to the validation list's standard
+  columns — `severity` → `__Type__`, `message` → `__Message__`,
+  `sheet` → `__Subgroup__`, `row` → `__Row__`, `column` → `__Field__`,
+  `value` → `__Value__` — and each resolved column is checked for data type.
+  Every table with a validated field must carry a validation group, set via
+  `Table.set_validation_group(...)`. Raises `ValueError` if the model has no
+  validated fields, since no validation list table is produced in that case.
+  That helper is idempotent, so the same model can also present the table as a
+  validation list view (via `daitum_components`) without building it twice.
+- `ModelTransformConfig.set_failure_named_value` — flag a model named value when
+  the transform logs a blocking entry.
+- `ModelTransformConfig.set_no_data_policy` — apply a `NoDataPolicy` to a model
+  transform, failing the data source when it writes no output rows (table
+  outputs only; parameter-only transforms are unaffected).
+
 ## [2.2.0]
 
 ### Added
@@ -201,7 +233,7 @@
 
 ## [0.1.1]
 
-- Fix serialization of EqualityDataFilter.sourceKey
+- Fix serialisation of EqualityDataFilter.sourceKey
 - Allow ReportProperty.export_interface_key to be optional
 
 ## [0.1.0]

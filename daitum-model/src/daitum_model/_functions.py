@@ -34,14 +34,7 @@ from daitum_model.data_types import (
     MapDataType,
     ObjectDataType,
 )
-from daitum_model.expression import (
-    ANY_MAP,
-    ANY_OBJECT,
-    ANY_OBJECT_ARRAY,
-    Arg,
-    Function,
-    TypeKind,
-)
+from daitum_model.expression import ANY_MAP, ANY_OBJECT, ANY_OBJECT_ARRAY, Arg, Function, TypeKind
 
 if TYPE_CHECKING:
     from daitum_model.tables import Table
@@ -1030,27 +1023,38 @@ class Contains(Function):
     name = "CONTAINS"
     spec = (
         Arg("search_array", accepts=ALL_ARRAYS),
-        Arg("search_value", accepts=ALL_SCALARS | frozenset({ANY_OBJECT})),
-    )  # cross-arg: search_value must be the element type of search_array (checked in validate)
+        # cross-arg: search_value must be the element type of search_array, or an
+        # array of that element type (checked in validate).
+        Arg(
+            "search_value",
+            accepts=ALL_SCALARS | ALL_ARRAYS | frozenset({ANY_OBJECT}),
+        ),
+    )
 
     def validate(self) -> None:
         arr = self._operands[0].to_data_type()
         val = self._operands[1].to_data_type()
         if not arr.is_array():
             raise self.type_error(arr, val)
-        if val.is_array():
-            raise self.type_error(arr, val)
-        if isinstance(arr, DataType) and isinstance(val, DataType):
-            if arr.from_array() != val:
+        # search_value may be a scalar (element type of search_array) or an array of that element
+        # type; compare on the singular element type in both cases.
+        element = val.from_array() if val.is_array() else val
+        if isinstance(arr, DataType) and isinstance(element, DataType):
+            if arr.from_array() != element:
                 raise self.incompatible_error(arr, val)
-        elif isinstance(arr, ObjectDataType) and isinstance(val, ObjectDataType):
-            if arr._source_table != val._source_table:
+        elif isinstance(arr, ObjectDataType) and isinstance(element, ObjectDataType):
+            if arr._source_table != element._source_table:
                 raise self.incompatible_error(arr, val)
         else:
             raise self.type_error(arr, val)
 
     def result_type(self) -> BaseDataType:
-        return DataType.BOOLEAN
+        # A scalar search_value yields a single BOOLEAN; an array yields a BOOLEAN_ARRAY.
+        return (
+            DataType.BOOLEAN_ARRAY
+            if self._operands[1].to_data_type().is_array()
+            else DataType.BOOLEAN
+        )
 
 
 class Distribute(Function):

@@ -31,7 +31,7 @@ from typeguard import typechecked
 
 from daitum_model.serialisation import Buildable, json_type_info
 
-from .data_types import BaseDataType, _FieldBase
+from .data_types import BaseDataType, DataType, _FieldBase
 from .formula import Formula, Operand
 from .tracking import normalise_tracking_groups
 
@@ -39,6 +39,42 @@ if TYPE_CHECKING:
     from .tables import Table
     from .tracking import TrackingGroup
     from .validator import Severity, Validator
+
+
+_NON_NULLABLE_DATA_TYPES: frozenset[DataType] = frozenset(
+    {
+        DataType.INTEGER,
+        DataType.DECIMAL,
+        DataType.STRING,
+        DataType.BOOLEAN,
+    }
+)
+
+#: The complete camelCase key vocabulary a field's ``build()`` can emit, across all three concrete
+#: field types. Co-located with the field classes so it is the single source of truth for both the
+#: serialiser (the generic :class:`~daitum_model.serialisation.Buildable` walk over these attrs)
+#: and the field decoder's unmapped-key guard, which imports it as ``_KNOWN_KEYS``. Fields build via
+#: the generic walk rather than a custom ``build``; this set is pinned to that walk's actual output
+#: by ``test_guard_key_sets`` so it cannot drift. ``@type`` is the discriminator emitted by
+#: :func:`~daitum_model.serialisation.json_type_info`; the rest are the camelised public attributes
+#: set across :class:`DataField`, :class:`CalculatedField` and :class:`ComboField`.
+FIELD_BUILD_KEYS: frozenset[str] = frozenset(
+    {
+        "@type",
+        "id",
+        "tableId",
+        "dataType",
+        "formula",
+        "calculateInOptimiser",
+        "orderIndex",
+        "description",
+        "defaultValue",
+        "importFormat",
+        "unique",
+        "nullable",
+        "trackingGroups",
+    }
+)
 
 
 @dataclass
@@ -281,8 +317,10 @@ class DataField(Field):
         self.import_format: str | None = None
         #: Whether values in this column must be unique within the table.
         self.unique: bool = False
-        #: Whether this field accepts null/blank values.
-        self.nullable: bool = False
+        #: Whether this field accepts null/blank values. Integer, decimal, string and boolean
+        #: fields default to not nullable; every other type (dates/times, arrays, object
+        #: references, maps) defaults to nullable.
+        self.nullable: bool = data_type not in _NON_NULLABLE_DATA_TYPES
 
     def set_default_value(self, value: Any) -> DataField:
         """Set the default value used when no imported value is present."""

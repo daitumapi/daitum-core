@@ -9,8 +9,6 @@ contract. They are additive and not part of the equivalence net.
 from __future__ import annotations
 
 import pytest
-from fixtures.contract_model import build_fixture
-
 from daitum_model import DataType, formulas
 from daitum_model.expression import (
     ADD,
@@ -23,6 +21,7 @@ from daitum_model.expression import (
     ensure_operand,
 )
 from daitum_model.formula import CONST, Formula
+from fixtures.contract_model import build_fixture
 
 
 def _public_function_classes() -> list[type]:

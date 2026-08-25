@@ -16,7 +16,7 @@
 Styling system for UI components in the UI Generator.
 
 This module provides a comprehensive styling framework for controlling the visual
-presentation and interactive behavior of UI elements. It includes style classes,
+presentation and interactive behaviour of UI elements. It includes style classes,
 alignment options, editor configurations, and conditional formatting rules.
 
 Main Components
@@ -29,18 +29,18 @@ Main Components
 **Style Classes:**
     Hierarchical styling system for UI components:
 
-    - BaseStyle: Foundation styling (fonts, colors, alignment, borders)
+    - BaseStyle: Foundation styling (fonts, colours, alignment, borders)
     - CellStyle: Extends BaseStyle with cell-specific features (formatting, filtering)
     - ColumnStyle: Extends CellStyle with column features (frozen, editors, header styles)
 
 **Editor Classes:**
-    Custom input editors for specialized data types:
+    Custom input editors for specialised data types:
 
     - Editor: Abstract base class for all editors
     - PercentageEditor: For percentage value input
     - MonthEditor: For month selection
     - IconEditor: For icon selection/display
-    - IconCheckboxEditor: Toggle between two icons (checkbox behavior)
+    - IconCheckboxEditor: Toggle between two icons (checkbox behaviour)
 
 **Editor Types:**
     EditorType enum defines available editor types: PERCENTAGE, MONTH, ICON, ICON_CHECKBOX
@@ -50,7 +50,7 @@ Main Components
     - ConditionalFormattingRule: Applies styles based on column value conditions
 
 **Additional Components:**
-    - IconConfig: Icon configuration with source and color
+    - IconConfig: Icon configuration with source and colour
     - Title: Title element with styling and positioning
     - Position: Title positioning (ABOVE_CONTENT, BELOW_CONTENT)
 
@@ -62,8 +62,8 @@ Styles follow an inheritance hierarchy allowing progressive refinement::
     └── CellStyle
         └── ColumnStyle
 
-Each level adds more specialized attributes:
-- BaseStyle: Universal styling (fonts, colors, alignment, borders)
+Each level adds more specialised attributes:
+- BaseStyle: Universal styling (fonts, colours, alignment, borders)
 - CellStyle: Cell-specific (display formatting, field mapping, filtering)
 - ColumnStyle: Column-specific (frozen state, editors, header/read-only overrides)
 
@@ -80,14 +80,14 @@ Two-dimensional alignment control:
 **Vertical alignment:**
 
 - TOP: Align to top edge
-- MIDDLE: Center vertically
+- MIDDLE: Centre vertically
 - BOTTOM: Align to bottom edge
 
 Editor System
 -------------
 Editors control how users interact with data in cells:
 
-- **PercentageEditor**: Specialized input for percentage values (0-100%)
+- **PercentageEditor**: Specialised input for percentage values (0-100%)
 - **MonthEditor**: Month picker for month-based data
 - **IconEditor**: Icon selector from available icon set
 - **IconCheckboxEditor**: Binary toggle using custom on/off icons
@@ -148,7 +148,7 @@ Creating column styles with editors::
 
     from daitum_ui.styles import ColumnStyle, PercentageEditor, MonthEditor
 
-    # Percentage column with specialized editor
+    # Percentage column with specialised editor
     completion_column = ColumnStyle(
         editor=PercentageEditor(),
         display_format="{value}%",
@@ -272,7 +272,9 @@ from __future__ import annotations
 from abc import ABC
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
+
+from daitum_model import Calculation, Field, Parameter
 
 from daitum_ui._buildable import Buildable, json_type_info
 from daitum_ui.icons import Icon
@@ -289,7 +291,7 @@ class HorizontalAlignment(Enum):
         LEFT:
             Aligns the element to the left side.
         CENTER:
-            Centers the element horizontally.
+            Centres the element horizontally.
         RIGHT:
             Aligns the element to the right side.
         START:
@@ -311,7 +313,7 @@ class VerticalAlignment(Enum):
 
     Attributes:
         TOP: Aligns content to the top edge.
-        MIDDLE: Centers content vertically.
+        MIDDLE: Centres content vertically.
         BOTTOM: Aligns content to the bottom edge.
     """
 
@@ -325,7 +327,7 @@ class BaseStyle(Buildable):
     """
     Defines base-level styling attributes for UI components such as cells, headers, or columns.
 
-    Includes options for font appearance, text alignment, colors, dimensions, and borders.
+    Includes options for font appearance, text alignment, colours, dimensions, and borders.
 
     Attributes:
         font_family (Optional[str]):
@@ -351,10 +353,10 @@ class BaseStyle(Buildable):
             Optional fixed width of the UI element in pixels.
 
         font_color (Optional[str]):
-            Color of the text, usually a hex code or CSS color string.
+            Colour of the text, usually a hex code or CSS colour string.
 
         background_color (Optional[str]):
-            Background color of the element, also typically a hex or CSS color.
+            Background colour of the element, also typically a hex or CSS colour.
 
         horizontal_alignment (Optional[HorizontalAlignment]):
             Horizontal alignment of the content (e.g., left, center, right).
@@ -363,16 +365,16 @@ class BaseStyle(Buildable):
             Vertical alignment of the content (e.g., top, middle, bottom).
 
         border_top (Optional[str]):
-            Style or color for the top border (e.g., "1px solid #000").
+            Style or colour for the top border (e.g., "1px solid #000").
 
         border_right (Optional[str]):
-            Style or color for the right border.
+            Style or colour for the right border.
 
         border_bottom (Optional[str]):
-            Style or color for the bottom border.
+            Style or colour for the bottom border.
 
         border_left (Optional[str]):
-            Style or color for the left border.
+            Style or colour for the left border.
     """
 
     # Font settings
@@ -418,9 +420,9 @@ class BaseStyle(Buildable):
 @dataclass
 class CellStyle(BaseStyle):
     """
-    Defines styling and behavioral options for a single cell in a table, extending `BaseStyle`.
+    Defines styling and behavioural options for a single cell in a table, extending `BaseStyle`.
 
-    In addition to basic font, alignment, and color settings from `BaseStyle`, `CellStyle` includes
+    In addition to basic font, alignment, and colour settings from `BaseStyle`, `CellStyle` includes
     options specific to how data is rendered and interacted with in a tabular UI context.
 
     Attributes:
@@ -468,8 +470,8 @@ class IconConfig(Buildable):
         source (Icon):
             The identifier for the icon.
         color (Optional[str]):
-            Optional color override for the icon, specified as a string (e.g., hex code or
-            color name).
+            Optional colour override for the icon, specified as a string (e.g., hex code or
+            colour name).
     """
 
     source: Icon
@@ -481,8 +483,8 @@ class EditorType(Enum):
     Enumeration of supported editor types for UI fields.
 
     Attributes:
-        PERCENTAGE: Editor specialized for percentage input.
-        MONTH: Editor specialized for month selection.
+        PERCENTAGE: Editor specialised for percentage input.
+        MONTH: Editor specialised for month selection.
         ICON: Editor that allows selection or display of an icon.
         ICON_CHECKBOX: Editor that toggles between two icons, functioning like a checkbox.
     """
@@ -568,7 +570,7 @@ class IconCheckboxEditor(Editor):
 @dataclass
 class ColumnStyle(CellStyle):
     """
-    Defines styling and behavior specific to table columns, extending the generic cell styling
+    Defines styling and behaviour specific to table columns, extending the generic cell styling
     with additional properties related to column interactivity and presentation.
 
     Attributes:
@@ -673,3 +675,84 @@ class Title(Buildable):
     value: str
     style: BaseStyle | None = None
     position: Position = Position.ABOVE_CONTENT
+
+
+@dataclass
+class AxisLabelStyle(Buildable):
+    """
+    Styling for a chart axis' labels.
+
+    Values are CSS values, exactly as they are for a task's colour and font fields. Properties set
+    directly here are the default for every label. `property_field_mapping` overrides them per row:
+    the key is one of the supported properties, the value a reference to a field, a named value, or
+    a literal. Conditional styling comes from the model, by pointing a property at a calculated
+    field.
+
+    `property_field_mapping` is populated only via `add_property_field_mapping`, which validates
+    the key against `SUPPORTED_PROPERTIES`; it is not a constructor argument.
+
+    Attributes:
+        color: Default CSS text colour for every label.
+        background_color: Default CSS background colour for every label.
+        font_weight: Default CSS font weight.
+        font_style: Default CSS font style.
+        font_size: Default CSS font size.
+        text_decoration: Default CSS text decoration.
+        padding: Default CSS padding.
+        border_radius: Default CSS border radius.
+        border_left: Default CSS left border.
+        width: Default CSS width.
+        property_field_mapping: Maps a supported property to the field, named value or literal
+            supplying its value per row.
+    """
+
+    SUPPORTED_PROPERTIES: ClassVar[frozenset[str]] = frozenset(
+        {
+            "color",
+            "backgroundColor",
+            "fontWeight",
+            "fontStyle",
+            "fontSize",
+            "textDecoration",
+            "padding",
+            "borderRadius",
+            "borderLeft",
+            "width",
+        }
+    )
+
+    color: str | None = None
+    background_color: str | None = None
+    font_weight: str | None = None
+    font_style: str | None = None
+    font_size: str | None = None
+    text_decoration: str | None = None
+    padding: str | None = None
+    border_radius: str | None = None
+    border_left: str | None = None
+    width: str | None = None
+    property_field_mapping: dict[str, str] = field(init=False, default_factory=dict)
+
+    def add_property_field_mapping(
+        self, property_name: str, value: Field | Parameter | Calculation | str
+    ) -> AxisLabelStyle:
+        """
+        Override a label property per row, from a field, named value or literal.
+
+        Args:
+            property_name: One of the supported CSS properties (camelCase, e.g. "backgroundColor").
+            value: A Field (of the axis' own table), a Parameter/Calculation named value, or a
+                literal string supplying the property's value for each row.
+
+        Raises:
+            ValueError: If property_name is not a supported property.
+        """
+        if property_name not in self.SUPPORTED_PROPERTIES:
+            supported = ", ".join(sorted(self.SUPPORTED_PROPERTIES))
+            raise ValueError(
+                f"Unsupported axis label property '{property_name}'. "
+                f"Supported properties are: {supported}."
+            )
+        reference = value if isinstance(value, str) else value.to_string()
+        self.property_field_mapping[property_name] = reference
+        return self

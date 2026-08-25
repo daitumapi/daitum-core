@@ -13,18 +13,18 @@
 # limitations under the License.
 
 """
-Chart and data visualization components for the UI Generator.
+Chart and data visualisation components for the UI Generator.
 
 This module provides a comprehensive charting system for creating interactive
-data visualizations. It supports multiple chart types, customizable data series,
+data visualisations. It supports multiple chart types, customisable data series,
 marker configurations, and combination charts that can display multiple series
-with different visualization styles.
+with different visualisation styles.
 
 Main Components
 ---------------
 
 **Chart Types:**
-    ChartType enum defines available visualization types:
+    ChartType enum defines available visualisation types:
 
     Line-based:
         - LINE: Standard line chart with straight segments
@@ -37,7 +37,7 @@ Main Components
         - BAR_RANGE: Bar chart showing value ranges
 
     Statistical:
-        - BOX_PLOT: Distribution visualization with quartiles and outliers
+        - BOX_PLOT: Distribution visualisation with quartiles and outliers
         - SCATTER: Individual data points on x-y axis
 
     Range-based:
@@ -71,12 +71,12 @@ Stacking Modes
 Data Point Markers
 ------------------
 
-Markers can be customized with:
+Markers can be customised with:
 
 - **symbol**: Shape (circle, square, triangle, diamond, triangle down)
 - **radius**: Size in pixels
-- **fill_color**: Interior color
-- **line_color**: Border/outline color
+- **fill_color**: Interior colour
+- **line_color**: Border/outline colour
 - **line_width**: Border width in pixels
 
 Markers help identify individual data points and can differentiate series.
@@ -85,7 +85,7 @@ Combination Charts
 ------------------
 
 CombinationChartComponent allows multiple data series with potentially
-different chart types in the same visualization. This enables:
+different chart types in the same visualisation. This enables:
 
 - Comparing different metrics on the same axis
 - Overlaying trend lines on bar charts
@@ -253,9 +253,9 @@ Box plot for statistical analysis::
         name="Experiment Results"
     )
 
-Setting series colors at chart level::
+Setting series colours at chart level::
 
-    # Define color palette for entire chart
+    # Define colour palette for entire chart
     chart = CombinationChartComponent(
         chart_type=ChartType.BAR
     )
@@ -265,12 +265,12 @@ Setting series colors at chart level::
     chart.add_data_series(source_field=data.series2, name="Series 2")
     chart.add_data_series(source_field=data.series3, name="Series 3")
 
-    # Apply color palette
+    # Apply colour palette
     chart.add_series_color("#e3f2fd")
     chart.add_series_color("#90caf9")
     chart.add_series_color("#1976d2")
 
-Area range chart for min-max visualization::
+Area range chart for min-max visualisation::
 
     # Area range showing value boundaries
     range_chart = CombinationChartComponent(
@@ -327,21 +327,16 @@ class DataPointMarkerSymbol(Enum):
     """
     Enumeration of supported marker shapes for data points in charts.
 
-    Values:
-        CIRCLE:
-            A circular marker shape.
-
-        SQUARE:
-            A square marker shape.
-
-        TRIANGLE:
-            An upward-pointing triangular marker.
-
-        DIAMOND:
-            A diamond-shaped marker.
-
-        TRIANGLE_DOWN:
-            A downward-pointing triangular marker.
+    CIRCLE
+        A circular marker shape.
+    SQUARE
+        A square marker shape.
+    TRIANGLE
+        An upward-pointing triangular marker.
+    DIAMOND
+        A diamond-shaped marker.
+    TRIANGLE_DOWN
+        A downward-pointing triangular marker.
     """
 
     CIRCLE = "CIRCLE"
@@ -559,7 +554,7 @@ class CombinationChartComponent(Buildable):
         data_series (List[ChartSeries]):
             A collection of chart series included in the combination chart.
         series_colors (List[str]):
-            Optional color overrides applied to each series in rendering order.
+            Optional colour overrides applied to each series in rendering order.
     """
 
     def __init__(
@@ -603,7 +598,7 @@ class CombinationChartComponent(Buildable):
             name (Optional[str]):
                 Display name for the series.
             color (Optional[str]):
-                Optional color override for the series.
+                Optional colour override for the series.
             display_field (Optional[Field]):
                 Optional alternate display field for tooltips or labels.
             marker (Optional[DataPointMarker]):
@@ -618,11 +613,11 @@ class CombinationChartComponent(Buildable):
 
     def add_series_color(self, color: str):
         """
-        Appends a color value to the list of series-level color overrides.
+        Appends a colour value to the list of series-level colour overrides.
 
         Parameters:
             color (str):
-                A color code or name used to override chart series colors
+                A colour code or name used to override chart series colours
                 in rendering order.
         """
         self.series_colors.append(color)

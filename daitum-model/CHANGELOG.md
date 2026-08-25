@@ -1,5 +1,57 @@
 # Changelog
 
+## [2.1.0]
+
+### Added
+- New public `daitum_model.validation_list` module — a model-only helper that aggregates
+  every table's validation errors into a single table. `get_validation_list_table(model)`
+  scans each table registered with a `ModelBuilder` for fields following the
+  `<base_id>__invalid__<severity>` / `<base_id>__message__<severity>` naming convention,
+  adds the per-source calculated fields each row needs (group, subgroup, subgroup order,
+  source table id, row number, severity, offending value, field id, message), unions the
+  sources into a `ValidationList` table filtered to invalid rows, and returns a
+  `ValidationListSorted` derived table ordered by subgroup, row, severity rank and field.
+  Returns `None` when the model has no validated fields.
+- `get_validation_list_table` is idempotent: a second call returns the table built by the
+  first. A single model can therefore carry both a model transform's log table (via
+  `ModelTransformConfig.add_log_table`) and a validation list view without building the
+  table twice.
+- A table's validation group comes from `Table.set_validation_group(...)`; a table with a
+  validated field and no group raises `ValueError`. It is resolved from the model alone,
+  with no reference to any UI.
+- The model makes no claim about subgroup order: every subgroup sorts equal
+  (`DEFAULT_SUBGROUP_ORDER`), so they fall back to the next sort key and order by name.
+  That suits a model transform's log table, which has no navigation to follow.
+- `set_subgroup_order(model, subgroup_order)` — impose a subgroup sort order the model
+  does not know about, such as the one the navigation bar uses. Only the constant in
+  `__Subgroup Order__` changes: the column, the union mappings and the sort keys are
+  untouched, so tables derived from the validation list pick the new order up. Table ids
+  that contributed no rows are ignored, and omitted tables keep the default. Raises
+  `ValueError` if called before `get_validation_list_table`.
+- `SOURCE_TABLE_FIELD` (`__Source Table__`) — every validation list row carries the id of
+  the table it came from, so presentation layers can derive their own columns (such as
+  per-view navigation flags) on the returned table without the builder knowing about views.
+- `get_validated_table_ids(model)` — the ids of tables with at least one validated field,
+  in registration order, matching the values in `SOURCE_TABLE_FIELD`. A pure query; it
+  does not modify the model.
+- Module-level id constants shared with anything built on top of the table:
+  `VALIDATION_LIST_TABLE`, `VALIDATION_LIST_SORTED_TABLE`, `GROUP_FIELD`,
+  `SUBGROUP_FIELD`, `SOURCE_TABLE_FIELD`, `TYPE_FIELD`, `ROW_FIELD`, `VALUE_FIELD`,
+  `FIELD_NAME_FIELD`, `MESSAGE_FIELD`, `SUMMARY_MESSAGE_FIELD`, `SEVERITY_RANK_FIELD`,
+  `SUBGROUP_ORDER_FIELD` and `FILTER_FIELD`.
+
+### Changed
+- A `DataField`'s `nullable` attribute now defaults based on its data type instead of always being
+  `False`. Integer, decimal, string and boolean fields default to not nullable; every other type
+  (dates/times, array variants, object references and maps) defaults to nullable. Use
+  `set_nullable(...)` to override.
+- Introduced single-source-of-truth key vocabularies shared between serialisation and decoding, so
+  the two can no longer drift: `MODEL_DEFINITION_KEYS` (with its `_ALWAYS_MODEL_KEYS` /
+  `_TRACKING_MODEL_KEYS` split) in `model`, from which `ModelBuilder.build` emits and against which
+  the model decoder validates; and `FIELD_BUILD_KEYS` in `fields`, consumed by the field and union
+  decoders' unmapped-key guards. No public API or serialised-output change. A new
+  `test_guard_key_sets` test pins these sets to the actual `build()` output.
+
 ## [2.0.0]
 
 ### Added

@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daitum-core"
-version = "3.0.0"
+version = "4.0.0"
 description = "Meta-package installing daitum-model, daitum-ui, and daitum-configuration"
 readme = "README.md"
 license = "Apache-2.0"
@@ -18,9 +18,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "daitum-model==2.0.0",
-    "daitum-ui==2.0.0",
-    "daitum-configuration==2.2.0",
+    "daitum-model==2.1.0",
+    "daitum-ui==3.0.0",
+    "daitum-configuration==2.3.0",
 ]
 
 [project.urls]
@@ -30,16 +30,17 @@ Repository = "https://github.com/daitumapi/daitum-core"
 
 [project.optional-dependencies]
 dev = [
-    "black==26.1.0",
-    "ruff==0.14.13",
-    "mypy==1.19.1",
-    "pytest==9.0.2",
-    "types-setuptools>=80.9.0",
+    "black==26.5.1",
+    "ruff==0.16.0",
+    "mypy==2.3.0",
+    "pytest==9.1.1",
 ]
+# Keep in sync with docs/requirements.txt (the canonical source used by
+# pipelines/docs.sh and .readthedocs.yaml).
 docs = [
-    "sphinx>=7.0",
-    "sphinx-autodoc-typehints>=1.25",
-    "furo>=2024.1.29",
+    "sphinx==9.1.0",
+    "sphinx-autodoc-typehints==3.13.0",
+    "sphinx-rtd-theme==3.1.0",
 ]
 
 [tool.setuptools]
@@ -81,7 +82,6 @@ exclude = ["tests"]
 # -----------------------------
 [tool.ruff.lint.isort]
 known-first-party = ["src", "daitum"]
-known-third-party = ["requests"]
 combine-as-imports = true
 
 # -----------------------------

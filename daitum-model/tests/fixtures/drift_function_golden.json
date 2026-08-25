@@ -9145,8 +9145,9 @@
     "to_string": "CONTAINS([Flags], [Flag])"
   },
   "CONTAINS(bool_arr,bool_arr)": {
-    "exc": "ValueError",
-    "ok": false
+    "ok": true,
+    "to_data_type": "BOOLEAN_ARRAY",
+    "to_string": "CONTAINS([Flags], [Flags])"
   },
   "CONTAINS(bool_arr,date)": {
     "exc": "ValueError",
@@ -9451,8 +9452,9 @@
     "to_string": "CONTAINS([Costs], [Cost])"
   },
   "CONTAINS(dec_arr,dec_arr)": {
-    "exc": "ValueError",
-    "ok": false
+    "ok": true,
+    "to_data_type": "BOOLEAN_ARRAY",
+    "to_string": "CONTAINS([Costs], [Costs])"
   },
   "CONTAINS(dec_arr,int)": {
     "exc": "ValueError",
@@ -9605,8 +9607,9 @@
     "to_string": "CONTAINS([Qtys], [Qty])"
   },
   "CONTAINS(int_arr,int_arr)": {
-    "exc": "ValueError",
-    "ok": false
+    "ok": true,
+    "to_data_type": "BOOLEAN_ARRAY",
+    "to_string": "CONTAINS([Qtys], [Qtys])"
   },
   "CONTAINS(int_arr,lit_bool)": {
     "exc": "ValueError",
@@ -10139,8 +10142,9 @@
     "to_string": "CONTAINS([SiteList], [Site])"
   },
   "CONTAINS(object_arr,object_arr)": {
-    "exc": "ValueError",
-    "ok": false
+    "ok": true,
+    "to_data_type": "BOOLEAN_ARRAY",
+    "to_string": "CONTAINS([SiteList], [SiteList])"
   },
   "CONTAINS(object_arr,str)": {
     "exc": "ValueError",
@@ -10293,8 +10297,9 @@
     "to_string": "CONTAINS([Names], [Name])"
   },
   "CONTAINS(str_arr,str_arr)": {
-    "exc": "ValueError",
-    "ok": false
+    "ok": true,
+    "to_data_type": "BOOLEAN_ARRAY",
+    "to_string": "CONTAINS([Names], [Names])"
   },
   "CONTAINS(str_arr,time)": {
     "exc": "ValueError",

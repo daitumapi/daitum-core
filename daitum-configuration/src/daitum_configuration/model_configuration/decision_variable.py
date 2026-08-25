@@ -29,15 +29,22 @@ from typeguard import typechecked
 class DVType(Enum):
     """Domain of a decision variable.
 
-    Values:
-        RANGE: Discrete integer in a contiguous range.
-        LIST: Discrete integer drawn from an allowed list.
-        REAL: Continuous floating-point value.
+    RANGE
+        Discrete integer in a contiguous range.
+    LIST
+        Discrete integer drawn from an allowed list.
+    REAL
+        Continuous floating-point value.
+    INJECTIVE
+        Integer over a whole table column whose rows must all hold different values,
+        drawn from ``1`` to the number of rows. Supported by VNS only, and only on a
+        table data field (not a parameter).
     """
 
     RANGE = "range"
     LIST = "list"
     REAL = "real"
+    INJECTIVE = "injective"
 
 
 def _prefixed(value: str | None) -> str | None:
@@ -80,6 +87,24 @@ class DVSpecification(Buildable):
         self.seed_source = _prefixed(seed_source_string)
 
 
+@typechecked
+class InjectiveDVSpecification(Buildable):
+    """The nested ``specification`` object of an injective :class:`DecisionVariable`.
+
+    An injective column carries no numeric bounds; each row's allowed values come from
+    an optional per-row ``domainReference`` column (a STRING field holding a
+    comma-separated list of 1-based row numbers). ``seedSource`` is emitted as a
+    ``!!!``-prefixed reference and is always present, matching the other DV types.
+    """
+
+    _type_name = DVType.INJECTIVE.value
+    _always_emit = ("domain_reference", "seed_source")
+
+    def __init__(self, domain_string: str | None, seed_source_string: str | None):
+        self.domain_reference = _prefixed(domain_string)
+        self.seed_source = _prefixed(seed_source_string)
+
+
 # pylint: disable=too-many-instance-attributes
 # pylint: disable=too-many-branches,too-few-public-methods
 @typechecked
@@ -108,6 +133,7 @@ class DecisionVariable(Buildable):
         self._scale: int | float = 0
         self._seed_source_string: str | None = None
         self._tag_source_string: str | None = None
+        self._domain_string: str | None = None
         self._disabled: bool = False
         self._disabled_if_invalid: bool = False
 
@@ -156,6 +182,28 @@ class DecisionVariable(Buildable):
         format of :attr:`cellReference`.
         """
         self._seed_source_string = self._resolve_source_string(seed_source, "seed_source")
+        return self
+
+    def set_domain(self, domain: Field) -> "DecisionVariable":
+        """Set the per-row allowed-values column for an injective decision variable.
+
+        Only valid for :attr:`DVType.INJECTIVE`. Pass a per-row
+        :class:`~daitum_model.fields.Field` resolved against this variable's
+        ``dv_table``; it must hold a STRING value — a comma-separated list of
+        1-based row numbers naming the values that row may take. Omit to let any
+        row take any value. The reference is emitted as a ``!!!``-prefixed
+        ``domainReference``, matching the format of :attr:`cellReference`.
+        """
+        if self._dv_type != DVType.INJECTIVE:
+            raise ValueError("set_domain is only valid for DVType.INJECTIVE")
+        if self._dv_table is None:
+            raise ValueError("set_domain requires a per-row (table) decision variable")
+        if not isinstance(domain, Field):
+            raise ValueError(f"domain must be a Field, got {type(domain).__name__}")
+        self._dv_table.get_field(domain.id)
+        if domain.to_data_type() != DataType.STRING:
+            raise ValueError(f"{domain.to_data_type()} is not string")
+        self._domain_string = f"{self._dv_table.id}[{domain.id}]"
         return self
 
     def set_tag_source(self, tag_source: Parameter | Calculation | Field) -> "DecisionVariable":
@@ -208,6 +256,8 @@ class DecisionVariable(Buildable):
         return self
 
     def _set_dv(self):
+        if self._dv_type == DVType.INJECTIVE and self._dv_table is None:
+            raise ValueError("Injective decision variables require a table data field")
         if self._dv_table is None:
             if not isinstance(self._dv, Parameter):
                 raise ValueError(f"Invalid input value {self._dv}")
@@ -231,7 +281,7 @@ class DecisionVariable(Buildable):
     def _set_dv_field(self, field: DataField, table: DataTable):
         table.get_field(field.id)
 
-        if self._dv_type in {DVType.RANGE, DVType.LIST}:
+        if self._dv_type in {DVType.RANGE, DVType.LIST, DVType.INJECTIVE}:
             if field.to_data_type() != DataType.INTEGER:
                 raise ValueError(f"{field.to_data_type()} is not integer")
 
@@ -305,13 +355,20 @@ class DecisionVariable(Buildable):
 
     def build(self) -> dict[str, Any]:
         """Serialise to a dict; the literal/reference split lives in :class:`DVSpecification`."""
-        specification = DVSpecification(
-            self._dv_type,
-            self._dv_min_value,
-            self._dv_max_value,
-            self._scale,
-            self._seed_source_string,
-        )
+        specification: Buildable
+        if self._dv_type == DVType.INJECTIVE:
+            specification = InjectiveDVSpecification(
+                self._domain_string,
+                self._seed_source_string,
+            )
+        else:
+            specification = DVSpecification(
+                self._dv_type,
+                self._dv_min_value,
+                self._dv_max_value,
+                self._scale,
+                self._seed_source_string,
+            )
         return {
             "cellReference": f"!!!{self._dv_string}",
             "trackingId": self._tracking_id,

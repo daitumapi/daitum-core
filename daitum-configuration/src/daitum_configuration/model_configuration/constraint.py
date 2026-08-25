@@ -28,9 +28,10 @@ from daitum_configuration.model_configuration.priority import Priority
 class ConstraintType(Enum):
     """Constraint operator.
 
-    Values:
-        EQUALITY: The expression must equal the bound.
-        INEQUALITY: The expression must lie within the lower/upper bounds.
+    EQUALITY
+        The expression must equal the bound.
+    INEQUALITY
+        The expression must lie within the lower/upper bounds.
     """
 
     EQUALITY = "equality"
@@ -54,7 +55,7 @@ class ConstraintSpecification(Buildable):
         "upper_bound_reference",
     )
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         constraint_type: ConstraintType,
         lower: "float | Calculation | Parameter | None",

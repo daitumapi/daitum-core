@@ -8,7 +8,6 @@ from datetime import date, datetime
 from enum import Enum
 
 import pytest
-
 from daitum_model import DataType, ModelBuilder
 from daitum_model.decoding import (
     LoadContext,

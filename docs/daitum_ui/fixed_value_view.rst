@@ -4,8 +4,8 @@ Fixed Value View
 Fixed value view components for the UI Generator framework.
 
 This module provides the FixedValueView class, which enables displaying structured
-data in a fixed grid layout with customizable cells. Fixed value views are ideal for
-presenting parameters, calculations, and constant values in an organized tabular
+data in a fixed grid layout with customisable cells. Fixed value views are ideal for
+presenting parameters, calculations, and constant values in an organised tabular
 format with rich styling and conditional formatting capabilities.
 
 Fixed value views create grid-based layouts where each cell can display either static

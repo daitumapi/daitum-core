@@ -62,7 +62,7 @@ class FlexAlignment(Enum):
     Attributes:
         FLEX_START: Lines are packed to the start of the axis.
         FLEX_END: Lines are packed to the end of the axis.
-        CENTER: Lines are centered along the axis.
+        CENTER: Lines are centred along the axis.
         SPACE_BETWEEN: Even spacing between lines with no space at the edges.
         SPACE_AROUND: Even spacing around each line.
         SPACE_EVENLY: Equal spacing between all lines and edges.
@@ -87,7 +87,7 @@ class FlexAlignSelf(Enum):
         AUTO: Inherits the parent's align-items setting (default).
         FLEX_START: Aligns the item to the start of the cross axis.
         FLEX_END: Aligns the item to the end of the cross axis.
-        CENTER: Centers the item along the cross axis.
+        CENTER: Centres the item along the cross axis.
         BASELINE: Aligns the item with the baseline of the parent.
         STRETCH: Stretches the item to fill the cross axis (if no height is set).
     """
@@ -107,7 +107,7 @@ class GridAlignment(Enum):
     Attributes:
         START: Items are aligned to the start of the cell.
         END: Items are aligned to the end of the cell.
-        CENTER: Items are centered within the cell.
+        CENTER: Items are centred within the cell.
         STRETCH: Items stretch to fill the entire space of the cell.
     """
 
@@ -152,7 +152,7 @@ class FlexChild(Buildable):
 
         align_self (Optional[FlexAlignSelf]):
             Overrides the container’s `align-items` value for this individual item.
-            Useful for one-off alignment behavior. Default is None.
+            Useful for one-off alignment behaviour. Default is None.
 
         padding (Optional[str | int]):
             The padding inside the flex item. Can be any valid CSS padding value
@@ -175,7 +175,7 @@ class FlexChild(Buildable):
             Default is None.
 
         background_color (Optional[str]):
-            Background color of the flex item. Can be any valid CSS color value,
+            Background colour of the flex item. Can be any valid CSS colour value,
             e.g., "#f0f0f0", "rgba(255,255,255,0.8)", or "transparent".
             Default is None.
     """
@@ -209,7 +209,7 @@ class FlexView(CompositeView):
         hidden (bool, optional):
             Whether the view is initially hidden. Defaults to False.
         scroll_sync_enabled (bool, optional):
-            If True, enables synchronized scrolling with sibling views.
+            If True, enables synchronised scrolling with sibling views.
             Defaults to False.
         flex_direction (FlexDirection, optional):
             The main axis direction of the flex container.
@@ -279,7 +279,7 @@ class FlexView(CompositeView):
         return self
 
     def set_scroll_sync_enabled(self, enabled: bool) -> "FlexView":
-        """Sets whether synchronized scrolling with sibling views is enabled."""
+        """Sets whether synchronised scrolling with sibling views is enabled."""
         self.scroll_sync = ScrollSync(enabled)
         return self
 
@@ -296,7 +296,7 @@ class FlexView(CompositeView):
             **kwargs:
                 Keyword arguments that define style configuration for this child view.
                 All keys must correspond to attributes of the :class:`FlexChild` class, including
-                layout behavior (e.g., `flex_grow`, `flex_shrink`, `align_self`) and visual styling
+                layout behaviour (e.g., `flex_grow`, `flex_shrink`, `align_self`) and visual styling
                 (e.g., `padding`, `margin`, `border`, `box_shadow`, `background_color`).
 
                 If a keyword does not match any attribute of :class:`FlexChild`, an `AttributeError`
@@ -391,9 +391,21 @@ class GridChild(Buildable):
             Example: `"0 1px 3px rgba(0,0,0,0.2)"`.
 
         background_color (Optional[str]):
-            Sets the background color of the item.
-            Can be any valid CSS color (hex, rgb, named, etc.).
+            Sets the background colour of the item.
+            Can be any valid CSS colour (hex, rgb, named, etc.).
             Example: `"#ffffff"` or `"rgba(0,0,0,0.1)"`.
+
+        min_height (Optional[str]):
+            Sets the minimum height of the item.
+            Can be specified in CSS units (e.g., `"10rem"`, `"100px"`).
+
+        max_height (Optional[str]):
+            Sets the maximum height of the item.
+            Can be specified in CSS units (e.g., `"20rem"`, `"400px"`).
+
+        overflow (Optional[str]):
+            Controls how content that exceeds the item's bounds is handled.
+            Accepts any valid CSS overflow value (e.g., `"auto"`, `"hidden"`, `"scroll"`).
     """
 
     grid_column_start: str | int | None = None
@@ -412,6 +424,9 @@ class GridChild(Buildable):
     border_color: str | None = None
     width: str = "100%"
     height: str = "100%"
+    min_height: str | None = None
+    max_height: str | None = None
+    overflow: str | None = None
 
 
 @typechecked
@@ -478,7 +493,7 @@ class GridView(CompositeView):
         hidden (bool, optional):
             Whether the view is initially hidden. Defaults to False.
         scroll_sync_enabled (bool, optional):
-            If True, enables synchronized scrolling with sibling views.
+            If True, enables synchronised scrolling with sibling views.
             Defaults to False.
         justify_items (GridAlignment, optional):
             Alignment of items along the inline (row) axis.
@@ -511,7 +526,7 @@ class GridView(CompositeView):
         super().__init__(display_name, hidden, parent_styles, False)
 
     def set_scroll_sync_enabled(self, enabled: bool) -> "GridView":
-        """Sets whether synchronized scrolling with sibling views is enabled."""
+        """Sets whether synchronised scrolling with sibling views is enabled."""
         self.scroll_sync = ScrollSync(enabled)
         return self
 

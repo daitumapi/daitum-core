@@ -4,7 +4,7 @@ Named Value View
 Named value view components for the UI Generator framework.
 
 This module provides the NamedValueView class, which enables displaying labeled
-data elements in a clean, organized format. Named value views present key-value
+data elements in a clean, organised format. Named value views present key-value
 pairs or named metrics in either horizontal or vertical layouts, making them ideal
 for summary displays, dashboards, and information panels.
 

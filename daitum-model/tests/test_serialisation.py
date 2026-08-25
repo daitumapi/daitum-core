@@ -9,13 +9,7 @@ from datetime import date, datetime, time
 from enum import Enum
 
 import pytest
-
-from daitum_model.serialisation import (
-    Buildable,
-    camel_to_snake,
-    json_type_info,
-    snake_to_camel,
-)
+from daitum_model.serialisation import Buildable, camel_to_snake, json_type_info, snake_to_camel
 
 
 class _Colour(Enum):
@@ -103,7 +97,6 @@ class TestSharedBase:
         # The model and configuration packages import the shared base from
         # daitum_model.serialisation; there is no per-package re-export shim.
         from daitum_configuration.configuration import ConfigurationBuilder
-
         from daitum_model.tables import DataTable
 
         assert issubclass(DataTable, Buildable)

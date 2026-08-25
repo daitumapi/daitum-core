@@ -65,6 +65,7 @@ from daitum_configuration.data_source.excel_transform.import_option_overrides im
 from daitum_configuration.data_source.geo_location_config import GeoLocationConfig
 from daitum_configuration.data_source.model_transform.model_transform_config import (
     ModelTransformConfig,
+    _LogTableColumns,
 )
 from daitum_configuration.data_source.model_transform.model_transform_input import (
     ModelTransformInput,
@@ -100,7 +101,11 @@ _CONFIGS: dict[str, tuple[type, tuple[tuple[str, ...], dict[str, Any], dict[str,
     ),
     DataSourceType.MODEL_TRANSFORM.value: (
         ModelTransformConfig,
-        (("file_key", "file_name"), {}, {"inputs": ListOf(ModelTransformInput)}),
+        (
+            ("file_key", "file_name"),
+            {},
+            {"inputs": ListOf(ModelTransformInput), "log_table_columns": _LogTableColumns},
+        ),
     ),
     DataSourceType.DISTANCE_MATRIX.value: (
         DistanceMatrixConfig,
@@ -182,15 +187,16 @@ def decode_data_source_info(data: dict[str, Any], ctx: LoadContext) -> DataSourc
     """Decode a :class:`DataSourceInfo` (a batched entry).
 
     Its ``@typechecked`` constructor requires a live :class:`DataSource` purely to read its
-    ``temp_export_id``; the object itself is never stored (only the id, the order, and the
-    batch type). Since ``build()`` emits exactly those three scalars, we decode them directly
-    onto a fresh instance rather than fabricating a throwaway ``DataSource`` to feed the
-    constructor.
+    ``temp_export_id``; the object itself is never stored (only the id, the order, the batch
+    type, and the terminate-on-failure flag). Since ``build()`` emits exactly those scalars, we
+    decode them directly onto a fresh instance rather than fabricating a throwaway
+    ``DataSource`` to feed the constructor.
     """
     info = DataSourceInfo.__new__(DataSourceInfo)
     info.data_source_id = require(data, "dataSourceId", "DataSourceInfo")
     info.order = require(data, "order", "DataSourceInfo")
     info.type = BatchDataSourceType(require(data, "type", "DataSourceInfo"))
+    info.terminate_on_failure = data.get("terminateOnFailure", False)
     return info
 
 
@@ -205,3 +211,4 @@ def register() -> None:
     generic(_SheetMapping)
     generic(OutputMatrix)
     generic(ImportOptionOverrides)
+    generic(_LogTableColumns)

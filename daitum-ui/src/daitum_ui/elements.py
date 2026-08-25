@@ -46,10 +46,10 @@ Main Components
     - ElementContainer: Base for elements that contain child elements
 
 **Container Elements:**
-    Layout components for grouping and organizing UI elements:
+    Layout components for grouping and organising UI elements:
 
     - Container: Flexible layout container with flex/grid display modes
-    - Card: Rich container with customizable layout, styling, and interaction
+    - Card: Rich container with customisable layout, styling, and interaction
     - Badge: Compact label for status or metadata display
     - OverflowElement: Replacement element shown for overflowing items in a ListElement
 
@@ -224,7 +224,7 @@ from daitum_ui._data import (
     ModelVariableType,
 )
 from daitum_ui.context_variable import ContextVariable
-from daitum_ui.data import Condition
+from daitum_ui.data import Condition, ConstantCondition
 from daitum_ui.model_event import ModelEvent
 from daitum_ui.styles import HorizontalAlignment, IconConfig
 from daitum_ui.template_binding_key import TemplateBindingKey
@@ -457,6 +457,29 @@ def get_boolean_variable(variable: Field | Parameter | Calculation | bool):
 
 
 @typechecked
+def get_boolean_condition(variable: Field | Parameter | Calculation | bool) -> Condition:
+    """
+    Convert a boolean-like input into a :class:`Condition`.
+
+    A raw ``bool`` becomes a :class:`ConstantCondition`; a boolean ``Field``, ``Parameter``,
+    or ``Calculation`` becomes a :class:`ModelVariableCondition` referencing that variable.
+
+    Parameters:
+        variable (Field | Parameter | Calculation | bool):
+            The source of the boolean value. Must resolve to ``DataType.BOOLEAN`` when a
+            ``Field``, ``Parameter``, or ``Calculation`` is provided.
+
+    Raises:
+        ValueError:
+            If the provided ``Field``, ``Parameter``, or ``Calculation`` does not represent
+            a boolean data type.
+    """
+    if isinstance(variable, bool):
+        return ConstantCondition(value=variable)
+    return ModelVariableCondition(model_variable=get_boolean_variable(variable))
+
+
+@typechecked
 class BaseElement(ABC, Buildable):
     """
     Base class for all UI elements that support state management.
@@ -482,7 +505,7 @@ class BaseElement(ABC, Buildable):
         """
         if self.element_states is None:
             self.element_states = ElementStates()
-        condition = ModelVariableCondition(model_variable=get_boolean_variable(is_disabled))
+        condition = get_boolean_condition(is_disabled)
         if self.element_states.is_disabled is None:
             self.element_states.is_disabled = []
         self.element_states.is_disabled.append(condition)
@@ -512,7 +535,7 @@ class BaseElement(ABC, Buildable):
         """
         if self.element_states is None:
             self.element_states = ElementStates()
-        condition = ModelVariableCondition(model_variable=get_boolean_variable(is_required))
+        condition = get_boolean_condition(is_required)
         if self.element_states.is_required is None:
             self.element_states.is_required = []
         self.element_states.is_required.append(condition)
@@ -542,7 +565,7 @@ class BaseElement(ABC, Buildable):
         """
         if self.element_states is None:
             self.element_states = ElementStates()
-        condition = ModelVariableCondition(model_variable=get_boolean_variable(is_read_only))
+        condition = get_boolean_condition(is_read_only)
         if self.element_states.is_read_only is None:
             self.element_states.is_read_only = []
         self.element_states.is_read_only.append(condition)
@@ -572,7 +595,7 @@ class BaseElement(ABC, Buildable):
         """
         if self.element_states is None:
             self.element_states = ElementStates()
-        condition = ModelVariableCondition(model_variable=get_boolean_variable(is_error))
+        condition = get_boolean_condition(is_error)
         if self.element_states.is_error is None:
             self.element_states.is_error = []
         self.element_states.is_error.append(condition)
@@ -603,7 +626,7 @@ class BaseElement(ABC, Buildable):
         """
         if self.element_states is None:
             self.element_states = ElementStates()
-        condition = ModelVariableCondition(model_variable=get_boolean_variable(is_warning))
+        condition = get_boolean_condition(is_warning)
         if self.element_states.is_warning is None:
             self.element_states.is_warning = []
         self.element_states.is_warning.append(condition)
@@ -634,7 +657,7 @@ class BaseElement(ABC, Buildable):
         """
         if self.element_states is None:
             self.element_states = ElementStates()
-        condition = ModelVariableCondition(model_variable=get_boolean_variable(is_success))
+        condition = get_boolean_condition(is_success)
         if self.element_states.is_success is None:
             self.element_states.is_success = []
         self.element_states.is_success.append(condition)
@@ -665,7 +688,7 @@ class BaseElement(ABC, Buildable):
         """
         if self.element_states is None:
             self.element_states = ElementStates()
-        condition = ModelVariableCondition(model_variable=get_boolean_variable(is_hidden))
+        condition = get_boolean_condition(is_hidden)
         if self.element_states.is_hidden is None:
             self.element_states.is_hidden = []
         self.element_states.is_hidden.append(condition)
@@ -695,7 +718,7 @@ class BaseElement(ABC, Buildable):
         """
         if self.element_states is None:
             self.element_states = ElementStates()
-        condition = ModelVariableCondition(model_variable=get_boolean_variable(is_info))
+        condition = get_boolean_condition(is_info)
         if self.element_states.is_info is None:
             self.element_states.is_info = []
         self.element_states.is_info.append(condition)
@@ -726,7 +749,7 @@ class BaseElement(ABC, Buildable):
         """
         if self.element_states is None:
             self.element_states = ElementStates()
-        condition = ModelVariableCondition(model_variable=get_boolean_variable(reserve_space))
+        condition = get_boolean_condition(reserve_space)
         if self.element_states.reserve_space is None:
             self.element_states.reserve_space = []
         self.element_states.reserve_space.append(condition)
@@ -839,8 +862,8 @@ class Container(ElementContainer):
 class Card(ElementContainer):
     """
     A UI card element that displays its child elements in either a list layout
-    or a grid layout. Cards may have customizable styling, spacing, and
-    interaction behavior.
+    or a grid layout. Cards may have customisable styling, spacing, and
+    interaction behaviour.
     """
 
     # Layout configuration
@@ -883,7 +906,7 @@ class Badge(ElementContainer):
         variant:
             Determines the visual style variant of the badge.
         background_color:
-            CSS-compatible string specifying the badge's background color.
+            CSS-compatible string specifying the badge's background colour.
         on_click:
             Action to perform when the badge is clicked.
         minimum_width:
@@ -939,13 +962,13 @@ class Button(Element):
         text_value:
             The text displayed on the button.
         text_color:
-            CSS-compatible string specifying the button's text color.
+            CSS-compatible string specifying the button's text colour.
         background_color:
-            CSS-compatible string specifying the button's background color.
+            CSS-compatible string specifying the button's background colour.
         icon_source:
             Identifier for the icon to display, in DaitumIcon format.
         icon_color:
-            CSS-compatible string specifying the color of the icon.
+            CSS-compatible string specifying the colour of the icon.
         on_click_key:
             Optional key used for click event routing or analytics.
         on_click:
@@ -1004,7 +1027,7 @@ def get_model_variable(
 
     Returns:
         ModelVariable (Optional):
-            A standardized wrapper describing the variable type
+            A standardised wrapper describing the variable type
             (FIELD, NAMED_VALUE, or CONTEXT_VARIABLE) and its identifier.
 
     Notes:
@@ -1040,7 +1063,7 @@ class Checkbox(Element):
         on_click_key:
             Optional interaction key used for analytics or routing click events.
         action_type:
-            Determines the checkbox's behavior when interacted with, such as updating a value
+            Determines the checkbox's behaviour when interacted with, such as updating a value
             or emitting a custom event.
     """
 
@@ -1213,7 +1236,7 @@ class ReviewRating(Element):
         review_rating_data_source_id:
             Model variable storing the current rating value (e.g., 1–5 stars).
         fill_color:
-            Optional color override for the filled icons.
+            Optional colour override for the filled icons.
     """
 
     def __init__(

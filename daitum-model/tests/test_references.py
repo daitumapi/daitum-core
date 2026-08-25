@@ -6,7 +6,6 @@ overrides; it must build and decode symmetrically, tested here in isolation.
 """
 
 import pytest
-
 from daitum_model import DataType, ModelBuilder
 from daitum_model.decoding import LoadContext, LoadError
 from daitum_model.references import Reference, is_reference

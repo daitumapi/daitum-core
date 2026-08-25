@@ -28,10 +28,16 @@ A roster is composed of:
 
 Classes:
     - `RosterColumn`: Configuration of a single column within the roster.
+    - `RosterAxis`: Whether a drop write identifies the destination row or
+      column of the roster grid.
+    - `RosterDropWrite`: A single write performed when a card is dropped —
+      the axis it resolves, the identity field written, the field gating
+      the write, and an optional edit override redirecting it to another
+      table.
     - `RosterTaskDefinition`: Drag-and-drop behaviour for the cards in a
-      shift column — whether cards are draggable, which fields swap
-      between rows on drop, and the requirement/capability matching used
-      to gate valid drop targets.
+      shift column — whether cards are draggable, which rows may receive a
+      drop, the writes performed on drop, and the requirement/capability
+      matching used to gate valid drop targets.
     - `RosterView`: The view itself, owning the resource/shift/summary
       columns and the shared card templates.
 
@@ -64,14 +70,82 @@ Example:
     ... )
 """
 
-from daitum_model import Calculation, Field, Parameter, Table
+from enum import Enum
+
+from daitum_model import Calculation, Field, ObjectDataType, Parameter, Table
 from typeguard import typechecked
 
 from daitum_ui._buildable import Buildable, json_type_info
+from daitum_ui._data import EditOverride
 from daitum_ui.base_view import BaseView
 from daitum_ui.elements import Card, TemplateBindingKey
 from daitum_ui.filter_component import FilterableView, FilterComponent
 from daitum_ui.model_event import ModelEvent
+
+
+class RosterAxis(Enum):
+    """
+    Identifies which axis of the roster grid a drop write targets.
+
+    Attributes:
+        ROW:
+            The write identifies the destination resource (row) — e.g. which
+            staff member the dropped card is now assigned to.
+        COLUMN:
+            The write identifies the destination shift (column) — e.g. which
+            day the dropped card is now assigned to.
+    """
+
+    ROW = "ROW"
+    COLUMN = "COLUMN"
+
+
+@typechecked
+class RosterDropWrite(Buildable):
+    """
+    A single write performed when a card is dropped onto a target row.
+
+    On drop, the roster records where the card landed by writing the target
+    row's and/or target column's identities back to the model. Each
+    `RosterDropWrite` describes one such write: the `axis` it resolves (row
+    or column), the `identity_field` supplying the value written, and the
+    `enabled_field` gating whether that write occurs. An optional
+    `edit_override` redirects the write to a field on another table, used
+    when the identity is displayed via a calculated value.
+
+    Instances are created for you by
+    `RosterTaskDefinition.add_drop_write(...)`; you do not normally
+    construct them directly.
+
+    Attributes:
+        axis:
+            Whether this write identifies the destination row (`ROW`) or the
+            destination column (`COLUMN`).
+        identity_field:
+            Field ID whose value identifies the target row/column and is
+            written on drop.
+        enabled_field:
+            Field ID of a per-row boolean gating whether this write is
+            applied.
+        edit_override:
+            Optional redirect of the write to a field on another table, used
+            when `identity_field` displays a calculated value.
+    """
+
+    def __init__(self, axis: RosterAxis, identity_field: Field, enabled_field: Field):
+        """
+        Args:
+            axis:
+                Whether the write targets the destination row or column.
+            identity_field:
+                Field whose value identifies the drop target and is written.
+            enabled_field:
+                Per-row boolean field gating whether the write occurs.
+        """
+        self.axis = axis
+        self.identity_field = identity_field.id
+        self.enabled_field = enabled_field.id
+        self.edit_override: EditOverride | None = None
 
 
 @typechecked
@@ -84,25 +158,24 @@ class RosterTaskDefinition(Buildable):
     them — it does not affect rendering, data binding, or which fields are
     displayed.
 
-    Drags are always within a single column: a card is dragged from one row
-    onto another row of the same column, and the drop swaps the values of
-    the configured `swap_fields` between those two rows. The column's
-    `table_field_reference` is typically a calculation that recomputes
-    naturally from the swapped values; if it is a data field that should
-    also move, add it to `swap_fields` explicitly.
+    A card is dragged from one row onto another row of the same column. Only
+    rows whose `drop_enabled_field` is true may receive a drop. When a drop
+    occurs, each registered `drop_write` records where the card landed:
+    writing the target row's and/or column's identity back to the model,
+    optionally redirected to another table via an edit override.
 
     Attributes:
         enable_drag_and_drop_field:
             Field ID of a per-row boolean field on the source table that
             gates whether a given card is draggable.
+        drop_enabled_field:
+            Field ID of a per-row boolean field gating whether a given row
+            may receive a drop.
         highlight_whole_column_on_drag:
             UI hint controlling drop-target highlighting. If True, every
             card in the column is shaded green/red up-front (so the user
             can see which rows are valid drops before dragging over them).
             If False, only the card currently hovered is highlighted.
-        swap_fields:
-            Complete list of field IDs whose values are swapped between
-            the source and target rows when a drop occurs.
         required_value_fields:
             Field IDs on the dragged card carrying scalar requirement
             values. Paired positionally with `capability_fields` to gate
@@ -113,35 +186,135 @@ class RosterTaskDefinition(Buildable):
         capability_fields:
             Field IDs on the target row holding array-valued capabilities,
             aligned positionally with `required_value_fields`.
+        drop_writes:
+            The writes performed when a card is dropped, in the order added.
     """
 
-    def __init__(self, enable_drag_and_drop_field: Field, highlight_whole_column_on_drag: bool):
+    def __init__(
+        self,
+        enable_drag_and_drop_field: Field,
+        drop_enabled_field: Field,
+        highlight_whole_column_on_drag: bool,
+    ):
         """
         Args:
             enable_drag_and_drop_field:
                 Per-row boolean field gating whether each card is draggable.
+            drop_enabled_field:
+                Per-row boolean field gating whether a row may receive a drop.
             highlight_whole_column_on_drag:
                 If True, highlight the whole destination column while dragging.
         """
         self.enable_drag_and_drop_field = enable_drag_and_drop_field.id
+        self.drop_enabled_field = drop_enabled_field.id
         self.highlight_whole_column_on_drag: bool = highlight_whole_column_on_drag
-        self.swap_fields: list[str] | None = None
         self.required_value_fields: list[str] | None = None
         self.capability_fields: list[str] | None = None
+        self.drop_writes: list[RosterDropWrite] | None = None
 
-    def add_swap_field(self, field: Field) -> "RosterTaskDefinition":
+    def add_drop_write(  # noqa: PLR0913, PLR0917
+        self,
+        axis: RosterAxis,
+        identity_field: Field,
+        enabled_field: Field,
+        target_reference_field: Field | None = None,
+        target_field_id: Field | None = None,
+        map_key_field: Field | None = None,
+    ) -> "RosterTaskDefinition":
         """
-        Register a field whose value is swapped between the source and
-        target rows on drop.
+        Register a write performed when a card is dropped onto a target row.
+
+        The value written is the destination cell's identity, so
+        `identity_field` must be an object reference. Optionally supply
+        `target_reference_field` and `target_field_id` together to redirect
+        the write to a field on another table (an edit override), used when
+        the edited data lives on a table other than the one displayed.
+        `target_field_id` must itself reference the same table that
+        `identity_field` references — otherwise the write stores a value of a
+        type the destination field cannot hold.
 
         Args:
-            field:
-                Field whose value moves with the card: on drop, the source
-                row's value and the target row's value are exchanged.
+            axis:
+                Whether the write identifies the destination row or column.
+                Each axis may be written at most once per task definition.
+            identity_field:
+                Object-reference field whose value identifies the drop target
+                and is written.
+            enabled_field:
+                Per-row boolean field gating whether the write occurs.
+            target_reference_field:
+                Object-reference field in the displayed table pointing at the
+                table to edit. Must be given together with `target_field_id`.
+            target_field_id:
+                Object-reference field in the referenced table where the value
+                is written. Must belong to the table `target_reference_field`
+                references, must itself reference the same table as
+                `identity_field`, and must be given together with
+                `target_reference_field`.
+            map_key_field:
+                For a map-type target field, the field holding the map key.
+
+        Returns:
+            This `RosterTaskDefinition`, for fluent chaining.
+
+        Raises:
+            ValueError: If a drop write for `axis` already exists; if
+                `identity_field` is not an object reference; if only one of
+                `target_reference_field` and `target_field_id` is supplied;
+                if `target_reference_field` is not an object reference; if
+                `target_field_id` does not belong to the table
+                `target_reference_field` references; or if `target_field_id`
+                does not reference the same table as `identity_field`.
         """
-        if self.swap_fields is None:
-            self.swap_fields = []
-        self.swap_fields.append(field.id)
+        if self.drop_writes and any(write.axis == axis for write in self.drop_writes):
+            raise ValueError(
+                f"A {axis.value} drop write is already defined; each axis may be written once."
+            )
+
+        identity_type = identity_field.to_data_type()
+        if not isinstance(identity_type, ObjectDataType):
+            raise ValueError(
+                f"Drop write identity field '{identity_field.id}' must be an object reference "
+                f"(got {identity_type})."
+            )
+
+        if (target_reference_field is None) != (target_field_id is None):
+            raise ValueError(
+                "target_reference_field and target_field_id must be supplied together."
+            )
+
+        write = RosterDropWrite(axis, identity_field, enabled_field)
+        if target_reference_field is not None and target_field_id is not None:
+            reference_type = target_reference_field.to_data_type()
+            if not isinstance(reference_type, ObjectDataType):
+                raise ValueError(
+                    f"Drop write target_reference_field '{target_reference_field.id}' must be an "
+                    f"object reference (got {reference_type})."
+                )
+            if target_field_id.table_id != reference_type.table_id:
+                raise ValueError(
+                    f"Drop write target_field_id '{target_field_id.id}' must belong to the table "
+                    f"'{reference_type.table_id}' referenced by target_reference_field "
+                    f"'{target_reference_field.id}'."
+                )
+            target_type = target_field_id.to_data_type()
+            if (
+                not isinstance(target_type, ObjectDataType)
+                or target_type.table_id != identity_type.table_id
+            ):
+                raise ValueError(
+                    f"Drop write edit override target_field_id '{target_field_id.id}' must "
+                    f"reference the same table as identity field '{identity_field.id}' "
+                    f"('{identity_type.table_id}'); got {target_type}."
+                )
+            write.edit_override = EditOverride(
+                target_reference_field.id,
+                target_field_id.id,
+                map_key_field.id if map_key_field is not None else None,
+            )
+        if self.drop_writes is None:
+            self.drop_writes = []
+        self.drop_writes.append(write)
         return self
 
     def add_requirement(
@@ -280,9 +453,9 @@ class RosterColumn(Buildable):
 
         Args:
             task_definition:
-                `RosterTaskDefinition` describing draggability, which fields
-                swap between rows on drop, and requirement/capability
-                matching for valid drop targets.
+                `RosterTaskDefinition` describing draggability, which rows
+                may receive a drop, the writes performed on drop, and
+                requirement/capability matching for valid drop targets.
 
         Returns:
             This `RosterColumn`, for fluent chaining.

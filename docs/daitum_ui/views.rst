@@ -35,7 +35,7 @@ Table views display data in a traditional row-and-column format:
     products_view.add_field(Field("price", DataType.DECIMAL))
     products_view.add_field(Field("stock", DataType.INTEGER))
 
-Chart views visualize data with various chart types:
+Chart views visualise data with various chart types:
 
 .. code-block:: python
 
@@ -64,7 +64,7 @@ Chart views visualize data with various chart types:
         display_name="Sales Dashboard"
     )
 
-Flex and Grid views organize content with flexible layouts:
+Flex and Grid views organise content with flexible layouts:
 
 .. code-block:: python
 

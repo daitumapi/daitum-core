@@ -42,19 +42,12 @@ from typing import Any
 from daitum_model._decoders.named_values import decode_calculation, decode_parameter
 from daitum_model._decoders.tables import build_table, dependency_order
 from daitum_model.decoding import LoadContext, LoadError, optional, optional_map, optional_seq
-from daitum_model.model import ModelBuilder
+from daitum_model.model import MODEL_DEFINITION_KEYS, ModelBuilder
 from daitum_model.tracking import AutoCapture
 
-#: The exact top-level keys ``ModelBuilder.build()`` emits.
-_MODEL_KEYS = {
-    "calculationDefinitions",
-    "parameterDefinitions",
-    "tableDefinitions",
-    "optimisationCheckNamedValue",
-    "partialEvaluationAllowed",
-    "trackingGroupDefinitions",
-    "baselineDefinitions",
-}
+#: The exact top-level keys ``ModelBuilder.build()`` emits. Bound to the same vocabulary ``build``
+#: emits from, so the guard cannot drift looser than the serialiser.
+_MODEL_KEYS = MODEL_DEFINITION_KEYS
 
 
 def decode_model(data: dict[str, Any], ctx: LoadContext) -> ModelBuilder:

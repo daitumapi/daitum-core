@@ -31,12 +31,7 @@ from types import SimpleNamespace
 from typing import Any
 
 from daitum_model import _functions
-from daitum_model.data_types import (
-    PRIMITIVE_DATA_TYPES,
-    DataType,
-    MapDataType,
-    ObjectDataType,
-)
+from daitum_model.data_types import PRIMITIVE_DATA_TYPES, DataType, MapDataType, ObjectDataType
 from daitum_model.expression import (
     BINARY_OPERATORS,
     Arg,

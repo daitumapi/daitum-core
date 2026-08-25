@@ -41,7 +41,7 @@ class Table(Buildable, _TableBase, Operand):  # pylint: disable=too-many-instanc
     """
     The base class for all table types.
 
-    This class defines the core structure and behavior of a table, including field management
+    This class defines the core structure and behaviour of a table, including field management
     and relationships with derived tables.
 
     A table also satisfies the :class:`~daitum_model.formula.Operand` contract: passed *into* a

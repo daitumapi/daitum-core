@@ -9,15 +9,14 @@ There is no committed ``ui-definition.json`` golden; the builder is the source o
 import json
 
 import pytest
-
 from daitum_model import DataType, ModelBuilder
+from daitum_ui._data_menu_item import DataMenuEntryType
 from daitum_ui._decoders.ui import decode_ui
 from daitum_ui._decoders.views import decode_view
 from daitum_ui.base_view import BaseView
 from daitum_ui.context_variable import CVType
 from daitum_ui.filter_component import FilterOperator
 from daitum_ui.layout import GridLayout
-from daitum_ui._data_menu_item import DataMenuEntryType
 from daitum_ui.ui_builder import UiBuilder
 
 
@@ -188,6 +187,180 @@ class TestViewRoundTrip:
         ui = UiBuilder()
         view = ui.add_roster_view(table, display_name="Roster")
         self._roundtrip(ui, view, model)
+
+    @staticmethod
+    def _roster_model():
+        """A roster model whose identity fields are object references.
+
+        The ROW identity references ``Staff`` and its edit override writes into
+        ``Staff.AssignedStaff`` — a field that itself references ``Staff`` — via
+        the ``ResultRow`` navigation reference; the COLUMN identity references
+        ``Day``.
+        """
+        model = ModelBuilder()
+        staff = model.add_data_table("Staff")
+        staff.add_data_field("StaffID", DataType.STRING)
+        staff.set_key_column("StaffID")
+        day = model.add_data_table("Day")
+        day.add_data_field("DayID", DataType.STRING)
+        day.set_key_column("DayID")
+
+        # The edit override writes a Staff identity into this reference field.
+        staff.add_object_reference_field("AssignedStaff", staff)
+
+        table = model.add_data_table("Roster")
+        table.add_data_field("ID", DataType.STRING)
+        table.add_object_reference_field("Staff", staff)
+        table.add_object_reference_field("Day", day)
+        table.add_object_reference_field("ResultRow", staff)
+        table.add_data_field("Draggable", DataType.BOOLEAN)
+        table.add_data_field("Droppable", DataType.BOOLEAN)
+        table.add_data_field("RowEditable", DataType.BOOLEAN)
+        table.add_data_field("ColEditable", DataType.BOOLEAN)
+        table.add_data_field("RequiredSkill", DataType.STRING)
+        table.add_data_field("Skills", DataType.STRING_ARRAY)
+        table.set_key_column("ID")
+        return model, staff, table
+
+    def test_roster_view_with_task_definition(self):
+        from daitum_ui.roster_view import RosterAxis, RosterTaskDefinition
+
+        model, staff, table = self._roster_model()
+
+        ui = UiBuilder()
+        view = ui.add_roster_view(table, display_name="Roster")
+        task_def = RosterTaskDefinition(
+            enable_drag_and_drop_field=table.get_field("Draggable"),
+            drop_enabled_field=table.get_field("Droppable"),
+            highlight_whole_column_on_drag=True,
+        )
+        # ROW write with an edit override, COLUMN write without.
+        task_def.add_drop_write(
+            axis=RosterAxis.ROW,
+            identity_field=table.get_field("Staff"),
+            enabled_field=table.get_field("RowEditable"),
+            target_reference_field=table.get_field("ResultRow"),
+            target_field_id=staff.get_field("AssignedStaff"),
+        )
+        task_def.add_drop_write(
+            axis=RosterAxis.COLUMN,
+            identity_field=table.get_field("Day"),
+            enabled_field=table.get_field("ColEditable"),
+        )
+        task_def.add_requirement(
+            required_field=table.get_field("RequiredSkill"),
+            capability_field=table.get_field("Skills"),
+        )
+        column = view.add_shift_column(table_field_reference=table.get_field("Staff"))
+        column.set_task_definition(task_def)
+
+        # A drop write with an override serialises editOverride; one without omits it.
+        built = view.build()
+        columns = built["viewDefinition"]["shiftColumns"]
+        writes = columns[0]["taskDefinition"]["dropWrites"]
+        assert "editOverride" in writes[0]
+        assert "mapKeyField" not in writes[0]["editOverride"]
+        assert "editOverride" not in writes[1]
+
+        self._roundtrip(ui, view, model)
+
+    def test_roster_drop_write_rejects_duplicate_axis(self):
+        from daitum_ui.roster_view import RosterAxis, RosterTaskDefinition
+
+        _, _, table = self._roster_model()
+        task_def = RosterTaskDefinition(
+            table.get_field("Draggable"), table.get_field("Droppable"), True
+        )
+        task_def.add_drop_write(
+            RosterAxis.ROW, table.get_field("Staff"), table.get_field("RowEditable")
+        )
+        with pytest.raises(ValueError, match="ROW drop write is already defined"):
+            task_def.add_drop_write(
+                RosterAxis.ROW, table.get_field("Staff"), table.get_field("RowEditable")
+            )
+
+    def test_roster_drop_write_rejects_non_reference_identity(self):
+        from daitum_ui.roster_view import RosterAxis, RosterTaskDefinition
+
+        _, _, table = self._roster_model()
+        task_def = RosterTaskDefinition(
+            table.get_field("Draggable"), table.get_field("Droppable"), True
+        )
+        with pytest.raises(ValueError, match="must be an object reference"):
+            task_def.add_drop_write(
+                RosterAxis.ROW,
+                table.get_field("RequiredSkill"),  # STRING, not a reference
+                table.get_field("RowEditable"),
+            )
+
+    def test_roster_drop_write_rejects_non_reference_target(self):
+        from daitum_ui.roster_view import RosterAxis, RosterTaskDefinition
+
+        _, staff, table = self._roster_model()
+        task_def = RosterTaskDefinition(
+            table.get_field("Draggable"), table.get_field("Droppable"), True
+        )
+        with pytest.raises(ValueError, match="target_reference_field.*must be an object reference"):
+            task_def.add_drop_write(
+                RosterAxis.ROW,
+                table.get_field("Staff"),
+                table.get_field("RowEditable"),
+                target_reference_field=table.get_field("RequiredSkill"),  # STRING
+                target_field_id=staff.get_field("AssignedStaff"),
+            )
+
+    def test_roster_drop_write_rejects_target_field_from_wrong_table(self):
+        from daitum_ui.roster_view import RosterAxis, RosterTaskDefinition
+
+        _, _, table = self._roster_model()
+        task_def = RosterTaskDefinition(
+            table.get_field("Draggable"), table.get_field("Droppable"), True
+        )
+        with pytest.raises(ValueError, match="must belong to the table"):
+            task_def.add_drop_write(
+                RosterAxis.ROW,
+                table.get_field("Staff"),
+                table.get_field("RowEditable"),
+                target_reference_field=table.get_field("ResultRow"),  # references Staff
+                target_field_id=table.get_field("Draggable"),  # on Roster, not Staff
+            )
+
+    def test_roster_drop_write_rejects_override_target_table_mismatch(self):
+        from daitum_ui.roster_view import RosterAxis, RosterTaskDefinition
+
+        model, staff, table = self._roster_model()
+        # The target field references Day, but the identity references Staff, so
+        # the written value's type cannot be stored in the target field.
+        staff.add_object_reference_field("AssignedDay", model.get_table("Day"))
+        task_def = RosterTaskDefinition(
+            table.get_field("Draggable"), table.get_field("Droppable"), True
+        )
+        with pytest.raises(ValueError, match="must reference the same table as identity field"):
+            task_def.add_drop_write(
+                RosterAxis.ROW,
+                table.get_field("Staff"),  # references Staff
+                table.get_field("RowEditable"),
+                target_reference_field=table.get_field("ResultRow"),  # references Staff
+                target_field_id=staff.get_field("AssignedDay"),  # references Day
+            )
+
+    def test_roster_drop_write_rejects_non_reference_override_target(self):
+        from daitum_ui.roster_view import RosterAxis, RosterTaskDefinition
+
+        model, staff, table = self._roster_model()
+        # The target field is a plain STRING, not an object reference.
+        staff.add_data_field("Note", DataType.STRING)
+        task_def = RosterTaskDefinition(
+            table.get_field("Draggable"), table.get_field("Droppable"), True
+        )
+        with pytest.raises(ValueError, match="must reference the same table as identity field"):
+            task_def.add_drop_write(
+                RosterAxis.ROW,
+                table.get_field("Staff"),  # references Staff
+                table.get_field("RowEditable"),
+                target_reference_field=table.get_field("ResultRow"),  # references Staff
+                target_field_id=staff.get_field("Note"),  # STRING, not a reference
+            )
 
     def test_card_type_discriminator_does_not_collide_with_card_element(self):
         # Both CardView and the Card element declare @type "card". A view decodes through the
@@ -385,6 +558,12 @@ class TestTemplateFactoryFragilityGuard:
         from daitum_ui.charts import ChartSeries, ChartType
         from daitum_ui.elements import Card
         from daitum_ui.gantt_view import CategoryGanttTaskDefinition, TreeGridGanttTaskDefinition
+        from daitum_ui.roster_view import (
+            RosterAxis,
+            RosterColumn,
+            RosterDropWrite,
+            RosterTaskDefinition,
+        )
 
         table.add_data_field("Lat", DataType.DECIMAL)
         table.add_data_field("Lon", DataType.DECIMAL)
@@ -406,6 +585,13 @@ class TestTemplateFactoryFragilityGuard:
         series = ChartSeries(table.get_field("Cost"))
         cat_task = CategoryGanttTaskDefinition(table.get_field("ID"))
         tree_task = TreeGridGanttTaskDefinition(table.get_field("ID"))
+        roster_task = RosterTaskDefinition(
+            table.get_field("Active"), table.get_field("Active"), True
+        )
+        roster_drop_write = RosterDropWrite(
+            RosterAxis.ROW, table.get_field("ID"), table.get_field("Active")
+        )
+        roster_column = RosterColumn(table_field_reference=table.get_field("ID"))
 
         return model, [
             table_view,
@@ -434,6 +620,9 @@ class TestTemplateFactoryFragilityGuard:
             series,
             cat_task,
             tree_task,
+            roster_task,
+            roster_drop_write,
+            roster_column,
             default_filter,
             search_config,
         ]
@@ -529,7 +718,6 @@ class TestNegativeDecoding:
 
     def test_unsupported_nested_at_type_raises(self):
         from daitum_model.decoding import LoadError
-
         from daitum_ui._decoders._value import decode_value
 
         with pytest.raises(LoadError, match="Unsupported UI @type"):

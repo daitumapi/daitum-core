@@ -3,23 +3,23 @@ Map View
 
 Map view components for the UI Generator framework.
 
-This module provides geospatial visualization capabilities through the MapView class,
+This module provides geospatial visualisation capabilities through the MapView class,
 enabling the display of location-based data on interactive maps. Map views support
-both individual location markers and connected route visualizations with rich
-customization options.
+both individual location markers and connected route visualisations with rich
+customisation options.
 
 Map views transform geographic coordinate data into interactive visual representations,
-allowing users to explore spatial relationships, track movement patterns, and analyze
+allowing users to explore spatial relationships, track movement patterns, and analyse
 location-based information intuitively.
 
 Classes:
     - MapType: Enum defining LOCATION and ROUTE map types
-    - MarkerInteraction: Configuration for marker hover and click behavior
+    - MarkerInteraction: Configuration for marker hover and click behaviour
     - MapConfig: Base configuration class for map views
     - LocationConfig: Configuration specific to LOCATION map type
     - RouteConfig: Configuration specific to ROUTE map type
     - PlaybackConfig: Configuration for route playback animation
-    - MapView: Complete map view with geographic visualization
+    - MapView: Complete map view with geographic visualisation
 
 Example:
     >>> # Define the data source for store locations

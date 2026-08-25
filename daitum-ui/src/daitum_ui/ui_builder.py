@@ -73,7 +73,7 @@ from .card_view import Card, CardView
 from .chart_view import ChartView, CombinationChartView
 from .charts import ChartSeries, ChartType
 from .context_variable import ContextVariable, CVType
-from .data import MatchRowFilterMode
+from .data import Condition, FilterMode, to_condition
 from .elements import FontWeight, LayoutStyle, Slider, Text
 from .filter_component import FilterComponent
 from .fixed_value_view import FixedValueView
@@ -112,12 +112,7 @@ class UiBuilder(Buildable):
         self.navigation = list()
         self.modals = list()
         self.variables = list()
-        # NOTE: the attribute must stay plural (``menu_configurations``) so the default Buildable
-        # walk emits the ``menuConfigurations`` build key the platform expects. main renamed the
-        # attribute to the singular ``menu_configuration``, which silently changed the serialised
-        # key to ``menuConfiguration`` — a bug. Keeping the plural attribute preserves the key.
-        # TODO: remove this note once the rename is corrected in the library upstream.
-        self.menu_configurations: MenuConfiguration = MenuConfiguration()
+        self.menu_configuration: MenuConfiguration = MenuConfiguration()
         self.filters = list()
         self.optimisation_validation_view_id = None
 
@@ -485,7 +480,7 @@ class UiBuilder(Buildable):
 
         A named value view displays a collection of label-value pairs in a
         structured format. This is useful for showing key metrics, summary
-        statistics, or configuration values in a clean, organized way.
+        statistics, or configuration values in a clean, organised way.
 
         Args:
             display_name (str | None):
@@ -649,11 +644,11 @@ class UiBuilder(Buildable):
         use_filter: FilterComponent | None = None,
     ) -> TreeGridGanttView:
         """
-        Create and register a TreeGridGanttView with hierarchical task organization.
+        Create and register a TreeGridGanttView with hierarchical task organisation.
 
         A tree-grid Gantt view combines a hierarchical tree structure with a Gantt
-        chart timeline, allowing tasks to be organized with parent-child relationships
-        and displayed alongside their schedule visualization.
+        chart timeline, allowing tasks to be organised with parent-child relationships
+        and displayed alongside their schedule visualisation.
 
         Args:
             table: The data table containing task records.
@@ -666,7 +661,7 @@ class UiBuilder(Buildable):
 
         Returns:
             TreeGridGanttView: The created tree-grid Gantt view builder instance,
-                allowing further configuration such as x-axis behavior, drag-drop
+                allowing further configuration such as x-axis behaviour, drag-drop
                 settings, and tooltip properties.
 
         Example:
@@ -696,9 +691,9 @@ class UiBuilder(Buildable):
         display_name: str | None = None,
     ) -> CategoryGanttView:
         """
-        Create and register a CategoryGanttView with categorical task organization.
+        Create and register a CategoryGanttView with categorical task organisation.
 
-        A category Gantt view organizes tasks into categories along the y-axis
+        A category Gantt view organises tasks into categories along the y-axis
         rather than using a hierarchical tree structure. Each category row can contain
         multiple tasks displayed on the timeline.
 
@@ -710,7 +705,7 @@ class UiBuilder(Buildable):
 
         Returns:
             CategoryGanttView: The created category Gantt view builder instance,
-                allowing further configuration such as x-axis behavior, drag-drop
+                allowing further configuration such as x-axis behaviour, drag-drop
                 settings, and tooltip properties.
 
         Example:
@@ -730,7 +725,7 @@ class UiBuilder(Buildable):
         hidden: bool = False,
         total_rows: int | None = None,
         table: Table | None = None,
-        match_row: MatchRowFilterMode | None = None,
+        filter_mode: FilterMode | None = None,
     ) -> FormView:
         """
         Creates and adds a FormView definition to this view builder.
@@ -744,8 +739,10 @@ class UiBuilder(Buildable):
                 Optional fixed number of rows for the form layout.
             table:
                 Optional data table backing the form.
-            match_row:
-                Determines how row-matching is applied when binding data.
+            filter_mode:
+                Selects which single row of the table the form displays. May be any
+                `FilterMode` — a `MatchRowFilterMode` (select the row by index or key) or a
+                `MatchFieldFilterMode` (select the row by matching a field value).
 
         Returns:
             FormView: The newly created form view definition.
@@ -753,17 +750,19 @@ class UiBuilder(Buildable):
         Example:
             >>> # Create a data entry form
             >>> customer_table = Table("customers")
+            >>> filter_mode = MatchRowFilterMode()
+            >>> filter_mode.set_filter_row("selected_customer_row")
             >>> form_view = builder.add_form_view(
             ...     display_name="Customer Information",
             ...     total_rows=4,
             ...     table=customer_table,
-            ...     match_row=MatchRowFilterMode.FIRST_ROW
+            ...     filter_mode=filter_mode,
             ... )
             >>>
             >>> # Add form fields
             >>> form_view.add_column("100px")
         """
-        builder = FormView(display_name, hidden, total_rows, table, match_row)
+        builder = FormView(display_name, hidden, total_rows, table, filter_mode)
         self._views.append(builder)
         return builder
 
@@ -854,7 +853,7 @@ class UiBuilder(Buildable):
             ...     display_name="Orders"
             ... )
             >>>
-            >>> # Add navigation items with custom colors
+            >>> # Add navigation items with custom colours
             >>> builder.add_navigation_item(
             ...     view=products_view,
             ...     background_color="#F0F0F0",
@@ -990,28 +989,32 @@ class UiBuilder(Buildable):
 
     def set_menu_configuration(
         self,
-        hide_optimisation: bool = False,
-        hide_import: bool = False,
-        hide_bulk_import: bool = False,
-        hide_import_into_sheets: bool = False,
+        hide_optimisation: Condition | bool = False,
+        hide_import: Condition | bool = False,
+        hide_bulk_import: Condition | bool = False,
+        hide_import_into_sheets: Condition | bool = False,
     ) -> MenuConfiguration:
         """
         Configure the visibility of menu actions available within the view.
 
+        Each argument is a :class:`~daitum_ui.data.Condition`; the menu item is hidden when the
+        condition evaluates to true. A raw ``bool`` is accepted and coerced to a
+        :class:`~daitum_ui.data.ConstantCondition`.
+
         Parameters:
             hide_optimisation:
-                If `True`, hides the optimisation-related actions from the menu.
+                Condition controlling whether the optimisation-related actions are hidden.
                 Defaults to ``False`` so optimisation features are available unless
                 explicitly disabled.
             hide_import:
-                If `True`, hides the standard data import menu options.
+                Condition controlling whether the standard data import menu options are hidden.
                 Defaults to `False`.
             hide_bulk_import:
-                If `True`, hides bulk-import functionality in the menu.
+                Condition controlling whether bulk-import functionality is hidden.
                 Defaults to `False`.
             hide_import_into_sheets:
-                If `True`, hides the option to import data directly into sheets.
-                Defaults to `False`.
+                Condition controlling whether the option to import data directly into sheets is
+                hidden. Defaults to `False`.
 
         Returns:
             MenuConfiguration
@@ -1032,11 +1035,11 @@ class UiBuilder(Buildable):
             ... )
         """
 
-        self.menu_configurations.hide_optimisation = hide_optimisation
-        self.menu_configurations.hide_import = hide_import
-        self.menu_configurations.hide_bulk_import = hide_bulk_import
-        self.menu_configurations.hide_import_into_sheets = hide_import_into_sheets
-        return self.menu_configurations
+        self.menu_configuration.hide_optimisation = to_condition(hide_optimisation)
+        self.menu_configuration.hide_import = to_condition(hide_import)
+        self.menu_configuration.hide_bulk_import = to_condition(hide_bulk_import)
+        self.menu_configuration.hide_import_into_sheets = to_condition(hide_import_into_sheets)
+        return self.menu_configuration
 
     def add_filter(
         self,
@@ -1233,7 +1236,7 @@ class UiBuilder(Buildable):
             >>>
             >>> # Build and get the final UI definition
             >>> ui_definition = builder.build()
-            >>> # ui_definition is a dict that can be serialized and used to render the UI
+            >>> # ui_definition is a dict that can be serialised and used to render the UI
         """
         self._sort_views()
         built = super().build()

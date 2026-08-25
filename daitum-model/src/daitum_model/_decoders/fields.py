@@ -30,7 +30,7 @@ from typing import Any
 from daitum_model._decoders.data_types import decode_data_type
 from daitum_model._decoders.formula import defer_formula, placeholder_formula
 from daitum_model.decoding import LoadContext, LoadError, register_decoder, register_type
-from daitum_model.fields import CalculatedField, ComboField, DataField, Field
+from daitum_model.fields import FIELD_BUILD_KEYS, CalculatedField, ComboField, DataField, Field
 from daitum_model.tables import Table
 
 
@@ -99,22 +99,10 @@ def decode_combo_field(data: dict[str, Any], ctx: LoadContext) -> ComboField:
     return field
 
 
-#: Recognised field-build keys (camelCase) the decoder consumes.
-_KNOWN_KEYS = {
-    "@type",
-    "id",
-    "tableId",
-    "dataType",
-    "formula",
-    "calculateInOptimiser",
-    "orderIndex",
-    "description",
-    "defaultValue",
-    "importFormat",
-    "unique",
-    "nullable",
-    "trackingGroups",
-}
+#: Recognised field-build keys (camelCase) the decoder consumes. Bound to the vocabulary defined
+#: beside the field classes (:data:`~daitum_model.fields.FIELD_BUILD_KEYS`) so the guard cannot
+#: drift looser than what a field's ``build()`` emits.
+_KNOWN_KEYS = FIELD_BUILD_KEYS
 
 #: Read-only/derived field metadata a model generated elsewhere (the platform) emits but this
 #: library does not model. These are tolerated — skipped, not mapped — so a foreign model still

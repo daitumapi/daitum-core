@@ -18,7 +18,7 @@ Top-level UI decoder: reconstruct a :class:`UiBuilder` from :meth:`UiBuilder.bui
 Every section is decoded into typed objects — ``views`` into concrete :class:`BaseView`
 subclasses, ``variables`` into :class:`ContextVariable`, ``navigation`` into the right nav
 item, ``modals`` into :class:`Modal`, ``filters`` into :class:`FilterComponent`,
-``menuConfigurations`` into :class:`MenuConfiguration`. Nothing is replayed verbatim. The
+``menuConfiguration`` into :class:`MenuConfiguration`. Nothing is replayed verbatim. The
 builder is created without running ``__init__`` (which would re-seed the default
 ``TRUE``/``FALSE`` context variables already present in ``variables``).
 """
@@ -43,7 +43,7 @@ _UI_KEYS = {
     "navigation",
     "modals",
     "variables",
-    "menuConfigurations",
+    "menuConfiguration",
     "filters",
     "views",
     "optimisationValidationViewId",
@@ -74,8 +74,8 @@ def decode_ui(data: dict[str, Any], ctx: LoadContext) -> UiBuilder:
     builder.navigation = [decode_into(NavItem, n, ctx) for n in data.get("navigation", [])]
     builder.modals = [decode_by_template(Modal, m, ctx) for m in data.get("modals", [])]
     builder.filters = [decode_by_template(FilterComponent, f, ctx) for f in data.get("filters", [])]
-    builder.menu_configurations = decode_by_template(
-        MenuConfiguration, data.get("menuConfigurations", {}), ctx
+    builder.menu_configuration = decode_by_template(
+        MenuConfiguration, data.get("menuConfiguration", {}), ctx
     )
     builder.optimisation_validation_view_id = data.get("optimisationValidationViewId")
 

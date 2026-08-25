@@ -15,22 +15,22 @@
 """
 Chart view components for the UI Generator framework.
 
-This module provides chart visualization capabilities through the ChartView and
-CombinationChartView classes. Charts are powerful tools for visualizing data trends,
+This module provides chart visualisation capabilities through the ChartView and
+CombinationChartView classes. Charts are powerful tools for visualising data trends,
 comparisons, distributions, and relationships in an intuitive graphical format.
 
 Chart views transform tabular data into visual representations including bar charts,
 line charts, pie charts, scatter plots, and more. They support multiple data series,
-customizable styling, interactive tooltips, and flexible axis configurations.
+customisable styling, interactive tooltips, and flexible axis configurations.
 
 The CombinationChartView extends ChartView to support:
-    - Mixed chart types in a single visualization (e.g., line + bar)
+    - Mixed chart types in a single visualisation (e.g., line + bar)
     - Multiple chart components with independent configurations
     - Complex multi-dimensional data presentations
 
 Classes:
     - ChartView: Standard chart view supporting various chart types
-    - CombinationChartView: Advanced chart view for mixed chart type visualizations
+    - CombinationChartView: Advanced chart view for mixed chart type visualisations
 
 Example:
     >>> # Define the data source
@@ -228,11 +228,11 @@ class ChartView(BaseView, FilterableView):
 
     def add_series_color(self, color: str):
         """
-        Appends a color value to the list of series-level color overrides.
+        Appends a colour value to the list of series-level colour overrides.
 
         Parameters:
             color (str):
-                A color code or name used to override chart series colors
+                A colour code or name used to override chart series colours
                 in rendering order.
         """
         if self.series_colors is None:

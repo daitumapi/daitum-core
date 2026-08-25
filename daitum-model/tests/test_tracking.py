@@ -8,9 +8,7 @@ baseline framework met the rewritten formula/decoder architecture.
 """
 
 import pytest
-
-from daitum_model import AutoCapture, Baseline, DataType, ModelBuilder, TrackingGroup
-from daitum_model import formulas
+from daitum_model import AutoCapture, Baseline, DataType, ModelBuilder, TrackingGroup, formulas
 
 
 def _tracked_model() -> ModelBuilder:

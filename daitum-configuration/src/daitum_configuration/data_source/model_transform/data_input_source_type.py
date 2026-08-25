@@ -20,11 +20,14 @@ from enum import Enum
 class DataInputSourceType(Enum):
     """Identifies the source of one input to a :class:`ModelTransformConfig`.
 
-    Values:
-        DATA_STORE: Rows pulled directly from a data store.
-        DATA_STORE_INTERFACE: Rows pulled via a data-store interface.
-        DYNAMIC_VALUES: Computed values such as the current time.
-        DIRECT_UPLOAD: Rows from a CSV or zipped CSV upload.
+    DATA_STORE
+        Rows pulled directly from a data store.
+    DATA_STORE_INTERFACE
+        Rows pulled via a data-store interface.
+    DYNAMIC_VALUES
+        Computed values such as the current time.
+    DIRECT_UPLOAD
+        Rows from a CSV or zipped CSV upload.
     """
 
     DATA_STORE = "DATA_STORE"

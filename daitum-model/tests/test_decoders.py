@@ -19,9 +19,8 @@ Each test follows the contract ``decode(x.build()).build() == x.build()``, build
 fixtures from real builder construction so they never drift from ``build()`` output.
 """
 
-import pytest
-
 import daitum_model.formulas as formulas
+import pytest
 from daitum_model import (
     AggregationMethod,
     Calculation,
@@ -177,9 +176,10 @@ class TestFormula:
         table.add_data_field("Name", DataType.STRING)
         table.add_calculated_field("X", formulas.TEXTJOIN(CONST('"'), True, table["Name"]))
         built = model.build()
-        assert built["tableDefinitions"]["T"]["fieldDefinitions"]["X"]["formula"][
-            "formulaString"
-        ] == 'TEXTJOIN("\\"", TRUE, T[Name])'
+        assert (
+            built["tableDefinitions"]["T"]["fieldDefinitions"]["X"]["formula"]["formulaString"]
+            == 'TEXTJOIN("\\"", TRUE, T[Name])'
+        )
 
         decoded = decode_model(built, LoadContext())
         assert decoded.build() == built
@@ -211,7 +211,9 @@ class TestFormula:
             table.add_data_field(fid, DataType.INTEGER)
         table.add_calculated_field("Y", table["A"] - table["B"] + 28 * table["C"])
         built = model.build()
-        original = built["tableDefinitions"]["T"]["fieldDefinitions"]["Y"]["formula"]["formulaString"]
+        original = built["tableDefinitions"]["T"]["fieldDefinitions"]["Y"]["formula"][
+            "formulaString"
+        ]
 
         decoded = decode_model(built, LoadContext())
         rebuilt = decoded.get_table("T").get_field("Y").build()["formula"]["formulaString"]
@@ -227,9 +229,9 @@ class TestFormula:
         table.add_data_field("A", DataType.INTEGER)
         table.add_calculated_field("X", table["A"])
         built = model.build()
-        built["tableDefinitions"]["T"]["fieldDefinitions"]["X"]["formula"]["formulaString"] = (
-            "T[A] + + )"
-        )
+        built["tableDefinitions"]["T"]["fieldDefinitions"]["X"]["formula"][
+            "formulaString"
+        ] = "T[A] + + )"
         with pytest.raises(LoadError):
             decode_model(built, LoadContext())
 
@@ -498,15 +500,26 @@ class TestTables:
 
         def data_field(fid, tid, dt="STRING"):
             return {
-                "@type": "data", "id": fid, "tableId": tid, "dataType": dt, "unique": False,
-                "nullable": False, "defaultValue": None, "importFormat": None, "orderIndex": None,
+                "@type": "data",
+                "id": fid,
+                "tableId": tid,
+                "dataType": dt,
+                "unique": False,
+                "nullable": False,
+                "defaultValue": None,
+                "importFormat": None,
+                "orderIndex": None,
                 "description": None,
             }
 
         def table(tid, fields, **extra):
             base = {
-                "fieldDefinitions": fields, "modelLevel": False, "idField": None,
-                "filterField": None, "exportAsKeyColumn": False, "keyColumnField": None,
+                "fieldDefinitions": fields,
+                "modelLevel": False,
+                "idField": None,
+                "filterField": None,
+                "exportAsKeyColumn": False,
+                "keyColumnField": None,
             }
             base.update(extra)
             return base
@@ -563,19 +576,38 @@ class TestTables:
 
         def data_field(fid, tid):
             return {
-                "@type": "data", "id": fid, "tableId": tid, "importFormat": None,
-                "orderIndex": None, "dataType": "STRING", "unique": False, "nullable": False,
-                "defaultValue": None, "userEditable": True, "derivedField": False,
+                "@type": "data",
+                "id": fid,
+                "tableId": tid,
+                "importFormat": None,
+                "orderIndex": None,
+                "dataType": "STRING",
+                "unique": False,
+                "nullable": False,
+                "defaultValue": None,
+                "userEditable": True,
+                "derivedField": False,
                 "aggregatedField": False,
             }
 
         def table(tid, fields, **extra):
             base = {
-                "fieldDefinitions": fields, "modelLevel": False, "groupingConfiguration": None,
-                "sortKeys": None, "sourceTableId": None, "keyColumnField": None,
-                "filterField": None, "idField": None, "transientData": False,
-                "exportAsKeyColumn": False, "joinConditions": None, "sourceTableIds": None,
-                "sourceTables": None, "fieldMappings": None, "derived": False, "union": False,
+                "fieldDefinitions": fields,
+                "modelLevel": False,
+                "groupingConfiguration": None,
+                "sortKeys": None,
+                "sourceTableId": None,
+                "keyColumnField": None,
+                "filterField": None,
+                "idField": None,
+                "transientData": False,
+                "exportAsKeyColumn": False,
+                "joinConditions": None,
+                "sourceTableIds": None,
+                "sourceTables": None,
+                "fieldMappings": None,
+                "derived": False,
+                "union": False,
                 "join": False,
             }
             base.update(extra)

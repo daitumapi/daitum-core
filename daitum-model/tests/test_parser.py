@@ -10,10 +10,9 @@ structural check, not a brittle string compare.
 from __future__ import annotations
 
 import pytest
+from daitum_model._parser import ParseError, Resolver, parse_formula
 from fixtures.contract_cases import function_cases, operator_cases
 from fixtures.contract_model import build_fixture
-
-from daitum_model._parser import ParseError, Resolver, parse_formula
 
 
 class _FixtureResolver(Resolver):
@@ -176,9 +175,7 @@ class TestUnparenthesisedChains:
     def test_mixed_chain_matches_standard_precedence(self):
         cost, qty = self._fields()
         # a + b * c - d  ->  ((a + (b*c)) - d)
-        assert self._parse("[Cost] + [Qty] * [Cost] - [Qty]").is_equivalent(
-            cost + qty * cost - qty
-        )
+        assert self._parse("[Cost] + [Qty] * [Cost] - [Qty]").is_equivalent(cost + qty * cost - qty)
 
 
 # Renderings that cannot round-trip because the string erases the type — see ``_UNPARSEABLE``.
@@ -194,7 +191,6 @@ class TestParserDriftConformance:
 
     def test_every_drift_formula_round_trips(self):
         from daitum_model.formula import Formula
-
         from fixtures.drift_corpus import build_drift_cases
 
         failures: list[str] = []

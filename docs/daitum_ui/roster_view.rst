@@ -17,9 +17,10 @@ A roster is composed of three parts:
 
 Cards rendered in a shift column can optionally be made drag-and-droppable by
 attaching a :class:`~daitum_ui.roster_view.RosterTaskDefinition` to the
-column. Drags are always within a single column — dragging a card from one
-row onto another row of the same column swaps the configured fields between
-those two rows.
+column. Drags are always within a single column — a card is dragged from one
+row onto another row of the same column. Only rows whose drop-enabled field
+is true may receive a drop, and each drop records where the card landed by
+writing the target row's and/or column's identity back to the model.
 
 Basic setup
 -----------
@@ -72,10 +73,12 @@ Drag-and-drop
 
 The helper below builds drag-and-drop configuration for one shift column of
 a roster. Each shift has its own set of per-column fields (availability,
-location, start/end times, capability lists), so the helper is parameterised
-by ``shift`` and called once per shift column.
+identities, edit gates, capability lists), so the helper is parameterised by
+``shift`` and called once per shift column.
 
 .. code-block:: python
+
+    from daitum_ui.roster_view import RosterAxis, RosterTaskDefinition
 
     def build_shift_drag_and_drop(
         roster_table: Table, shift: str
@@ -83,19 +86,29 @@ by ``shift`` and called once per shift column.
         """Drag-and-drop config for one shift column of a roster."""
         task_def = RosterTaskDefinition(
             enable_drag_and_drop_field=roster_table.get_field(f"available_{shift}"),
+            drop_enabled_field=roster_table.get_field(f"droppable_{shift}"),
             highlight_whole_column_on_drag=True,
         )
 
-        # Fields whose values are exchanged between the source and target
-        # rows on drop. The column's table_field_reference is typically a
-        # calculation that recomputes from these — include it here only if
-        # it is a data field that should also move.
-        for field_name in (
-            f"location_{shift}",
-            f"start_time_{shift}",
-            f"end_time_{shift}",
-        ):
-            task_def.add_swap_field(roster_table.get_field(field_name))
+        # Writes performed when a card is dropped. Each write records the
+        # identity of the destination row or column, so ``identity_field``
+        # must be an object reference. The ROW write below is redirected to
+        # another table via an edit override — used when the identity field
+        # displays a calculated value. The override's ``target_reference_field``
+        # must itself be an object reference into the same table the identity
+        # points at, and ``target_field_id`` must be a field on that table.
+        task_def.add_drop_write(
+            axis=RosterAxis.ROW,
+            identity_field=roster_table.get_field("staff"),
+            enabled_field=roster_table.get_field(f"row_editable_{shift}"),
+            target_reference_field=roster_table.get_field("result_row"),
+            target_field_id=staff_table.get_field("assigned_staff"),
+        )
+        task_def.add_drop_write(
+            axis=RosterAxis.COLUMN,
+            identity_field=roster_table.get_field(f"day_{shift}"),
+            enabled_field=roster_table.get_field(f"column_editable_{shift}"),
+        )
 
         # Gate valid drop targets: a drop is only allowed when the target
         # row's <capability> array contains the dragged card's <required>
@@ -133,6 +146,16 @@ API Reference
     :show-inheritance:
 
 .. autoclass:: daitum_ui.roster_view.RosterTaskDefinition
+    :no-index:
+    :members:
+    :show-inheritance:
+
+.. autoclass:: daitum_ui.roster_view.RosterAxis
+    :no-index:
+    :members:
+    :show-inheritance:
+
+.. autoclass:: daitum_ui.roster_view.RosterDropWrite
     :no-index:
     :members:
     :show-inheritance:

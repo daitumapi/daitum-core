@@ -19,9 +19,11 @@ from daitum_model import Calculation, DataType, Field, Parameter, Table
 from typeguard import typechecked
 
 from daitum_ui._buildable import Buildable, json_type_info
+from daitum_ui._data import EditOverride
 from daitum_ui.base_view import BaseView
 from daitum_ui.filter_component import FilterableView, FilterComponent
 from daitum_ui.model_event import ModelEvent
+from daitum_ui.styles import AxisLabelStyle
 
 
 class XAxisHeader(Enum):
@@ -246,12 +248,12 @@ class FontProperties(Buildable):
     """
     Configures font styling properties for Gantt chart tasks.
 
-    Allows customization of text appearance by mapping font attributes
+    Allows customisation of text appearance by mapping font attributes
     to source fields in the underlying data.
 
     Args:
         font_color_source_field:
-            Field containing the color value for task text.
+            Field containing the colour value for task text.
         font_weight_source_field:
             Field containing the font weight.
         font_style_source_field:
@@ -280,14 +282,14 @@ class IconProperties(Buildable):
     """
     Configures icon properties for Gantt chart tasks.
 
-    Allows customization of task icons by mapping icon attributes
+    Allows customisation of task icons by mapping icon attributes
     to source fields in the underlying data.
 
     Args:
         icon_source_source_field:
             Field containing the icon identifier or source.
         icon_color_source_field:
-            Field containing the color value for the icon.
+            Field containing the colour value for the icon.
     """
 
     def __init__(
@@ -306,7 +308,7 @@ class IconProperties(Buildable):
 @typechecked
 class Dependencies(Buildable):
     """
-    Configures task dependencies for Gantt chart visualization.
+    Configures task dependencies for Gantt chart visualisation.
 
     Defines relationships between tasks by mapping dependency information
     to a source field containing an array of related task IDs.
@@ -350,7 +352,7 @@ class GanttTaskDefinition(Buildable):
     Defines the field mappings and configuration for Gantt chart tasks.
 
     Maps source data fields to task properties such as ID, dates, display names,
-    colors, drag behavior, and visual styling. This class serves as the central
+    colours, drag behaviour, and visual styling. This class serves as the central
     configuration for how task data is interpreted and displayed in the Gantt chart.
 
     Attributes:
@@ -358,20 +360,24 @@ class GanttTaskDefinition(Buildable):
         name_field: Field ID for the category name (tree-grid only).
         start_date_source_field: Field ID for the task start date.
         end_date_source_field: Field ID for the task end date.
+        start_date_edit_override: Redirects a drag-drop write of the start date to a field on
+            another table. Use when start_date_source_field displays a calculated value.
+        end_date_edit_override: Redirects a drag-drop write of the end date to a field on another
+            table. Use when end_date_source_field displays a calculated value.
         break_start_date_source_field: Field ID for break period start.
         break_end_date_source_field: Field ID for break period end.
         display_name_field: Field ID for the task display name.
         parent_field: Field ID for the parent task ID (tree-grid only).
-        color_source_field: Field ID for the task color.
-        border_color_source_field: Field ID for the task border color.
+        color_source_field: Field ID for the task colour.
+        border_color_source_field: Field ID for the task border colour.
         drag_drop_x_source_field: Field ID for drag-drop enabled flag.
         on_click_source_field: Field ID for click event handler key.
         opacity_source_field: Field ID for task opacity.
         pattern_source_field: Field ID for visual pattern name.
         font_properties: Font styling configuration for task text.
-        icon_properties: Icon configuration for task visualization.
+        icon_properties: Icon configuration for task visualisation.
         dependencies: Task dependency configuration.
-        drag_drop_handle_behaviour_source_field: Field ID for drag handle behavior.
+        drag_drop_handle_behaviour_source_field: Field ID for drag handle behaviour.
         tooltip_properties_source_field: Field for tooltip property definition key.
     """
 
@@ -403,6 +409,8 @@ class GanttTaskDefinition(Buildable):
 
         self.start_date_source_field: str | None = None
         self.end_date_source_field: str | None = None
+        self.start_date_edit_override: EditOverride | None = None
+        self.end_date_edit_override: EditOverride | None = None
         self.break_start_date_source_field: str | None = None
         self.break_end_date_source_field: str | None = None
 
@@ -479,6 +487,59 @@ class GanttTaskDefinition(Buildable):
             self.end_date_source_field = end.id
         return self
 
+    def set_start_date_edit_override(
+        self, target_reference_field: str, target_field_id: str, map_key_field: str | None = None
+    ) -> "GanttTaskDefinition":
+        """
+        Redirect a drag-drop write of the start date to a field on another table.
+
+        Use when the start date source field displays a calculated value: the chart keeps showing
+        the calculated field, while the drop writes to the override target. When unset, a drop
+        writes back to the start date source field on the dragged row.
+
+        Args:
+            target_reference_field (str):
+                The field in the displayed table containing a reference to the row/table to edit.
+
+            target_field_id (str):
+                The field ID in the referenced table where the start date should be written.
+
+            map_key_field (Optional[str], optional):
+                If the target field is a map-type, this field contains the map key to identify
+                the correct entry. Defaults to None.
+        """
+        self.start_date_edit_override = EditOverride(
+            target_reference_field, target_field_id, map_key_field
+        )
+        return self
+
+    def set_end_date_edit_override(
+        self, target_reference_field: str, target_field_id: str, map_key_field: str | None = None
+    ) -> "GanttTaskDefinition":
+        """
+        Redirect a drag-drop write of the end date to a field on another table.
+
+        Use when the end date source field displays a calculated value: the chart keeps showing
+        the calculated field, while the drop writes to the override target. Leaving this unset with
+        a calculated end date source field gives move-only behaviour: the start write repositions
+        the task and the model recalculates the end, preserving the task's length.
+
+        Args:
+            target_reference_field (str):
+                The field in the displayed table containing a reference to the row/table to edit.
+
+            target_field_id (str):
+                The field ID in the referenced table where the end date should be written.
+
+            map_key_field (Optional[str], optional):
+                If the target field is a map-type, this field contains the map key to identify
+                the correct entry. Defaults to None.
+        """
+        self.end_date_edit_override = EditOverride(
+            target_reference_field, target_field_id, map_key_field
+        )
+        return self
+
     def set_break_date_source_fields(
         self, start: Field | None, end: Field | None
     ) -> "GanttTaskDefinition":
@@ -534,7 +595,7 @@ class GanttTaskDefinition(Buildable):
         font styling attributes.
 
         Args:
-            font_color_source_field: Field containing the text color.
+            font_color_source_field: Field containing the text colour.
             font_weight_source_field: Field containing the font weight.
             font_style_source_field: Field containing the font style.
 
@@ -553,14 +614,14 @@ class GanttTaskDefinition(Buildable):
         icon_color_source_field: Field | None = None,
     ) -> IconProperties:
         """
-        Configure icon properties for task visualization.
+        Configure icon properties for task visualisation.
 
         Creates and assigns an IconProperties object that maps fields to
         icon attributes for displaying icons on tasks.
 
         Args:
             icon_source_source_field: Field containing the icon identifier.
-            icon_color_source_field: Field containing the icon color.
+            icon_color_source_field: Field containing the icon colour.
 
         Returns:
             The created IconProperties instance.
@@ -594,11 +655,11 @@ class GanttTaskDefinition(Buildable):
 @typechecked
 class TreeGridGanttTaskDefinition(GanttTaskDefinition):
     """
-    Specialized task definition for tree-grid Gantt views with hierarchical support.
+    Specialised task definition for tree-grid Gantt views with hierarchical support.
 
     Extends GanttTaskDefinition to provide tree-grid specific functionality,
     including parent-child task relationships and category grouping. This
-    allows tasks to be organized in a hierarchical tree structure.
+    allows tasks to be organised in a hierarchical tree structure.
 
     Inherits all attributes from GanttTaskDefinition.
     """
@@ -658,9 +719,14 @@ class CategoryGanttTaskDefinition(GanttTaskDefinition):
     and tooltip configuration.
 
     Note:
-        This definition is intended for category-based Gantt views and
-        does not introduce additional task hierarchy fields beyond those defined in the base
-        class `GanttTaskDefinition`.
+        This definition is intended for category-based Gantt views. The only task field it adds
+        beyond the base class `GanttTaskDefinition` is `drag_drop_y_source_field`, which controls
+        per-task y-axis (between-lane) dragging.
+
+    Attributes:
+        drag_drop_y_source_field: Field ID for a per-task boolean controlling whether the task can
+            be dragged between lanes on the y-axis. When unset, the view-wide `with_drag_drop_y`
+            applies.
     """
 
     def __init__(
@@ -677,13 +743,32 @@ class CategoryGanttTaskDefinition(GanttTaskDefinition):
             on_click_source_field,
         )
 
+        self.drag_drop_y_source_field: str | None = None
+
+    def set_drag_drop_y_source_field(self, field: Field) -> "CategoryGanttTaskDefinition":
+        """
+        Set the field controlling per-task y-axis (between-lane) dragging.
+
+        Category gantts only — a tree-grid gantt has no y-axis dragging. When unset, the
+        view-wide `with_drag_drop_y` applies to every task.
+
+        Args:
+            field: The field containing the per-task drag flag (must be BOOLEAN type).
+
+        Raises:
+            ValueError: If the field is not BOOLEAN type.
+        """
+        _validate_field(field, DataType.BOOLEAN)
+        self.drag_drop_y_source_field = field.id
+        return self
+
 
 @typechecked
 class GanttView(BaseView, FilterableView):
     """
-    Base class for Gantt chart views that visualize time-based task data.
+    Base class for Gantt chart views that visualise time-based task data.
 
-    Provides core functionality for configuring Gantt chart behavior including
+    Provides core functionality for configuring Gantt chart behaviour including
     x-axis settings, drag-and-drop interactions, tooltips, navigation, and
     event handling. This class serves as the foundation for specific Gantt
     view implementations.
@@ -697,7 +782,7 @@ class GanttView(BaseView, FilterableView):
         x_axis_max_field: Field ID for the maximum x-axis value.
         with_drag_drop_x: Whether drag-and-drop is enabled on the x-axis.
         with_x_axis_header: Whether x-axis headers are displayed.
-        drag_drop_handle_behaviour: Configuration for drag handle behavior.
+        drag_drop_handle_behaviour: Configuration for drag handle behaviour.
         snap_x_axis_drag: Snapping interval for drag operations.
         x_axis_headers: List of x-axis header configurations.
         range_selector_buttons: List of range selector button configurations.
@@ -795,9 +880,9 @@ class GanttView(BaseView, FilterableView):
         drag_drop_handle_behaviour: DragDropHandleBehaviour | None,
     ) -> "GanttView":
         """
-        Configure drag-and-drop behavior for Gantt chart tasks.
+        Configure drag-and-drop behaviour for Gantt chart tasks.
 
-        Sets the snapping interval and handle behavior for dragging tasks.
+        Sets the snapping interval and handle behaviour for dragging tasks.
         Automatically enables drag-and-drop functionality if either parameter
         is provided.
 
@@ -904,10 +989,10 @@ class GanttView(BaseView, FilterableView):
 @json_type_info("tree grid gantt")
 class TreeGridGanttView(GanttView):
     """
-    A specialized Gantt view that combines a tree grid with Gantt chart visualization.
+    A specialised Gantt view that combines a tree grid with Gantt chart visualisation.
 
     Extends the base GanttView to provide a hierarchical tree structure alongside
-    the timeline visualization, allowing users to see task relationships and
+    the timeline visualisation, allowing users to see task relationships and
     dependencies in a tree format while viewing their schedules.
     """
 
@@ -940,9 +1025,9 @@ class TreeGridGanttView(GanttView):
 @json_type_info("category gantt")
 class CategoryGanttView(GanttView):
     """
-    A Gantt view that organizes tasks into categories along the y-axis.
+    A Gantt view that organises tasks into categories along the y-axis.
 
-    Extends the base GanttView to support categorical organization of tasks,
+    Extends the base GanttView to support categorical organisation of tasks,
     where the y-axis represents different categories (e.g., resources, teams,
     or departments) rather than a hierarchical tree structure. Tasks can be
     grouped and displayed in rows corresponding to their category.
@@ -951,6 +1036,10 @@ class CategoryGanttView(GanttView):
         y_axis_source: Table ID containing the category definitions.
         y_axis_display_field: Field ID for the category display name.
         y_axis_reference_field: Field ID linking tasks to their category.
+        y_axis_reference_edit_override: Redirects a lane drag write of the y-axis reference to a
+            field on another table. Use when y_axis_reference_field displays a calculated lane
+            assignment.
+        y_axis_label: Styling for the y-axis (category) labels.
         with_drag_drop_y: Whether tasks can be dragged between categories.
     """
 
@@ -975,6 +1064,8 @@ class CategoryGanttView(GanttView):
         self.y_axis_source: str | None = None
         self.y_axis_display_field: str | None = None
         self.y_axis_reference_field: str | None = None
+        self.y_axis_reference_edit_override: EditOverride | None = None
+        self.y_axis_label: AxisLabelStyle | None = None
         self.with_drag_drop_y: bool | None = None
 
     def set_use_filter(self, use_filter: FilterComponent) -> "CategoryGanttView":
@@ -1006,6 +1097,38 @@ class CategoryGanttView(GanttView):
         self.y_axis_source = y_axis_source.id
         self.y_axis_display_field = y_axis_display_field.id if y_axis_display_field else None
         self.y_axis_reference_field = y_axis_reference_field.id if y_axis_reference_field else None
+        return self
+
+    def set_y_axis_reference_edit_override(
+        self, target_reference_field: str, target_field_id: str, map_key_field: str | None = None
+    ) -> "CategoryGanttView":
+        """
+        Redirect a lane drag write of the y-axis reference to a field on another table.
+
+        Use when the y-axis reference field displays a calculated lane assignment: the chart keeps
+        showing the calculated field, while dragging a task between lanes writes to the override
+        target. The target field must be an object reference to the y-axis source. When unset, a
+        lane drag writes back to the y-axis reference field on the dragged row.
+
+        Args:
+            target_reference_field (str):
+                The field in the displayed table containing a reference to the row/table to edit.
+
+            target_field_id (str):
+                The field ID in the referenced table where the y-axis reference should be written.
+
+            map_key_field (Optional[str], optional):
+                If the target field is a map-type, this field contains the map key to identify
+                the correct entry. Defaults to None.
+        """
+        self.y_axis_reference_edit_override = EditOverride(
+            target_reference_field, target_field_id, map_key_field
+        )
+        return self
+
+    def set_y_axis_label(self, y_axis_label: AxisLabelStyle) -> "CategoryGanttView":
+        """Sets the styling for the y-axis (category) labels."""
+        self.y_axis_label = y_axis_label
         return self
 
     def set_with_drag_drop_y(self, with_drag_drop_y: bool) -> "CategoryGanttView":

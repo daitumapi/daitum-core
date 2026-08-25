@@ -95,6 +95,35 @@ class TestFormulaReturnTypes:
         assert isinstance(result, Formula)
         assert result.data_type == DataType.INTEGER
 
+    def test_contains_scalar_returns_boolean(self):
+        model = ModelBuilder()
+        table = model.add_data_table("T")
+        arr = table.add_data_field("Arr", DataType.INTEGER_ARRAY)
+        val = table.add_data_field("Val", DataType.INTEGER)
+        result = formulas.CONTAINS(arr, val)
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.BOOLEAN
+
+    def test_contains_array_returns_boolean_array(self):
+        model = ModelBuilder()
+        table = model.add_data_table("T")
+        arr = table.add_data_field("Arr", DataType.INTEGER_ARRAY)
+        vals = table.add_data_field("Vals", DataType.INTEGER_ARRAY)
+        result = formulas.CONTAINS(arr, vals)
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.BOOLEAN_ARRAY
+
+    def test_contains_mismatched_element_type_raises(self):
+        model = ModelBuilder()
+        table = model.add_data_table("T")
+        arr = table.add_data_field("Arr", DataType.STRING_ARRAY)
+        vals = table.add_data_field("Vals", DataType.INTEGER_ARRAY)
+        try:
+            formulas.CONTAINS(arr, vals)
+            raise AssertionError("expected ValueError")
+        except ValueError:
+            pass
+
 
 class TestFormulaExpression:
     def test_isblank_expression_contains_id(self):
@@ -221,6 +250,7 @@ class TestBaseline:
 
     def test_baseline_fallback_type_mismatch_raises(self):
         import pytest
+
         from daitum_model import DataType, ModelBuilder
 
         model = ModelBuilder()
@@ -234,6 +264,7 @@ class TestBaseline:
 
     def test_baseline_untracked_reference_raises(self):
         import pytest
+
         from daitum_model import DataType, ModelBuilder
 
         model = ModelBuilder()

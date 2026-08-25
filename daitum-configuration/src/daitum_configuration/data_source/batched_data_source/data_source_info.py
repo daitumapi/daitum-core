@@ -33,6 +33,8 @@ class DataSourceInfo(Buildable):
         data_source: The data source to include in the batch.
         order: Execution order within the batch (lower runs first).
         batch_data_source_type: Position within any surrounding parallel block.
+        terminate_on_failure: Stop the batch rather than continue with the remaining data
+            sources if this one fails.
     """
 
     def __init__(
@@ -40,7 +42,9 @@ class DataSourceInfo(Buildable):
         data_source: DataSource,
         order: int,
         batch_data_source_type: BatchDataSourceType = BatchDataSourceType.NONE_PARALLEL,
+        terminate_on_failure: bool = False,
     ):
         self.data_source_id = data_source.temp_export_id
         self.order = order
         self.type = batch_data_source_type
+        self.terminate_on_failure: bool = terminate_on_failure

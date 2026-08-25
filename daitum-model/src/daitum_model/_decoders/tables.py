@@ -54,7 +54,7 @@ from daitum_model.decoding import (
     register_decoder,
 )
 from daitum_model.derived_table import AggregationMethod, DerivedTable, SortDirection
-from daitum_model.fields import Field
+from daitum_model.fields import FIELD_BUILD_KEYS, Field
 from daitum_model.joined_table import JoinCondition, JoinedTable, JoinType
 from daitum_model.tables import DataTable, Table
 from daitum_model.union_table import UnionSource, UnionTable
@@ -357,22 +357,16 @@ def _joined_source_table(field_data: dict[str, Any], ctx: LoadContext) -> Table:
     raise LoadError(f"Cannot resolve joined-table reference field {field_data.get('id')!r}")
 
 
-#: Union field-build keys (camelCase) the populator consumes. A key outside this set (and outside
-#: the shared :data:`_IGNORED_FIELD_KEYS` of platform-only metadata) is unmapped and rejected.
-_UNION_FIELD_KEYS = frozenset(
-    {
-        "@type",
-        "id",
-        "tableId",
-        "dataType",
-        "orderIndex",
-        "description",
-        "unique",
-        "nullable",
-        "defaultValue",
-        "importFormat",
-    }
-)
+#: Union field-build keys (camelCase) the populator consumes. A union table's stacked fields are
+#: plain :class:`~daitum_model.fields.DataField` instances, so their build keys are the shared field
+#: vocabulary minus the three keys a data field never emits: ``formula`` /
+#: ``calculateInOptimiser`` (calculated/combo only — a ``calculated`` union field is decoded via
+#: the full field decoder above, not this populator) and ``trackingGroups`` (union fields are not
+#: tracked through this path). Derived from :data:`~daitum_model.fields.FIELD_BUILD_KEYS` so it
+#: stays in lock-step with the field serialiser. A key outside this set (and outside the shared
+#: :data:`_IGNORED_FIELD_KEYS` of platform-only metadata) is unmapped and rejected.
+_UNION_FIELD_ONLY_EXCLUSIONS = frozenset({"formula", "calculateInOptimiser", "trackingGroups"})
+_UNION_FIELD_KEYS = FIELD_BUILD_KEYS - _UNION_FIELD_ONLY_EXCLUSIONS
 
 
 def _populate_union_fields(table: UnionTable, data: dict[str, Any], ctx: LoadContext) -> None:

@@ -23,9 +23,8 @@ import inspect
 import pkgutil
 
 import daitum_configuration
-import daitum_ui
-
 import daitum_model
+import daitum_ui
 from daitum_model.decoding import DECODER_REGISTRY, TYPE_REGISTRY
 from daitum_model.serialisation import Buildable
 
@@ -48,6 +47,7 @@ _INLINE = {
     # Configuration: nested objects rebuilt by their parent's hand decoder.
     "ConstraintSpecification",
     "DVSpecification",
+    "InjectiveDVSpecification",
 }
 
 # Real gaps — not yet decodable. The configuration decoder is now complete; if a future
@@ -76,9 +76,8 @@ def _concrete_buildables(pkg) -> set[type]:
 def _register_all_packages() -> None:
     """Idempotently register every package's decoders so the registries are fully populated."""
     import daitum_configuration._decoders
-    import daitum_ui._decoders
-
     import daitum_model._decoders
+    import daitum_ui._decoders
 
     daitum_model._decoders.register_all()
     daitum_configuration._decoders.register_all()

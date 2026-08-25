@@ -5,17 +5,11 @@ Structural round-trip contract: decode(x.build()).build() == x.build(), driven f
 per-class fixtures built via the builders.
 """
 
-import json
-
-import pytest
-from daitum_model import DataType, ModelBuilder
-from daitum_model.decoding import LoadContext, decode_into
-from daitum_model.formula import CONST
 
 import daitum_model.formulas as formulas
+import pytest
 from daitum_configuration import (
     CMAESAlgorithm,
-    ConfigurationBuilder,
     GeneticAlgorithm,
     VariableNeighbourhoodSearch,
 )
@@ -32,6 +26,9 @@ from daitum_configuration.model_configuration.decision_variable import DecisionV
 from daitum_configuration.model_configuration.objective import Objective
 from daitum_configuration.model_configuration.priority import Priority
 from daitum_configuration.model_configuration.scenario_output import ScenarioOutput
+from daitum_model import DataType, ModelBuilder
+from daitum_model.decoding import LoadContext, decode_into
+from daitum_model.formula import CONST
 
 
 def _model_ctx(model) -> LoadContext:
@@ -117,9 +114,7 @@ class TestReferenceResolution:
         shadow = other.add_data_field("Jobs", DataType.STRING)  # id == "Jobs" table id
 
         # The symbol table has the field "Jobs" overwriting the table "Jobs" (registration order).
-        ctx = LoadContext(
-            symbols={"Jobs": shadow, "Other": other, "Qty": qty}, model=m
-        )
+        ctx = LoadContext(symbols={"Jobs": shadow, "Other": other, "Qty": qty}, model=m)
         assert resolve_value("!!!Jobs[Qty]", ctx) is qty
         assert resolve_table("!!!Jobs[Qty]", ctx) is jobs
 
@@ -131,6 +126,23 @@ class TestModelConfigurationRoundTrip:
         mn = model["symbols"]["MinQty"]
         mx = model["symbols"]["MaxQty"]
         dv = DecisionVariable(field, dv_table=t, dv_type=DVType.RANGE).set_min(mn).set_max(mx)
+        built = dv.build()
+        decoded = decode_into(DecisionVariable, built, _model_ctx(model))
+        assert decoded.build() == built
+
+    def test_decision_variable_injective(self, model):
+        t = model["symbols"]["Items"]
+        field = model["symbols"]["Quantity"]
+        domain = model["symbols"]["Name"]  # a STRING field, standing in for the allowed column
+        dv = DecisionVariable(field, dv_table=t, dv_type=DVType.INJECTIVE).set_domain(domain)
+        built = dv.build()
+        decoded = decode_into(DecisionVariable, built, _model_ctx(model))
+        assert decoded.build() == built
+
+    def test_decision_variable_injective_no_domain(self, model):
+        t = model["symbols"]["Items"]
+        field = model["symbols"]["Quantity"]
+        dv = DecisionVariable(field, dv_table=t, dv_type=DVType.INJECTIVE)
         built = dv.build()
         decoded = decode_into(DecisionVariable, built, _model_ctx(model))
         assert decoded.build() == built
@@ -166,9 +178,7 @@ class TestModelConfigurationRoundTrip:
         # Decoding a ModelConfiguration reconstructs tracked objects through their counter-
         # bumping constructors, but must leave the global counters untouched so a later built
         # object gets the id it would have had.
-        from daitum_configuration.model_configuration.model_configuration import (
-            ModelConfiguration,
-        )
+        from daitum_configuration.model_configuration.model_configuration import ModelConfiguration
 
         t = model["symbols"]["Items"]
         field = model["symbols"]["Quantity"]
@@ -319,11 +329,11 @@ class TestDataSourceRoundTrip:
         assert decoded.build() == built
 
     def test_run_report_and_external_configs(self, model):
-        from daitum_configuration.data_source.run_report.run_report_config import RunReportConfig
         from daitum_configuration.data_source.data_source import DataSource
         from daitum_configuration.data_source.run_external_model.run_external_model_config import (
             RunExternalModelConfig,
         )
+        from daitum_configuration.data_source.run_report.run_report_config import RunReportConfig
 
         for cfg in (RunReportConfig("MyReport"), RunExternalModelConfig()):
             ds = DataSource("S", cfg)
@@ -345,11 +355,11 @@ class TestDataSourceRoundTrip:
 
     def test_batched_data_source_config(self, model):
         from daitum_configuration import SetFeaturesConfig
-        from daitum_configuration.data_source.run_report.run_report_config import RunReportConfig
         from daitum_configuration.data_source.batched_data_source.batched_data_source_config import (
             BatchedDataSourceConfig,
         )
         from daitum_configuration.data_source.data_source import DataSource
+        from daitum_configuration.data_source.run_report.run_report_config import RunReportConfig
 
         inner_a = DataSource("A", RunReportConfig("R"))
         inner_b = DataSource("B", SetFeaturesConfig({"f": True}))
@@ -405,9 +415,9 @@ class TestModelTransformRoundTrip:
         assert decoded.build() == built
 
     def test_model_transform_embeds_sub_model(self):
+        from daitum_configuration.data_source.model_transform.model_transform import ModelTransform
         from daitum_model import DataType, ModelBuilder
         from daitum_model.decoding import LoadContext
-        from daitum_configuration.data_source.model_transform.model_transform import ModelTransform
 
         sub = ModelBuilder()
         sub_table = sub.add_data_table("Sub")
@@ -554,8 +564,8 @@ class TestNegativeDecoding:
     """Malformed payloads fail loudly with a useful LoadError, never silently degrade."""
 
     def test_unknown_data_source_type_raises(self):
-        from daitum_model.decoding import LoadError
         from daitum_configuration.data_source.data_source_config import DataSourceConfig
+        from daitum_model.decoding import LoadError
 
         with pytest.raises(LoadError, match="Unknown data-source type"):
             decode_into(DataSourceConfig, {"type": "NOT_A_REAL_TYPE"}, LoadContext())

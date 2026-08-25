@@ -45,14 +45,17 @@ class BatchedDataSourceConfig(DataSourceConfig):
         data_source: DataSource,
         order: int,
         batch_data_source_type: BatchDataSourceType = BatchDataSourceType.NONE_PARALLEL,
+        terminate_on_failure: bool = False,
     ) -> "BatchedDataSourceConfig":
         """Add ``data_source`` to this batch with the given execution ``order`` and
-        :class:`BatchDataSourceType`."""
+        :class:`BatchDataSourceType`. Set ``terminate_on_failure`` to stop the batch rather
+        than continue with the remaining data sources if this one fails."""
         self.data_sources.append(
             DataSourceInfo(
                 data_source=data_source,
                 order=order,
                 batch_data_source_type=batch_data_source_type,
+                terminate_on_failure=terminate_on_failure,
             )
         )
         return self

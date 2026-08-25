@@ -47,7 +47,7 @@ daitum-ui/
 │   ├── model_event.py           # ModelEvent, EditorEvent
 │   ├── styles.py                # Title, BaseStyle, ColumnStyle, ConditionalFormatting
 │   ├── icons.py                 # Icon enum
-│   ├── menu_configurations.py   # MenuConfigurations
+│   ├── menu_configuration.py    # MenuConfiguration
 │   │
 │   ├── _buildable.py            # Internal: Buildable base class, snake_to_camel
 │   ├── _composite_view.py       # Internal: CompositeView, ViewConfig

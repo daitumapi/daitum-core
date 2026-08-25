@@ -26,12 +26,7 @@ from daitum_model import DataType
 from daitum_model.formulas import CONST
 
 from .contract_model import Fixture, build_fixture
-from .specimens import (
-    ALL_OPERAND_SPECIMENS,
-    FIELD_SPECIMENS,
-    LITERAL_SPECIMENS,
-    Specimen,
-)
+from .specimens import ALL_OPERAND_SPECIMENS, FIELD_SPECIMENS, LITERAL_SPECIMENS, Specimen
 
 # A representative subset used where a full cross-product would explode combinatorially.
 CORE_SPECIMENS: list[Specimen] = [

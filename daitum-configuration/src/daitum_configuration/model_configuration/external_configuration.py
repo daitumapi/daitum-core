@@ -76,7 +76,7 @@ class OutputDataMapping(InputDataMapping):
         clear_existing: Clear the target table before writing outputs.
     """
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         entity_name: str,
         table: Table,

@@ -29,7 +29,7 @@ Main Components
     - ValidationFlag: Specifies boundary inclusion/exclusion for range validation
 
 **Value Classes:**
-    All value classes extend the generic `Value[T]` base class and are serializable
+    All value classes extend the generic `Value[T]` base class and are serialisable
     to JSON with type information.
 
     Primitive Values:
@@ -64,7 +64,7 @@ Type Safety and Validation
 ---------------------------
 All classes use @typechecked decorators and implement validation in __post_init__
 or __init__ methods to ensure type correctness at runtime. Date/time values are
-serialized to arrays for JSON compatibility ([year, month, day] format, etc.).
+serialised to arrays for JSON compatibility ([year, month, day] format, etc.).
 
 Examples
 --------
@@ -76,7 +76,7 @@ Creating values::
     # Array value
     tags = StringArrayValue(["python", "ui", "generator"])
 
-    # Date value (serializes to [2024, 1, 15])
+    # Date value (serialises to [2024, 1, 15])
     start_date = DateValue(date(2024, 1, 15))
 
     # Object reference by row number
@@ -359,7 +359,7 @@ class DateArrayValue(Value[list[date]]):
     """
 
     def __post_init__(self):
-        """Initialize a DateArrayValue with a list of date objects."""
+        """Initialise a DateArrayValue with a list of date objects."""
         if not isinstance(self.value, list):
             raise TypeError(f"Expected list for DateArrayValue, got {type(self.value).__name__}")
         if not all(
@@ -388,7 +388,7 @@ class TimeArrayValue(Value[list[time]]):
     """
     Represents an array of time values.
 
-    This class wraps a list of Python time objects and serializes each as
+    This class wraps a list of Python time objects and serialises each as
     [hour, minute, second] for the UI definition system.
 
     Raises:
@@ -396,7 +396,7 @@ class TimeArrayValue(Value[list[time]]):
     """
 
     def __post_init__(self):
-        """Initialize a TimeArrayValue with a list of time objects."""
+        """Initialise a TimeArrayValue with a list of time objects."""
         if not isinstance(self.value, list):
             raise TypeError(f"Expected list for TimeArrayValue, got {type(self.value).__name__}")
         if not all(isinstance(item, time) for item in self.value):
@@ -430,7 +430,7 @@ class DateTimeArrayValue(Value[list[datetime]]):
     """
 
     def __post_init__(self):
-        """Initialize a DateTimeArrayValue with a list of datetime objects."""
+        """Initialise a DateTimeArrayValue with a list of datetime objects."""
         if not isinstance(self.value, list):
             raise TypeError(
                 f"Expected list for DateTimeArrayValue, got {type(self.value).__name__}"
@@ -653,7 +653,7 @@ class DateMapValue(MapValue[date]):
     """
 
     def __post_init__(self):
-        """Initialize a DateMapValue with a dictionary of dates."""
+        """Initialise a DateMapValue with a dictionary of dates."""
         if not isinstance(self.value, dict):
             raise TypeError("DateMapValue expects a dict")
 
@@ -679,7 +679,7 @@ class TimeMapValue(MapValue[time]):
     """
 
     def __post_init__(self):
-        """Initialize a TimeMapValue with a dictionary of times."""
+        """Initialise a TimeMapValue with a dictionary of times."""
         if not isinstance(self.value, dict):
             raise TypeError("TimeMapValue expects a dict")
 
@@ -706,7 +706,7 @@ class DateTimeMapValue(MapValue[datetime]):
     """
 
     def __post_init__(self):
-        """Initialize a DateTimeMapValue with a dictionary of datetimes."""
+        """Initialise a DateTimeMapValue with a dictionary of datetimes."""
         if not isinstance(self.value, dict):
             raise TypeError("DateTimeMapValue expects a dict")
 
@@ -812,3 +812,32 @@ class Condition(Buildable):
     """
 
     negate: bool = False
+
+
+@json_type_info("constantCondition")
+@dataclass
+@typechecked
+class ConstantCondition(Condition):
+    """
+    A condition with a fixed, constant boolean value.
+
+    Use this when a condition slot needs a value that is always true or always false,
+    rather than one derived from a model variable or the user's permissions.
+
+    Attributes:
+        value: The constant boolean value this condition evaluates to.
+    """
+
+    value: bool = False
+
+
+def to_condition(value: "Condition | bool") -> Condition:
+    """
+    Coerce a condition-like input into a :class:`Condition`.
+
+    A raw ``bool`` becomes a :class:`ConstantCondition`; an existing :class:`Condition`
+    is returned unchanged.
+    """
+    if isinstance(value, Condition):
+        return value
+    return ConstantCondition(value=value)

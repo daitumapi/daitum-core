@@ -39,7 +39,7 @@ Default Values
 Context variables support two types of default values:
 
 **Literal Defaults:**
-    Fixed values assigned at initialization (e.g., 0, "default", True)
+    Fixed values assigned at initialisation (e.g., 0, "default", True)
 
     - Use for static initial values
     - Set once when variable is created

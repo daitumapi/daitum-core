@@ -302,7 +302,7 @@ def ROW() -> Formula:
     """
     Returns the row number of the current table row.
 
-    The ROW function mimics the behavior of Excel's ROW function. It returns the 1-based index of
+    The ROW function mimics the behaviour of Excel's ROW function. It returns the 1-based index of
     the current row when evaluated in a table. If no table context is available (for example, when
     used in a named value), the formula evaluates to an error.
 
@@ -339,7 +339,7 @@ def IF(
     """
     Returns one of two values depending on the evaluation of a condition.
 
-    This function mimics the behavior of the Excel IF function. It evaluates the condition, and if
+    This function mimics the behaviour of the Excel IF function. It evaluates the condition, and if
     true, returns the value of `true_branch`; otherwise, it returns the value of `false_branch`. If
     any input is blank or in an error state, the formula evaluates to an error.
 
@@ -398,7 +398,7 @@ def FIND(
     """
     Returns the starting position of a substring within a string.
 
-    This function mimics the behavior of the Excel FIND function. It searches for the first
+    This function mimics the behaviour of the Excel FIND function. It searches for the first
     occurrence of `match_string` within `search_string` and returns the 1-based starting position.
     An optional `start_index` argument can be provided to begin the search from a specific position
     in the string.  If any argument is blank or in an error state, the formula evaluates to an
@@ -458,7 +458,7 @@ def LEFT(
     """
     Returns a substring consisting of the leftmost characters from a string.
 
-    This function mimics the behavior of Excel's LEFT function. It extracts a substring
+    This function mimics the behaviour of Excel's LEFT function. It extracts a substring
     from the start of `input_string`, up to the number of characters specified by `length`.
     Both singular values and arrays are supported. If any argument is blank or in an error
     state, the formula evaluates to an error.
@@ -515,7 +515,7 @@ def RIGHT(
     """
     Returns a substring consisting of the rightmost characters from a string.
 
-    This function mimics the behavior of Excel's RIGHT function. It extracts a substring
+    This function mimics the behaviour of Excel's RIGHT function. It extracts a substring
     from the end of `input_string`, searching backwards up to the number of characters specified by
     `length`. Both singular values and arrays are supported. If any argument is blank or in an error
     state, the formula evaluates to an error.
@@ -609,7 +609,7 @@ def TEXT(value: Operand, formatting: Operand | str | None = None) -> Formula:
     """
     Converts a field or value to its text representation with optional formatting.
 
-    This function mimics the behavior of Excel's TEXT function. It converts `value` to a string,
+    This function mimics the behaviour of Excel's TEXT function. It converts `value` to a string,
     optionally applying a formatting pattern. Both singular values and arrays are supported. If any
     argument is blank or in an error state, the formula evaluates to an error.
 
@@ -1135,33 +1135,36 @@ def VALUES(value: Operand) -> Formula:
 
 def CONTAINS(search_array: Operand, search_value: Operand | bool | str | float | int) -> Formula:
     """
-    Checks whether a specified value exists within an array.
+    Checks whether one or more values exist within an array.
 
     The CONTAINS function determines whether a given value or model component is present in
-    the specified array. It returns a boolean result (`True` if the value is found, `False`
-    otherwise). If either input is blank or in an error state, the formula evaluates to an error.
+    the specified array. When `search_value` is a single value it returns a boolean result
+    (`True` if the value is found, `False` otherwise). When `search_value` is an array it returns
+    a BOOLEAN_ARRAY, with one entry per element of `search_value` indicating whether that element
+    is present in `search_array`. If either input is blank or in an error state, the formula
+    evaluates to an error.
 
     Arguments:
         search_array:
-            The array to search through. Must be an array type and compatible with the type of
-            `search_value`.
+            The array to search through. Must be an array type and compatible with the element
+            type of `search_value`.
 
 
         search_value:
-            The value to search for within the array. Must be the singular type corresponding to the
-            `search_array` element type (for example, INTEGER for INTEGER_ARRAY).
-            Cannot itself be an array type. A ValueError is raised if the type does not match.
+            The value or values to search for within the array. Either the singular type
+            corresponding to the `search_array` element type (for example, INTEGER for
+            INTEGER_ARRAY) or an array of that element type (for example, INTEGER_ARRAY).
+            A ValueError is raised if the element type does not match.
 
 
     Returns:
-        A boolean value indicating whether the specified `search_value` is found in the
-        `search_array`.
+        A BOOLEAN when `search_value` is a single value, or a BOOLEAN_ARRAY when `search_value`
+        is an array, indicating for each searched value whether it is found in `search_array`.
 
 
     Raises:
         ValueError: If `search_array` is not an array type.
-        ValueError: If `search_value` is an array type.
-        ValueError: If the singular type of `search_array` does not match the type of
+        ValueError: If the element type of `search_array` does not match the (element) type of
             `search_value`.
 
     Examples:
@@ -1171,6 +1174,13 @@ def CONTAINS(search_array: Operand, search_value: Operand | bool | str | float |
 
             CONTAINS([1, 2, 3], 2)
             # Returns True
+
+        Searching for multiple values:
+
+        .. code-block:: python
+
+            CONTAINS([1, 2, 3], [2, 5])
+            # Returns [True, False]
 
         Using a model component:
 
@@ -1706,7 +1716,7 @@ def DATE(
     return _functions.Date(year, month, day)
 
 
-def DATETIME(  # noqa: PLR0913
+def DATETIME(  # noqa: PLR0913, PLR0917
     year: Operand | int,
     month: Operand | int,
     day: Operand | int,
@@ -3272,7 +3282,7 @@ def UPPER(value: Operand | str) -> Formula:
 
 def WEEKDAY(date: Operand, return_type: Operand | int | None = None) -> Formula:
     """
-    Returns the day of the week for a given date, using a customizable numbering scheme.
+    Returns the day of the week for a given date, using a customisable numbering scheme.
 
     This function calculates the weekday for each date in `date` or a single date.
     The numbering of the days is determined by `return_type`, following conventions similar
@@ -4091,7 +4101,7 @@ def ROWVECTOR() -> Formula:
     it returns an empty array.
 
     Returns:
-        A formula object representing an integer array with the following behavior:
+        A formula object representing an integer array with the following behaviour:
 
         - Length matches the number of rows in the current table context
         - Element at the current row index is 1

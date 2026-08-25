@@ -10,8 +10,11 @@ The suite is split into:
 
 import json
 
-import daitum_configuration
 import pytest
+from daitum_model import DataType, ModelBuilder
+from daitum_model.formula import CONST
+
+import daitum_configuration
 from daitum_configuration import (
     BatchDataSourceType,
     BatchedDataSourceConfig,
@@ -59,8 +62,6 @@ from daitum_configuration import (
     WildcardDataFilter,
 )
 from daitum_configuration.report_property.report_property import ReportProperty
-from daitum_model import DataType, ModelBuilder
-from daitum_model.formula import CONST
 
 # ----------------------------------------------------------------------------------------
 # Imports
@@ -636,6 +637,61 @@ class TestModelConfigurationSnapshots:
         out = dv.build()
         assert out["tagSource"] == f"!!!{items.id}[{tag_field.id}]"
         assert out["specification"]["seedSource"] == f"!!!{items.id}[{seed_field.id}]"
+
+    def test_decision_variable_injective(self):
+        from daitum_configuration.model_configuration.decision_variable import DecisionVariable
+
+        m = ModelBuilder()
+        jobs = m.add_data_table("Jobs")
+        jobs.set_key_column("Name")
+        jobs.add_data_field("Name", DataType.STRING)
+        order = jobs.add_data_field("Order", DataType.INTEGER)
+        allowed = jobs.add_data_field("Allowed", DataType.STRING)
+
+        # Minimal form: no domain, both spec references null but present.
+        dv = DecisionVariable(order, dv_table=jobs, dv_type=DVType.INJECTIVE)
+        out = dv.build()
+        assert out["cellReference"] == f"!!!{jobs.id}[{order.id}]"
+        spec = out["specification"]
+        assert spec["@type"] == "injective"
+        assert spec["domainReference"] is None
+        assert spec["seedSource"] is None
+        assert "minimumValue" not in spec
+        assert "scale" not in spec
+
+        # With a domain column, domainReference is a !!!-prefixed table reference.
+        assert dv.set_domain(allowed) is dv
+        out = dv.build()
+        assert out["specification"]["domainReference"] == f"!!!{jobs.id}[{allowed.id}]"
+
+    def test_decision_variable_injective_rejects_invalid(self):
+        from daitum_configuration.model_configuration.decision_variable import DecisionVariable
+
+        m = ModelBuilder()
+        p = m.add_parameter("DV", DataType.INTEGER, 0)
+        # A model-level (parameter) injective DV is rejected.
+        with pytest.raises(ValueError, match="Injective decision variables require a table"):
+            DecisionVariable(p, dv_type=DVType.INJECTIVE)
+
+        jobs = m.add_data_table("Jobs")
+        jobs.set_key_column("Name")
+        jobs.add_data_field("Name", DataType.STRING)
+        order = jobs.add_data_field("Order", DataType.INTEGER)
+        cost = jobs.add_data_field("Cost", DataType.DECIMAL)
+
+        # A non-integer decision column is rejected.
+        with pytest.raises(ValueError, match="not integer"):
+            DecisionVariable(cost, dv_table=jobs, dv_type=DVType.INJECTIVE)
+
+        # A non-string domain column is rejected.
+        dv = DecisionVariable(order, dv_table=jobs, dv_type=DVType.INJECTIVE)
+        with pytest.raises(ValueError, match="not string"):
+            dv.set_domain(order)
+
+        # set_domain on a non-injective DV is rejected.
+        range_dv = DecisionVariable(order, dv_table=jobs, dv_type=DVType.RANGE)
+        with pytest.raises(ValueError, match="only valid for DVType.INJECTIVE"):
+            range_dv.set_domain(order)
 
     def test_objective(self):
         m = ModelBuilder()

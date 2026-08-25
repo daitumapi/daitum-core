@@ -18,16 +18,12 @@ import json
 from pathlib import Path
 
 import pytest
+from daitum_model import DataType, Formula, ModelBuilder
+from daitum_model import formulas as formulas_module
+from daitum_model.decoding import LoadContext
 from fixtures.contract_cases import Case, function_cases, operator_cases
 from fixtures.contract_model import build_fixture
-from fixtures.drift_corpus import (
-    build_drift_cases,
-    build_operator_drift_cases,
-    capture_all,
-)
-
-from daitum_model import DataType, Formula, ModelBuilder, formulas as formulas_module
-from daitum_model.decoding import LoadContext
+from fixtures.drift_corpus import build_drift_cases, build_operator_drift_cases, capture_all
 
 GOLDEN_DIR = Path(__file__).parent / "fixtures"
 FUNCTION_GOLDEN = GOLDEN_DIR / "formula_function_golden.json"

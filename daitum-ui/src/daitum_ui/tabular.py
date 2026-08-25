@@ -65,7 +65,7 @@ class ViewField(Buildable):
     Defines the configuration and behaviour of a single field within a view.
 
     This class acts as a declarative definition only; it does not contain any
-    runtime UI logic. All configuration is serialized via `Buildable` for
+    runtime UI logic. All configuration is serialised via `Buildable` for
     consumption by the UI renderer.
 
     Args:
@@ -291,7 +291,7 @@ class ViewField(Buildable):
                 is set to FIELD; otherwise, it is treated as a NAMED_VALUE.
 
             behaviour (DefaultValueBehaviour, optional):
-                Controls the behavior of the default value override, such as showing a reset icon.
+                Controls the behaviour of the default value override, such as showing a reset icon.
                 Defaults to `DefaultValueBehaviour.DEFAULT`.
         """
         value_type = (
@@ -366,7 +366,7 @@ class ViewField(Buildable):
         """
         Update the styling properties for the header cell of this column.
 
-        Ensures that the header_style is initialized before applying updates.
+        Ensures that the header_style is initialised before applying updates.
 
         Args:
             **kwargs: Style attributes to set on the column header's style.
@@ -382,7 +382,7 @@ class ViewField(Buildable):
         """
         Update the styling properties applied when this column is read-only.
 
-        Ensures that the read_only_style is initialized before applying updates.
+        Ensures that the read_only_style is initialised before applying updates.
 
         Args:
             **kwargs: Style attributes to set on the read-only column style.
@@ -398,9 +398,9 @@ class ViewField(Buildable):
         self, frozen: bool | None = None, editor: Editor | None = None
     ) -> "ViewField":
         """
-        Configure column-level settings such as freezing behavior and editor configuration.
+        Configure column-level settings such as freezing behaviour and editor configuration.
 
-        This method ensures the column style is initialized, then applies the provided
+        This method ensures the column style is initialised, then applies the provided
         settings to control whether the column is frozen (i.e., remains visible during
         horizontal scrolling) and/or sets the editor used for the column's cells.
 
@@ -524,9 +524,9 @@ class BaseTableView(BaseView, FilterableView):
         can_sort (bool): Whether sorting is enabled.
         can_filter (bool): Whether filtering is enabled.
         show_band_color (bool): Whether to apply alternating row banding.
-        band_odd_row_background_color (Optional[str]): Background color for odd banded rows.
-        band_even_row_background_color (Optional[str]): Background color for even banded rows.
-        background_color (Optional[str]): Background color for the table itself.
+        band_odd_row_background_color (Optional[str]): Background colour for odd banded rows.
+        band_even_row_background_color (Optional[str]): Background colour for even banded rows.
+        background_color (Optional[str]): Background colour for the table itself.
         row_height (Optional[int]): Fixed height for each row.
         column_width_adjustable (bool): Whether users can manually resize columns.
         header_style (Optional[BaseStyle]): Style applied to all headers.

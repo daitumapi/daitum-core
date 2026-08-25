@@ -15,12 +15,12 @@
 """
 Tabbed view components for the UI Generator framework.
 
-This module provides the TabbedView class, which enables organizing multiple views
+This module provides the TabbedView class, which enables organising multiple views
 into a tabbed interface. Tabbed views are container components that allow users to
 switch between different content sections using tab navigation, improving usability
 and screen space efficiency.
 
-Tabbed views create organized, multi-section interfaces where each tab contains a
+Tabbed views create organised, multi-section interfaces where each tab contains a
 complete view (table, chart, form, etc.). Only one tab's content is visible at a
 time, with users clicking tab headers to switch between sections.
 
@@ -37,7 +37,7 @@ Key features:
 
 Classes:
     - TabDefinition: Configuration for a single tab within a tabbed view
-    - TabbedView: Container view organizing multiple views as tabs
+    - TabbedView: Container view organising multiple views as tabs
 
 Example:
     >>> # Create child views for tabs

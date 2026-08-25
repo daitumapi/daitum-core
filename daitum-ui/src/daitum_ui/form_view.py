@@ -41,11 +41,13 @@ Classes:
 
 Example:
     >>> builder = UiBuilder()
+    >>> filter_mode = MatchRowFilterMode()
+    >>> filter_mode.set_filter_row("selected_customer_row")
     >>> form = builder.add_form_view(
     ...     display_name="Customer Details",
     ...     total_rows=6,
     ...     table=customers_table,
-    ...     match_row=MatchRowFilterMode.FIRST_ROW
+    ...     filter_mode=filter_mode,
     ... )
     >>> form.set_columns(num_columns=2, width="250px")
     >>>
@@ -88,21 +90,22 @@ from daitum_ui._data import (
     ModelVariable,
     ModelVariableType,
 )
+from daitum_ui._events import EditorEventType
 from daitum_ui.base_view import BaseView
 from daitum_ui.data import (
     DataValidationType,
     DecimalValue,
     DefaultValueBehaviour,
     DefaultValueType,
+    FilterMode,
     IntegerValue,
-    MatchRowFilterMode,
     ObjectValue,
     StringValue,
     ValidationFlag,
     Value,
 )
 from daitum_ui.elements import BaseElement
-from daitum_ui.model_event import ModelEvent
+from daitum_ui.model_event import EditorEvent, ModelEvent
 from daitum_ui.styles import HorizontalAlignment, IconConfig
 
 from ._link_destination import LinkDestination, ModelEditorLinkDestination
@@ -153,7 +156,7 @@ class FormVariant(Enum):
 
 class FormResize(Enum):
     """
-    Controls the resize behavior of resizable elements such as text areas.
+    Controls the resize behaviour of resizable elements such as text areas.
 
     Members:
         NONE:
@@ -239,6 +242,12 @@ class FormElement(BaseElement):
 
         tooltip_field (Optional[str]):
             The field ID or named value ID containing the value to display in the tooltip.
+
+        editor_event (Optional[EditorEvent]):
+            An event run when the user changes this element's value, instead of the element
+            writing its own bound value. The picked value reaches the event as its
+            ``editorValue`` context entry, and the event is responsible for every write it
+            wants to make.
     """
 
     data_source_id: ModelVariable | None = None
@@ -253,6 +262,7 @@ class FormElement(BaseElement):
     data_validation_rule: DataValidationRule | None = None
     tooltip_field: str | None = None
     display_format: str | None = None
+    editor_event: EditorEvent | None = None
 
     def __post_init__(self):
         super().__init__()
@@ -275,7 +285,7 @@ class FormElement(BaseElement):
                 FIELD; otherwise, to a NAMED_VALUE.
 
             behaviour (DefaultValueBehaviour, optional):
-                Controls the behavior of the default value override.
+                Controls the behaviour of the default value override.
         """
         value_type = (
             DefaultValueType.FIELD if isinstance(value, Field) else DefaultValueType.NAMED_VALUE
@@ -428,6 +438,26 @@ class FormElement(BaseElement):
     def set_tooltip_field(self, field: str) -> "FormElement":
         """Sets the field ID or named value ID to use as the tooltip text."""
         self.tooltip_field = field
+        return self
+
+    def set_on_change_event(self, event: ModelEvent) -> "FormElement":
+        """
+        Assigns an editor event run when the user changes this element's value.
+
+        When set, the element no longer writes its own bound value on change; the event is
+        run instead, receiving the picked value as its ``editorValue`` context entry, and is
+        responsible for every write it wants to make. Only ``ON_CHANGE`` applies to form
+        elements — buttons are triggered through :attr:`FormButton.on_click` instead.
+
+        Args:
+            event (ModelEvent): The event to execute when the element's value changes.
+
+        Raises:
+            ValueError: If an editor event has already been set.
+        """
+        if self.editor_event is not None:
+            raise ValueError("ERROR - Editor Event has already been set")
+        self.editor_event = EditorEvent(EditorEventType.ON_CHANGE, event)
         return self
 
 
@@ -835,9 +865,11 @@ class FormView(BaseView):
         source_table (Optional[str]): The ID of the source table, if provided.
         form_columns (Optional[List[_FormColumn]]): Column layout definitions for the form.
         form_elements (List[FormElement]): The interactive components within the form.
-        match_row_filter_mode (Optional[MatchRowFilterMode]): A MatchRowFilterMode object holding
-            a context variable which refers to the row of the provided source table to retrieve
-            data from.
+        filter_mode (Optional[FilterMode]): The FilterMode selecting which single row of the
+            source table the form displays. A `MatchRowFilterMode` resolves the row from a
+            context variable holding its index (or, for a table with an id field, its key); a
+            `MatchFieldFilterMode` resolves it by matching a context variable's value against
+            `filter_target_field`, so a form can be pointed at a row by any field.
     """
 
     def __init__(
@@ -846,7 +878,7 @@ class FormView(BaseView):
         hidden: bool = False,
         total_rows: int | None = None,
         table: Table | None = None,
-        match_row: MatchRowFilterMode | None = None,
+        filter_mode: FilterMode | None = None,
     ):
         super().__init__(hidden)
         if display_name is not None:
@@ -861,18 +893,23 @@ class FormView(BaseView):
         self.form_elements: list[FormElement] = []
 
         if self._table is not None:
-            self.match_row_filter_mode = match_row
+            self.filter_mode = filter_mode
 
     def set_total_rows(self, rows: int) -> "FormView":
         """Sets the total number of rows in the form layout."""
         self.total_rows = rows
         return self
 
-    def set_table(self, table: Table, match_row: MatchRowFilterMode | None = None) -> "FormView":
-        """Sets the source data table and optional row-matching mode for this form."""
+    def set_table(self, table: Table, filter_mode: FilterMode | None = None) -> "FormView":
+        """Sets the source data table and optional row-selecting filter mode for this form.
+
+        ``filter_mode`` may be any :class:`~daitum_ui.data.FilterMode` — a
+        :class:`~daitum_ui.data.MatchRowFilterMode` (select the row by index or key) or a
+        :class:`~daitum_ui.data.MatchFieldFilterMode` (select the row by matching a field value).
+        """
         self._table = table
         self.source_table = table.id
-        self.match_row_filter_mode = match_row
+        self.filter_mode = filter_mode
         return self
 
     def add_column(self, width: str):
@@ -1399,7 +1436,7 @@ class FormView(BaseView):
         self.form_elements.append(element)
         return element
 
-    def add_model_editor_link(  # noqa: PLR0913
+    def add_model_editor_link(  # noqa: PLR0913, PLR0917
         self,
         row: int,
         column: int,

@@ -239,7 +239,7 @@ Customizing button appearance::
         title="Custom Styling"
     )
 
-    # Custom save button with icon and colors
+    # Custom save button with icon and colours
     styled_modal.add_save_button(
         text_color="#ffffff",
         background_color="#4caf50",
