@@ -9,6 +9,7 @@ reconstruct the new constructs faithfully.
 
 from daitum_model import DataType, ModelBuilder
 from daitum_model.decoding import LoadContext
+
 from daitum_ui._decoders.views import decode_view
 from daitum_ui.elements import Button
 from daitum_ui.model_event import ModelEvent

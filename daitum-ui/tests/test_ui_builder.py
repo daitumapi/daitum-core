@@ -2,8 +2,9 @@
 Tests for daitum_ui: UiBuilder instantiation, view creation, and serialisation.
 """
 
-import daitum_ui
 from daitum_model import DataType, ModelBuilder
+
+import daitum_ui
 from daitum_ui import icons, navigation_items, styles, tabular
 from daitum_ui.ui_builder import UiBuilder
 

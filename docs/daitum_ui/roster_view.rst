@@ -18,9 +18,17 @@ A roster is composed of three parts:
 Cards rendered in a shift column can optionally be made drag-and-droppable by
 attaching a :class:`~daitum_ui.roster_view.RosterTaskDefinition` to the
 column. Drags are always within a single column — a card is dragged from one
-row onto another row of the same column. Only rows whose drop-enabled field
-is true may receive a drop, and each drop records where the card landed by
-writing the target row's and/or column's identity back to the model.
+row onto another row of the same column. Drop behaviour is configured one of
+two mutually exclusive ways:
+
+* **Swap fields** (``add_swap_field``) — the simple path. On drop, the values
+  of the registered fields are exchanged between the source and target rows.
+  Usable when the roster is backed by a directly editable table and cards move
+  within a single column.
+* **Drop writes** (``add_drop_write``) — for rosters over a derived projection,
+  or moves that change which column a card is in. Only rows whose drop-enabled
+  field is true may receive a drop, and each drop records where the card landed
+  by writing the target row's and/or column's identity back to the model.
 
 Basic setup
 -----------
@@ -67,6 +75,31 @@ by mapping each placeholder to that column's source field:
         column.add_template_field_mapping(
             TemplateBindingKey("[end]"), roster_table.get_field(f"end_{shift}")
         )
+
+Swapping fields on drop
+-----------------------
+
+When the roster is backed by a directly editable table and cards move within a
+single column, ``add_swap_field`` is all that is needed: on drop, the listed
+fields' values are exchanged between the source and target rows. The column's
+``table_field_reference`` is typically a calculation that recomputes from the
+swapped values; a data field that should also move must be swapped explicitly.
+
+.. code-block:: python
+
+    from daitum_ui.roster_view import RosterTaskDefinition
+
+    task_def = RosterTaskDefinition(
+        enable_drag_and_drop_field=roster_table.get_field("available"),
+        highlight_whole_column_on_drag=True,
+    )
+    task_def.add_swap_field(roster_table.get_field("staff"))
+
+    monday = roster_view.add_shift_column(
+        table_field_reference=roster_table.get_field("monday_shift"),
+        minimum_width="80px",
+    )
+    monday.set_task_definition(task_def)
 
 Drag-and-drop
 -------------

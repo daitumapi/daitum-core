@@ -212,10 +212,13 @@ def _roster_column_template(data: dict[str, Any], ctx: LoadContext) -> RosterCol
 
 
 def _roster_task_template(data: dict[str, Any], ctx: LoadContext) -> RosterTaskDefinition:
+    # dropEnabledField is present only for the drop-write path; swap-based task definitions
+    # omit it. The walk restores swap_fields/drop_writes; the factory just satisfies the ctor.
+    drop_enabled = data.get("dropEnabledField")
     return RosterTaskDefinition(
         resolve_field(data["enableDragAndDropField"], ctx),
-        resolve_field(data["dropEnabledField"], ctx),
         data["highlightWholeColumnOnDrag"],
+        resolve_field(drop_enabled, ctx) if drop_enabled is not None else None,
     )
 
 

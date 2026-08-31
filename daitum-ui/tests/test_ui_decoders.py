@@ -10,6 +10,7 @@ import json
 
 import pytest
 from daitum_model import DataType, ModelBuilder
+
 from daitum_ui._data_menu_item import DataMenuEntryType
 from daitum_ui._decoders.ui import decode_ui
 from daitum_ui._decoders.views import decode_view
@@ -264,12 +265,66 @@ class TestViewRoundTrip:
 
         self._roundtrip(ui, view, model)
 
+    def test_roster_view_with_swap_fields(self):
+        from daitum_ui.roster_view import RosterTaskDefinition
+
+        model, _, table = self._roster_model()
+
+        ui = UiBuilder()
+        view = ui.add_roster_view(table, display_name="Roster")
+        task_def = RosterTaskDefinition(
+            enable_drag_and_drop_field=table.get_field("Draggable"),
+            highlight_whole_column_on_drag=True,
+        )
+        task_def.add_swap_field(table.get_field("Staff"))
+        task_def.add_swap_field(table.get_field("Day"))
+        column = view.add_shift_column(table_field_reference=table.get_field("Staff"))
+        column.set_task_definition(task_def)
+
+        built = view.build()
+        task = built["viewDefinition"]["shiftColumns"][0]["taskDefinition"]
+        assert task["swapFields"] == ["Staff", "Day"]
+        # The swap path carries no drop-enabled gate or drop writes.
+        assert "dropEnabledField" not in task
+        assert "dropWrites" not in task
+
+        self._roundtrip(ui, view, model)
+
+    def test_roster_swap_and_drop_write_are_mutually_exclusive(self):
+        from daitum_ui.roster_view import RosterAxis, RosterTaskDefinition
+
+        _, _, table = self._roster_model()
+
+        swap_first = RosterTaskDefinition(
+            enable_drag_and_drop_field=table.get_field("Draggable"),
+            highlight_whole_column_on_drag=True,
+            drop_enabled_field=table.get_field("Droppable"),
+        )
+        swap_first.add_swap_field(table.get_field("Staff"))
+        with pytest.raises(ValueError, match="Cannot combine drop writes with swap fields"):
+            swap_first.add_drop_write(
+                RosterAxis.ROW, table.get_field("Staff"), table.get_field("RowEditable")
+            )
+
+        drop_first = RosterTaskDefinition(
+            enable_drag_and_drop_field=table.get_field("Draggable"),
+            highlight_whole_column_on_drag=True,
+            drop_enabled_field=table.get_field("Droppable"),
+        )
+        drop_first.add_drop_write(
+            RosterAxis.ROW, table.get_field("Staff"), table.get_field("RowEditable")
+        )
+        with pytest.raises(ValueError, match="Cannot combine swap fields with drop writes"):
+            drop_first.add_swap_field(table.get_field("Day"))
+
     def test_roster_drop_write_rejects_duplicate_axis(self):
         from daitum_ui.roster_view import RosterAxis, RosterTaskDefinition
 
         _, _, table = self._roster_model()
         task_def = RosterTaskDefinition(
-            table.get_field("Draggable"), table.get_field("Droppable"), True
+            enable_drag_and_drop_field=table.get_field("Draggable"),
+            highlight_whole_column_on_drag=True,
+            drop_enabled_field=table.get_field("Droppable"),
         )
         task_def.add_drop_write(
             RosterAxis.ROW, table.get_field("Staff"), table.get_field("RowEditable")
@@ -284,7 +339,9 @@ class TestViewRoundTrip:
 
         _, _, table = self._roster_model()
         task_def = RosterTaskDefinition(
-            table.get_field("Draggable"), table.get_field("Droppable"), True
+            enable_drag_and_drop_field=table.get_field("Draggable"),
+            highlight_whole_column_on_drag=True,
+            drop_enabled_field=table.get_field("Droppable"),
         )
         with pytest.raises(ValueError, match="must be an object reference"):
             task_def.add_drop_write(
@@ -298,7 +355,9 @@ class TestViewRoundTrip:
 
         _, staff, table = self._roster_model()
         task_def = RosterTaskDefinition(
-            table.get_field("Draggable"), table.get_field("Droppable"), True
+            enable_drag_and_drop_field=table.get_field("Draggable"),
+            highlight_whole_column_on_drag=True,
+            drop_enabled_field=table.get_field("Droppable"),
         )
         with pytest.raises(ValueError, match="target_reference_field.*must be an object reference"):
             task_def.add_drop_write(
@@ -314,7 +373,9 @@ class TestViewRoundTrip:
 
         _, _, table = self._roster_model()
         task_def = RosterTaskDefinition(
-            table.get_field("Draggable"), table.get_field("Droppable"), True
+            enable_drag_and_drop_field=table.get_field("Draggable"),
+            highlight_whole_column_on_drag=True,
+            drop_enabled_field=table.get_field("Droppable"),
         )
         with pytest.raises(ValueError, match="must belong to the table"):
             task_def.add_drop_write(
@@ -333,7 +394,9 @@ class TestViewRoundTrip:
         # the written value's type cannot be stored in the target field.
         staff.add_object_reference_field("AssignedDay", model.get_table("Day"))
         task_def = RosterTaskDefinition(
-            table.get_field("Draggable"), table.get_field("Droppable"), True
+            enable_drag_and_drop_field=table.get_field("Draggable"),
+            highlight_whole_column_on_drag=True,
+            drop_enabled_field=table.get_field("Droppable"),
         )
         with pytest.raises(ValueError, match="must reference the same table as identity field"):
             task_def.add_drop_write(
@@ -351,7 +414,9 @@ class TestViewRoundTrip:
         # The target field is a plain STRING, not an object reference.
         staff.add_data_field("Note", DataType.STRING)
         task_def = RosterTaskDefinition(
-            table.get_field("Draggable"), table.get_field("Droppable"), True
+            enable_drag_and_drop_field=table.get_field("Draggable"),
+            highlight_whole_column_on_drag=True,
+            drop_enabled_field=table.get_field("Droppable"),
         )
         with pytest.raises(ValueError, match="must reference the same table as identity field"):
             task_def.add_drop_write(
@@ -366,8 +431,7 @@ class TestViewRoundTrip:
         # Both CardView and the Card element declare @type "card". A view decodes through the
         # BaseView registry (-> CardView); a nested value decodes through the leaf @type map
         # (-> Card element). The two registries are independent — pin that they stay distinct.
-        from daitum_ui._decoders.leaves import register as register_leaves
-        from daitum_ui._decoders.leaves import resolve_at_type
+        from daitum_ui._decoders.leaves import register as register_leaves, resolve_at_type
         from daitum_ui.card_view import CardView
         from daitum_ui.elements import Card
 
@@ -468,6 +532,7 @@ class TestRealisticLoadIsStubFree:
 
     def test_resolvers_fall_back_to_stub_only_without_model(self):
         from daitum_model.decoding import LoadContext
+
         from daitum_ui._decoders._stubs import resolve_table
 
         stub = resolve_table("SomeTable", LoadContext())  # ctx.model is None
@@ -586,7 +651,9 @@ class TestTemplateFactoryFragilityGuard:
         cat_task = CategoryGanttTaskDefinition(table.get_field("ID"))
         tree_task = TreeGridGanttTaskDefinition(table.get_field("ID"))
         roster_task = RosterTaskDefinition(
-            table.get_field("Active"), table.get_field("Active"), True
+            enable_drag_and_drop_field=table.get_field("Active"),
+            highlight_whole_column_on_drag=True,
+            drop_enabled_field=table.get_field("Active"),
         )
         roster_drop_write = RosterDropWrite(
             RosterAxis.ROW, table.get_field("ID"), table.get_field("Active")
@@ -718,6 +785,7 @@ class TestNegativeDecoding:
 
     def test_unsupported_nested_at_type_raises(self):
         from daitum_model.decoding import LoadError
+
         from daitum_ui._decoders._value import decode_value
 
         with pytest.raises(LoadError, match="Unsupported UI @type"):

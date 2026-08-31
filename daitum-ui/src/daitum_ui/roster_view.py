@@ -158,11 +158,25 @@ class RosterTaskDefinition(Buildable):
     them — it does not affect rendering, data binding, or which fields are
     displayed.
 
-    A card is dragged from one row onto another row of the same column. Only
-    rows whose `drop_enabled_field` is true may receive a drop. When a drop
-    occurs, each registered `drop_write` records where the card landed:
-    writing the target row's and/or column's identity back to the model,
-    optionally redirected to another table via an edit override.
+    A card is dragged from one row onto another row of the same column. Drop
+    behaviour is configured one of two ways:
+
+    - **Swap fields** (`add_swap_field`): on drop, the values of the
+      registered `swap_fields` are exchanged between the source and target
+      rows. This is the simple path — usable when the roster is backed by a
+      directly editable table and cards move within a single column. The
+      column's `table_field_reference` is typically a calculation that
+      recomputes from the swapped values; a data field that should also move
+      must be added to `swap_fields` explicitly.
+    - **Drop writes** (`add_drop_write`): on drop, each registered
+      `drop_write` records where the card landed by writing the target row's
+      and/or column's identity back to the model, optionally redirected to
+      another table via an edit override. Use this when the swap path cannot
+      apply — a roster over a derived projection, or a move that changes which
+      column a card is in. Requires `drop_enabled_field` to gate which rows
+      may receive a drop.
+
+    The two paths are mutually exclusive on a single task definition.
 
     Attributes:
         enable_drag_and_drop_field:
@@ -170,12 +184,17 @@ class RosterTaskDefinition(Buildable):
             gates whether a given card is draggable.
         drop_enabled_field:
             Field ID of a per-row boolean field gating whether a given row
-            may receive a drop.
+            may receive a drop. Only used by the drop-write path; `None` for
+            swap-based task definitions.
         highlight_whole_column_on_drag:
             UI hint controlling drop-target highlighting. If True, every
             card in the column is shaded green/red up-front (so the user
             can see which rows are valid drops before dragging over them).
             If False, only the card currently hovered is highlighted.
+        swap_fields:
+            Complete list of field IDs whose values are swapped between the
+            source and target rows when a drop occurs. Populated by
+            `add_swap_field`; mutually exclusive with `drop_writes`.
         required_value_fields:
             Field IDs on the dragged card carrying scalar requirement
             values. Paired positionally with `capability_fields` to gate
@@ -188,29 +207,65 @@ class RosterTaskDefinition(Buildable):
             aligned positionally with `required_value_fields`.
         drop_writes:
             The writes performed when a card is dropped, in the order added.
+            Populated by `add_drop_write`; mutually exclusive with
+            `swap_fields`.
     """
 
     def __init__(
         self,
         enable_drag_and_drop_field: Field,
-        drop_enabled_field: Field,
         highlight_whole_column_on_drag: bool,
+        drop_enabled_field: Field | None = None,
     ):
         """
         Args:
             enable_drag_and_drop_field:
                 Per-row boolean field gating whether each card is draggable.
-            drop_enabled_field:
-                Per-row boolean field gating whether a row may receive a drop.
             highlight_whole_column_on_drag:
                 If True, highlight the whole destination column while dragging.
+            drop_enabled_field:
+                Per-row boolean field gating whether a row may receive a drop.
+                Required for the drop-write path (`add_drop_write`); leave as
+                `None` for the swap path (`add_swap_field`).
         """
         self.enable_drag_and_drop_field = enable_drag_and_drop_field.id
-        self.drop_enabled_field = drop_enabled_field.id
+        self.drop_enabled_field = drop_enabled_field.id if drop_enabled_field is not None else None
         self.highlight_whole_column_on_drag: bool = highlight_whole_column_on_drag
+        self.swap_fields: list[str] | None = None
         self.required_value_fields: list[str] | None = None
         self.capability_fields: list[str] | None = None
         self.drop_writes: list[RosterDropWrite] | None = None
+
+    def add_swap_field(self, field: Field) -> "RosterTaskDefinition":
+        """
+        Register a field whose value is swapped between the source and
+        target rows on drop.
+
+        This is the simple drop path, usable when the roster is backed by a
+        directly editable table and cards move within a single column. It is
+        mutually exclusive with `add_drop_write`.
+
+        Args:
+            field:
+                Field whose value moves with the card: on drop, the source
+                row's value and the target row's value are exchanged.
+
+        Returns:
+            This `RosterTaskDefinition`, for fluent chaining.
+
+        Raises:
+            ValueError: If a drop write has already been registered via
+                `add_drop_write`.
+        """
+        if self.drop_writes is not None:
+            raise ValueError(
+                "Cannot combine swap fields with drop writes on a single task definition; "
+                "use add_swap_field or add_drop_write, not both."
+            )
+        if self.swap_fields is None:
+            self.swap_fields = []
+        self.swap_fields.append(field.id)
+        return self
 
     def add_drop_write(  # noqa: PLR0913, PLR0917
         self,
@@ -258,14 +313,20 @@ class RosterTaskDefinition(Buildable):
             This `RosterTaskDefinition`, for fluent chaining.
 
         Raises:
-            ValueError: If a drop write for `axis` already exists; if
-                `identity_field` is not an object reference; if only one of
+            ValueError: If swap fields have been registered via
+                `add_swap_field`; if a drop write for `axis` already exists;
+                if `identity_field` is not an object reference; if only one of
                 `target_reference_field` and `target_field_id` is supplied;
                 if `target_reference_field` is not an object reference; if
                 `target_field_id` does not belong to the table
                 `target_reference_field` references; or if `target_field_id`
                 does not reference the same table as `identity_field`.
         """
+        if self.swap_fields is not None:
+            raise ValueError(
+                "Cannot combine drop writes with swap fields on a single task definition; "
+                "use add_swap_field or add_drop_write, not both."
+            )
         if self.drop_writes and any(write.axis == axis for write in self.drop_writes):
             raise ValueError(
                 f"A {axis.value} drop write is already defined; each axis may be written once."

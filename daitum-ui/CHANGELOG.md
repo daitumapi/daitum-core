@@ -1,5 +1,19 @@
 # Changelog
 
+## [3.1.0]
+
+### Added
+- `RosterTaskDefinition.add_swap_field(field)` — restored. On drop, the values of the registered
+  swap fields are exchanged between the source and target rows. This is the simple drop path, usable
+  when the roster is backed by a directly editable table and cards move within a single column; it
+  remains supported on the platform. It had been removed in 3.0.0 in favour of `add_drop_write`,
+  which is the path for rosters over a derived projection or moves that change a card's column.
+  The two paths are mutually exclusive on a single task definition — mixing them raises `ValueError`.
+- `RosterTaskDefinition`'s `drop_enabled_field` constructor argument is now optional and moved to
+  the end of the parameter list. It is required only for the `add_drop_write` path; swap-based task
+  definitions leave it unset. Callers passing all three arguments by keyword are unaffected;
+  positional callers that supplied `drop_enabled_field` second must switch to keyword arguments.
+
 ## [3.0.0]
 
 ### Added
