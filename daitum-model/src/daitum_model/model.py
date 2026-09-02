@@ -25,7 +25,7 @@ import json
 import os
 import pathlib
 import warnings
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from typeguard import typechecked
 
@@ -38,6 +38,9 @@ from .named_values import Calculation, Parameter
 from .tables import DataTable, Table
 from .tracking import AutoCapture, Baseline, TrackingGroup
 from .union_table import UnionSource, UnionTable
+
+if TYPE_CHECKING:
+    from .validation import ValidationReport
 
 #: Top-level keys :meth:`ModelBuilder.build` always emits.
 _ALWAYS_MODEL_KEYS: tuple[str, ...] = (
@@ -539,6 +542,11 @@ class ModelBuilder:
 
         Args:
             model_directory: Destination directory. Parents are created as needed.
+
+        Raises:
+            ModelValidationError: If the model is structurally invalid. Validation runs
+                (via :meth:`build`) before any file is written, so an invalid model
+                produces no output.
         """
         root = pathlib.Path(model_directory)
         targets = [
@@ -550,6 +558,24 @@ class ModelBuilder:
             path.parent.mkdir(parents=True, exist_ok=True)
             with path.open("w", encoding="utf-8") as fp:
                 json.dump(payload, fp, indent=2, sort_keys=True)
+
+    def validate(self) -> "ValidationReport":
+        """
+        Run the structural validation pass over this model without raising.
+
+        Detects circular dependencies, references to fields or tables that do not exist,
+        and missing source fields, returning every problem in a
+        :class:`~daitum_model.validation.ValidationReport`. :meth:`build` (and therefore
+        :meth:`write_to_file`) calls this and raises
+        :class:`~daitum_model.validation.ModelValidationError` when the report is not
+        empty; call this directly to inspect problems programmatically.
+
+        Returns:
+            The validation report (``report.ok`` is ``True`` when the model is valid).
+        """
+        from daitum_model.validation import validate_model  # noqa: PLC0415
+
+        return validate_model(self)
 
     def build(self) -> dict[str, Any]:
         """
@@ -569,8 +595,12 @@ class ModelBuilder:
 
         Raises:
             ValueError: If a change-tracking declaration is invalid.
+            ModelValidationError: If the model is structurally invalid (circular
+                dependencies, references to fields or tables that do not exist, or missing
+                source fields). Every problem found is reported at once.
         """
         self._validate_tracking()
+        self.validate().raise_if_errors()
 
         # Keyed by the shared ``MODEL_DEFINITION_KEYS`` vocabulary (via its always/conditional
         # split) so ``build`` and the decoder can never disagree on the top-level key set.

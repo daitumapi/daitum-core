@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.2.0]
+
+### Added
+- Model-structure validation framework (new `daitum_model.validation` subpackage) that
+  detects invalid models at build time instead of on upload to the platform.
+  `ModelBuilder.build()` (and therefore `write_to_file()`) now runs the pass and raises
+  `ModelValidationError` — listing every problem found, not just the first — while the new
+  `ModelBuilder.validate()` returns a `ValidationReport` without raising. `validate_model`,
+  `ValidationReport`, `ValidationIssue`, `ModelValidationError`, `CircularDependencyError`,
+  `FieldReferenceError`, `MissingSourceFieldError` and `TableReferenceError` are re-exported
+  from the package root. This is distinct from the runtime data-quality `Validator`
+  hierarchy.
+- Rules covering circular table dependencies (never allowed, including via formula
+  references between tables), circular calculation dependencies, and circular field
+  dependencies within a table (allowed only for a combo-field pair with opposite
+  `calculate_in_optimiser` values, which never resolves as a real cycle).
+- Rules verifying that field, calculation and table references resolve, that a derived
+  table's group-by / filter / sort / aggregated source fields exist on its source table,
+  that join-condition match fields exist, that union source tables and field mappings
+  resolve, and that object/map reference fields point at a table in the model.
+- The framework is a registry of independent rules, so adding a new check is a single new
+  rule module.
+
 ## [2.1.0]
 
 ### Added

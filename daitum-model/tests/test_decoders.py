@@ -29,6 +29,7 @@ from daitum_model import (
     JoinType,
     MapDataType,
     ModelBuilder,
+    ModelValidationError,
     ObjectDataType,
     Parameter,
     SortDirection,
@@ -879,10 +880,10 @@ class TestModelRoundTrip:
         decoded = decode_model(built, LoadContext())
         assert decoded.build() == built
 
-    def test_mutually_referencing_tables_are_rejected_as_a_cycle(self):
+    def test_mutually_referencing_tables_are_rejected_as_a_cycle_at_build(self):
         # Daitum forbids circular table dependencies, including through object references: a
-        # model where A references B and B references A is invalid and cannot be ordered for a
-        # build, so the decoder must reject it with a clear LoadError rather than guessing.
+        # model where A references B and B references A is invalid. Model validation now
+        # rejects this at build time (before serialisation) rather than only on decode.
         model = ModelBuilder()
         a = model.add_data_table("A")
         a.add_data_field("AID", DataType.STRING)
@@ -893,9 +894,48 @@ class TestModelRoundTrip:
         a.add_object_reference_field("toB", b)
         b.add_object_reference_field("toA", a)
 
-        built = model.build()
+        with pytest.raises(ModelValidationError, match="[Cc]ircular"):
+            model.build()
+
+    def test_decoder_rejects_cyclic_table_json(self):
+        # The decoder keeps its own cycle guard for JSON assembled outside the builder (where
+        # build-time validation never ran). Feed it hand-built cyclic table definitions.
+        cyclic = {
+            "calculationDefinitions": {},
+            "parameterDefinitions": {},
+            "optimisationCheckNamedValue": None,
+            "partialEvaluationAllowed": True,
+            "tableDefinitions": {
+                "A": {
+                    "@type": "data",
+                    "id": "A",
+                    "keyColumnField": "AID",
+                    "fieldDefinitions": {
+                        "AID": {"@type": "data", "id": "AID", "dataType": "STRING"},
+                        "toB": {
+                            "@type": "data",
+                            "id": "toB",
+                            "dataType": {"type": "OBJECT", "tableId": "B"},
+                        },
+                    },
+                },
+                "B": {
+                    "@type": "data",
+                    "id": "B",
+                    "keyColumnField": "BID",
+                    "fieldDefinitions": {
+                        "BID": {"@type": "data", "id": "BID", "dataType": "STRING"},
+                        "toA": {
+                            "@type": "data",
+                            "id": "toA",
+                            "dataType": {"type": "OBJECT", "tableId": "A"},
+                        },
+                    },
+                },
+            },
+        }
         with pytest.raises(LoadError, match="[Cc]ycl"):
-            decode_model(built, LoadContext())
+            decode_model(cyclic, LoadContext())
 
     def test_optimisation_check_named_value_round_trips(self):
         model = ModelBuilder()

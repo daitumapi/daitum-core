@@ -54,6 +54,16 @@ from .named_values import Calculation, Parameter
 from .tables import Table
 from .tracking import AutoCapture, Baseline, TrackingGroup
 from .union_table import UnionSource, UnionTable
+from .validation import (
+    CircularDependencyError,
+    FieldReferenceError,
+    MissingSourceFieldError,
+    ModelValidationError,
+    TableReferenceError,
+    ValidationIssue,
+    ValidationReport,
+    validate_model,
+)
 from .validator import (
     LengthValidator,
     ListValidator,
@@ -94,6 +104,14 @@ __all__ = [
     "TrackingGroup",
     "Baseline",
     "AutoCapture",
+    "validate_model",
+    "ValidationReport",
+    "ValidationIssue",
+    "ModelValidationError",
+    "CircularDependencyError",
+    "FieldReferenceError",
+    "MissingSourceFieldError",
+    "TableReferenceError",
 ]
 
 FieldMapping = UnionTable.FieldMapping
