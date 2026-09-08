@@ -25,10 +25,16 @@ class ReportData(Buildable):
     Sheet and feature prerequisites for one report.
 
     Args:
-        required_sheets: Sheet names that must be present for the report to run.
-        requires_monte_carlo: Whether the report depends on Monte Carlo output.
-        requires_scenario_comparison: Whether the report depends on scenario
-            comparison output.
+        required_sheets: Sheet names that must be present for the report to run. In a
+            transform-backed report (see
+            :meth:`~daitum_configuration.ReportProperty.set_transform_file`) this also names
+            host-model tables to serialise alongside the transform outputs; a transform output
+            of the same name takes precedence. Left empty — the default — the full-model
+            serialisation is skipped and only the transform's outputs are supplied.
+        requires_monte_carlo: Whether the report depends on Monte Carlo output. Workbook-only;
+            a transform does not produce it.
+        requires_scenario_comparison: Whether the report depends on scenario comparison
+            output. Workbook-only; a transform does not produce it.
     """
 
     def __init__(

@@ -1,5 +1,33 @@
 # Changelog
 
+## [2.4.0]
+
+### Added
+- `ReportProperty.set_transform_file(transform_file)` — back a report with a model transform,
+  referenced by its storage key (emitted as `transformFile`). The transform's declared outputs
+  become the report's contents, exported per the report's `export_format`. Requires a V3 model;
+  round-trips through `read_from_file`.
+- Role-specific `ModelTransform` output methods, phrased in each role's own terms:
+  - Report role: `add_report_sheet(name, source, columns)` and
+    `add_report_named_value(name, source)`. `name` is a plain string (sheet / file name, or
+    column header); `source` is the sub-model `Table`; `columns` maps a header string to the
+    sub-model `Field` supplying it. Named values collapse into a single `Named Values` sheet,
+    one column per name in declaration order.
+  - Data-source role: `add_data_source_table(sub_model_table, parent_table, field_mapping)` and
+    `add_data_source_named_value(parent_value, source)`. Destinations are real parent-model
+    objects (`Table`, `Parameter`/`Calculation`), and `field_mapping` maps a parent `Field` to
+    a sub-model `Field`. Omitting `field_mapping` auto-pairs fields with matching ids (data and
+    combo fields only).
+
+  The emitted JSON (`tableOutputs` / `parameterOutputs`) and its round-trip through
+  `read_from_file` are unchanged.
+
+### Deprecated
+- `ModelTransform.add_output_table` and `ModelTransform.add_output_parameter` — these took a
+  `Table` even when the destination was only a sheet name and left field-mapping values as bare
+  strings. They still work (emitting an identical map) but now raise `DeprecationWarning`; use
+  the role-specific methods above instead.
+
 ## [2.3.0]
 
 ### Added

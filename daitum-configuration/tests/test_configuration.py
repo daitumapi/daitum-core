@@ -215,16 +215,17 @@ class TestPropertySnapshots:
         assert out["showInMenu"] is True
 
     def test_report_property_fluent(self):
+        order_index = 2
         rp = (
             ReportProperty(ReportExportFormat.CSV)
             .set_name("My Report")
-            .set_order_index(2)
+            .set_order_index(order_index)
             .set_visible_on_navigator(True)
             .set_export_csv(True)
         )
         out = rp.build()
         assert out["name"] == "My Report"
-        assert out["orderIndex"] == 2
+        assert out["orderIndex"] == order_index
         assert out["visibleOnNavigator"] is True
         assert out["exportCsv"] is True
 
@@ -234,6 +235,14 @@ class TestPropertySnapshots:
             ReportProperty(ReportExportFormat.XLSX, "iface-key").set_name("Display").report_name()
             == "Display"
         )
+
+    def test_report_property_transform_file(self):
+        rp = ReportProperty(ReportExportFormat.JSON).set_transform_file("uuid-key")
+        out = rp.build()
+        assert out["transformFile"] == "uuid-key"
+
+    def test_report_property_transform_file_absent_by_default(self):
+        assert "transformFile" not in ReportProperty(ReportExportFormat.XLSX).build()
 
 
 # ----------------------------------------------------------------------------------------
@@ -357,10 +366,8 @@ class TestDataSourceSnapshots:
         out = cfg.build()
         assert out["type"] == "MODEL_TRANSFORM"
         assert out["fileKey"] == "transform_key"
-        assert len(out["inputs"]) == 2
-        assert out["inputs"][0]["sourceType"] == "DYNAMIC_VALUES"
+        assert [i["sourceType"] for i in out["inputs"]] == ["DYNAMIC_VALUES", "DIRECT_UPLOAD"]
         assert out["inputs"][0]["timezoneKey"] == "TZ"
-        assert out["inputs"][1]["sourceType"] == "DIRECT_UPLOAD"
         assert out["inputs"][1]["tableMapping"] == {"src": "tgt"}
 
 
@@ -409,14 +416,15 @@ class TestFilterSnapshots:
         assert sorted(out["sourceKey"]) == sorted([f"!!!{p1.to_string()}", f"!!!{p2.to_string()}"])
 
     def test_inequality_data_filter(self):
+        lower, upper = 0.0, 10.0
         m = ModelBuilder()
-        lo = m.add_parameter("LO", DataType.DECIMAL, 0.0)
-        hi = m.add_parameter("HI", DataType.DECIMAL, 10.0)
-        f = InequalityDataFilter(["x"], lo, hi, lower=0.0, upper=10.0)
+        lo = m.add_parameter("LO", DataType.DECIMAL, lower)
+        hi = m.add_parameter("HI", DataType.DECIMAL, upper)
+        f = InequalityDataFilter(["x"], lo, hi, lower=lower, upper=upper)
         out = f.build()
         assert out["@type"] == "inequality"
-        assert out["lower"] == 0.0
-        assert out["upper"] == 10.0
+        assert out["lower"] == lower
+        assert out["upper"] == upper
         assert out["lowerKey"] == f"!!!{lo.to_string()}"
         assert out["upperKey"] == f"!!!{hi.to_string()}"
 
@@ -590,13 +598,14 @@ class TestModelConfigurationSnapshots:
         p = m.add_parameter("DV", DataType.INTEGER, 0)
         from daitum_configuration.model_configuration.decision_variable import DecisionVariable
 
-        dv = DecisionVariable(p, dv_type=DVType.RANGE).set_min(0).set_max(10)
+        minimum, maximum = 0, 10
+        dv = DecisionVariable(p, dv_type=DVType.RANGE).set_min(minimum).set_max(maximum)
         out = dv.build()
         assert out["cellReference"] == f"!!!{p.to_string()}"
         spec = out["specification"]
         assert spec["@type"] == "range"
-        assert spec["minimumValue"] == 0
-        assert spec["maximumValue"] == 10
+        assert spec["minimumValue"] == minimum
+        assert spec["maximumValue"] == maximum
         assert spec["minimumValueReference"] is None
 
     def test_decision_variable_tag_and_seed_sources(self):
@@ -698,12 +707,13 @@ class TestModelConfigurationSnapshots:
         c = _make_calculation(m, "OBJ_COST")
         from daitum_configuration.model_configuration.objective import Objective
 
-        obj = Objective(c, maximise=False, priority=Priority.HIGH, weight=2.5, name="cost")
+        weight = 2.5
+        obj = Objective(c, maximise=False, priority=Priority.HIGH, weight=weight, name="cost")
         out = obj.build()
         assert out["cellReference"].startswith("!!!")
         assert out["maximise"] is False
         assert out["priority"] == "HIGH"
-        assert out["weight"] == 2.5
+        assert out["weight"] == weight
         assert out["name"] == "cost"
 
     def test_constraint_inequality(self):
@@ -711,18 +721,19 @@ class TestModelConfigurationSnapshots:
         c = _make_calculation(m, "C1")
         from daitum_configuration.model_configuration.constraint import Constraint
 
+        lower_bound, upper_bound = 0.0, 10.0
         cons = (
             Constraint(c)
             .set_type(ConstraintType.INEQUALITY)
-            .set_lower_bound(0.0)
-            .set_upper_bound(10.0)
+            .set_lower_bound(lower_bound)
+            .set_upper_bound(upper_bound)
             .set_name("range")
         )
         out = cons.build()
         spec = out["specification"]
         assert spec["@type"] == "inequality"
-        assert spec["lowerBound"] == 0.0
-        assert spec["upperBound"] == 10.0
+        assert spec["lowerBound"] == lower_bound
+        assert spec["upperBound"] == upper_bound
         assert spec["lowerBoundReference"] is None
         assert out["name"] == "range"
 
@@ -753,16 +764,17 @@ class TestModelConfigurationSnapshots:
         cap = _make_calculation(m, "CAP")
         out = _make_calculation(m, "OUT")
 
+        upper_bound = 100.0
         cfg = ModelConfiguration()
         cfg.add_objective(cost, maximise=False, name="cost")
-        cfg.add_constraint(cap).set_upper_bound(100.0)
+        cfg.add_constraint(cap).set_upper_bound(upper_bound)
         cfg.add_scenario_output("out", out)
         cfg.set_validation_enabled(False).set_profiling(True)
 
         result = cfg.build()
         assert isinstance(result["objectives"], list)
         assert result["objectives"][0]["name"] == "cost"
-        assert result["constraints"][0]["specification"]["upperBound"] == 100.0
+        assert result["constraints"][0]["specification"]["upperBound"] == upper_bound
         assert result["scenarioOutputs"][0]["name"] == "out"
         assert result["validationEnabled"] is False
         assert result["profiling"] is True
@@ -845,7 +857,7 @@ class TestScheduleSnapshots:
         parent.add_step(leaf1).add_step(leaf2)
         out = parent.build()
         assert out["type"] == "PARALLEL"
-        assert len(out["steps"]) == 2
+        assert [s["algorithmConfigKey"] for s in out["steps"]] == ["a", "b"]
 
     def test_step_configuration_defaults_omit_optional_fields(self):
         # With no extra configuration, optional None fields are omitted by
@@ -1003,19 +1015,20 @@ class TestFluentChains:
         c = _make_calculation(m, "CON_CHAIN")
         from daitum_configuration.model_configuration.constraint import Constraint
 
+        hard_score = 5
         cons = (
             Constraint(c)
             .set_type(ConstraintType.EQUALITY)
             .set_lower_bound(1.0)
             .set_upper_bound(2.0)
             .set_priority(Priority.LOW)
-            .set_hard_score(5)
+            .set_hard_score(hard_score)
             .set_name("chain")
         )
         out = cons.build()
         assert out["specification"]["@type"] == "equality"
         assert out["specification"]["priority"] == "LOW"
-        assert out["specification"]["hardScore"] == 5
+        assert out["specification"]["hardScore"] == hard_score
         assert out["name"] == "chain"
 
 
@@ -1073,6 +1086,46 @@ class TestModelTransformBuilder:
         assert "modelDefinition" in out
         assert "parameterOutputs" in out
         assert "tableOutputs" in out
+
+    def test_add_report_named_value(self):
+        m = ModelBuilder()
+        total = m.add_calculation("Total", "1 + 1")
+        mt = ModelTransform(m).add_report_named_value("Total Cost", total)
+        out = mt.build()
+        assert out["parameterOutputs"] == {"Total Cost": total.id}
+
+    def test_add_report_sheet(self):
+        m = ModelBuilder()
+        table = m.add_data_table("Deliveries")
+        route = table.add_data_field("Route", DataType.STRING)
+        cost = table.add_data_field("Cost", DataType.DECIMAL)
+        mt = ModelTransform(m).add_report_sheet(
+            "Route Summary", table, {"Route": route, "Cost": cost}
+        )
+        out = mt.build()
+        assert out["tableOutputs"] == {
+            "Route Summary": {
+                "sourceName": table.id,
+                "fieldMapping": {"Route": route.id, "Cost": cost.id},
+            }
+        }
+
+    def test_add_output_parameter_deprecated(self):
+        m = ModelBuilder()
+        total = m.add_calculation("Total", "1 + 1")
+        with pytest.warns(DeprecationWarning):
+            mt = ModelTransform(m).add_output_parameter("Total Cost", total)
+        assert mt.build()["parameterOutputs"] == {"Total Cost": total.id}
+
+    def test_add_output_table_deprecated(self):
+        m = ModelBuilder()
+        table = m.add_data_table("Deliveries")
+        table.add_data_field("Route", DataType.STRING)
+        with pytest.warns(DeprecationWarning):
+            mt = ModelTransform(m).add_output_table(table, table, field_mapping={"Route": "Route"})
+        assert mt.build()["tableOutputs"] == {
+            "Deliveries": {"sourceName": table.id, "fieldMapping": {"Route": "Route"}}
+        }
 
 
 # ----------------------------------------------------------------------------------------

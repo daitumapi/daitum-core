@@ -5,9 +5,11 @@ Structural round-trip contract: decode(x.build()).build() == x.build(), driven f
 per-class fixtures built via the builders.
 """
 
-
 import daitum_model.formulas as formulas
 import pytest
+from daitum_model import DataType, ModelBuilder
+from daitum_model.decoding import LoadContext, decode_into
+
 from daitum_configuration import (
     CMAESAlgorithm,
     GeneticAlgorithm,
@@ -26,9 +28,6 @@ from daitum_configuration.model_configuration.decision_variable import DecisionV
 from daitum_configuration.model_configuration.objective import Objective
 from daitum_configuration.model_configuration.priority import Priority
 from daitum_configuration.model_configuration.scenario_output import ScenarioOutput
-from daitum_model import DataType, ModelBuilder
-from daitum_model.decoding import LoadContext, decode_into
-from daitum_model.formula import CONST
 
 
 def _model_ctx(model) -> LoadContext:
@@ -354,10 +353,7 @@ class TestDataSourceRoundTrip:
         assert decoded.build() == built
 
     def test_batched_data_source_config(self, model):
-        from daitum_configuration import SetFeaturesConfig
-        from daitum_configuration.data_source.batched_data_source.batched_data_source_config import (
-            BatchedDataSourceConfig,
-        )
+        from daitum_configuration import BatchedDataSourceConfig, SetFeaturesConfig
         from daitum_configuration.data_source.data_source import DataSource
         from daitum_configuration.data_source.run_report.run_report_config import RunReportConfig
 
@@ -415,9 +411,10 @@ class TestModelTransformRoundTrip:
         assert decoded.build() == built
 
     def test_model_transform_embeds_sub_model(self):
-        from daitum_configuration.data_source.model_transform.model_transform import ModelTransform
         from daitum_model import DataType, ModelBuilder
         from daitum_model.decoding import LoadContext
+
+        from daitum_configuration.data_source.model_transform.model_transform import ModelTransform
 
         sub = ModelBuilder()
         sub_table = sub.add_data_table("Sub")
@@ -430,7 +427,7 @@ class TestModelTransformRoundTrip:
         parent_table.set_key_column("ID")
 
         transform = ModelTransform(sub)
-        transform.add_output_table(sub_table, parent_table)
+        transform.add_data_source_table(sub_table, parent_table)
         built = transform.build()
         decoded = decode_into(ModelTransform, built, LoadContext())
         assert isinstance(decoded, ModelTransform)
@@ -554,7 +551,7 @@ class TestFullConfigurationRoundTrip:
         assert decoded.build() == built
 
         # Genuinely typed and re-editable.
-        assert len(decoded.data_sources) == 2
+        assert len(decoded.data_sources) == len(built["dataSources"])
         assert isinstance(decoded.data_sources[0].config, RunReportConfig)
         decoded.set_solution_view_allowed(True)
         assert decoded.build()["solutionViewAllowed"] is True
@@ -564,8 +561,9 @@ class TestNegativeDecoding:
     """Malformed payloads fail loudly with a useful LoadError, never silently degrade."""
 
     def test_unknown_data_source_type_raises(self):
-        from daitum_configuration.data_source.data_source_config import DataSourceConfig
         from daitum_model.decoding import LoadError
+
+        from daitum_configuration.data_source.data_source_config import DataSourceConfig
 
         with pytest.raises(LoadError, match="Unknown data-source type"):
             decode_into(DataSourceConfig, {"type": "NOT_A_REAL_TYPE"}, LoadContext())

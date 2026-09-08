@@ -32,10 +32,17 @@ class ReportProperty(Buildable):
     :meth:`~daitum_configuration.ConfigurationBuilder.add_report_property`;
     chain ``set_*`` methods to customise visibility and behaviour.
 
+    The report's contents come from a model transform (:meth:`set_transform_file`): a
+    self-contained sub-model, evaluated against a snapshot of the scenario's data, whose
+    declared outputs become the report. ``export_format`` selects the file produced — XLSX,
+    CSV, JSON or MSDOS. Attaching a transform requires a V3 model. See
+    :class:`~daitum_configuration.ModelTransform` for how the outputs are shaped.
+
     Args:
         export_format: :class:`ReportExportFormat` (e.g. XLSX, CSV).
-        export_interface_key: Optional key identifying the export interface
-            template; used as a fallback display name.
+        export_interface_key: Optional key naming a predefined export interface configured on
+            the platform — a target the scenario's data is sent to — not a template. Also used
+            as a fallback display name.
     """
 
     def __init__(
@@ -48,6 +55,7 @@ class ReportProperty(Buildable):
         self.report_data: ReportData | None = None
         self.export_interface_key = export_interface_key
         self.file_name_key: str | None = None
+        self.transform_file: str | None = None
         self.name: str | None = None
         self.order_index: int = 0
         self.visible_on_navigator: bool = False
@@ -62,6 +70,17 @@ class ReportProperty(Buildable):
     def set_file_name_key(self, file_name_key: str) -> "ReportProperty":
         """Set the key of the model parameter supplying the export file name."""
         self.file_name_key = file_name_key
+        return self
+
+    def set_transform_file(self, transform_file: str) -> "ReportProperty":
+        """Back this report with a model transform, referenced by its storage key.
+
+        The transform is a :class:`~daitum_configuration.ModelTransform`, stored
+        out-of-band; ``transform_file`` is the key the platform assigns it. Its declared
+        outputs become the report's contents, exported per ``export_format``. Only valid on
+        V3 models.
+        """
+        self.transform_file = transform_file
         return self
 
     def set_order_index(self, order_index: int) -> "ReportProperty":
