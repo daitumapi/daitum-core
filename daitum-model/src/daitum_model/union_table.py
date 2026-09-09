@@ -29,6 +29,7 @@ from daitum_model.serialisation import Buildable
 
 from .data_types import BaseDataType
 from .fields import DataField, Field
+from .formula import Constant
 from .tables import Table
 
 
@@ -228,3 +229,136 @@ class UnionTable(Table):
 
         def build(self) -> dict[str, Any]:
             return self.mapping
+
+
+@typechecked
+class FoldedTable:
+    """
+    Builder that turns columns of a source table into rows — the "columns to rows" transform.
+
+    Given a wide source table such as ``(Employee, Day1Wages, Day2Wages, …)``, a folded table
+    produces the long shape ``(Employee, Day, Wages)`` with one output row per folded column per
+    source row. Each :meth:`fold` call declares one such group of output rows, mapping every
+    declared output column to either a source field or a constant for that group.
+
+    Behind the scenes this wraps a :class:`UnionTable`: the source table is listed once per
+    :meth:`fold` call (reused under distinct mapping keys), each fold contributing one
+    ``UnionSource`` whose field mappings feed the shared output columns.
+
+    Create one via :meth:`daitum_model.ModelBuilder.add_folded_table`; the underlying
+    :class:`UnionTable` is available as :attr:`table` and is what gets serialised.
+    """
+
+    def __init__(self, id: str, source_table: Table):
+        self.table = UnionTable(id, [])
+        self._source_table = source_table
+        self._output_types: dict[str, BaseDataType] = {}
+        self._carried: list[Field] = []
+        self._fold_count = 0
+
+    def add_column(self, id: str, data_type: BaseDataType) -> FoldedTable:
+        """
+        Declares an output column of the folded table.
+
+        Each :meth:`fold` call must supply a value for this column, either a source field of a
+        matching type or a constant.
+
+        Args:
+            id: The output column name.
+            data_type: The output column's data type.
+
+        Returns:
+            This ``FoldedTable``, to allow chaining.
+        """
+        self.table.add_field(id, data_type)
+        self._output_types[id] = data_type
+        return self
+
+    def carry(self, *fields: Field) -> FoldedTable:
+        """
+        Declares source columns that are passed through unchanged into every output row.
+
+        A carried column keeps its name and data type and is mapped from the same source field
+        in every fold. Call this before :meth:`fold`.
+
+        Args:
+            *fields: Source fields to carry through.
+
+        Returns:
+            This ``FoldedTable``, to allow chaining.
+        """
+        for field in fields:
+            self.table.add_field(field.id, field.data_type)
+            self._output_types[field.id] = field.data_type
+            self._carried.append(field)
+        return self
+
+    def fold(self, **outputs: Field | bool | int | float | str) -> FoldedTable:
+        """
+        Adds one group of output rows, mapping each declared output column for this group.
+
+        Each keyword names a column declared with :meth:`add_column`; its value is either a
+        source :class:`~daitum_model.fields.Field` (mapped directly) or a Python literal (folded
+        in as a constant of the column's declared type). Carried columns are mapped
+        automatically and must not be passed here.
+
+        Args:
+            **outputs: One entry per declared output column.
+
+        Returns:
+            This ``FoldedTable``, to allow chaining.
+
+        Raises:
+            ValueError: If a declared output column is missing, an unknown column is supplied, or
+                a carried column is passed explicitly.
+        """
+        declared = set(self._output_types) - {f.id for f in self._carried}
+        supplied = set(outputs)
+        carried_ids = {f.id for f in self._carried}
+        if supplied & carried_ids:
+            raise ValueError(
+                f"Carried columns are mapped automatically and must not be passed to fold(): "
+                f"{sorted(supplied & carried_ids)}"
+            )
+        if supplied - declared:
+            raise ValueError(f"Unknown output column(s) in fold(): {sorted(supplied - declared)}")
+        if declared - supplied:
+            raise ValueError(f"fold() is missing output column(s): {sorted(declared - supplied)}")
+
+        source = UnionSource(self._source_table, f"{self._source_table.id}#{self._fold_count}")
+        self._fold_count += 1
+        self.table.source_tables.append(source)
+
+        for field in self._carried:
+            self.table.add_field_mapping(source, field.id, field)
+
+        for column, value in outputs.items():
+            if isinstance(value, Field):
+                self.table.add_field_mapping(source, column, value)
+            else:
+                self.table.add_field_mapping(source, column, self._constant_field(column, value))
+        return self
+
+    def _constant_field(self, column: str, value: bool | int | float | str) -> Field:
+        """Synthesise a constant source field of *column*'s declared type to map from.
+
+        A union column can only be mapped from a source *field*, so a literal fold value is
+        realised as a hidden calculated field on the source table, typed to match the output
+        column so :meth:`UnionTable.add_field_mapping`'s type check passes.
+        """
+        data_type = self._output_types[column]
+        field_id = f"__fold__{self.table.id}__{column}__{self._fold_count - 1}"
+        constant = Constant(data_type, _constant_formula_string(data_type, value))
+        return self._source_table.add_calculated_field(field_id, constant)
+
+
+def _constant_formula_string(data_type: BaseDataType, value: bool | int | float | str) -> str:
+    """Render *value* as a formula-string literal typed as *data_type*."""
+    from .data_types import DataType
+    from .formula import escape_string_literal
+
+    if data_type == DataType.STRING:
+        return escape_string_literal(str(value))
+    if data_type == DataType.BOOLEAN:
+        return "TRUE" if value else "FALSE"
+    return f"{value}"

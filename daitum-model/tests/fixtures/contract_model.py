@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+import daitum_model.formulas as formulas_module
 from daitum_model import DataType, ModelBuilder
 from daitum_model.data_types import MapDataType, ObjectDataType
 
@@ -98,7 +99,11 @@ def build_fixture() -> Fixture:
         [edits]
     )
 
-    calc = model.add_calculation("TotalCost", fields["Cost"] * fields["Qty"], model_level=True)
+    # A calculation has no table context, so it references fields through the table
+    # (``Jobs[Cost]``) and aggregates them to a scalar rather than using bare ``[Cost]`` refs.
+    calc = model.add_calculation(
+        "TotalCost", formulas_module.SUM(table["Cost"] * table["Qty"]), model_level=True
+    )
     param = model.add_parameter("Threshold", DataType.DECIMAL, 100.0, model_level=True)
 
     return Fixture(

@@ -140,9 +140,12 @@ class TestValidation:
 class TestRoundTrip:
     def test_tracked_model_round_trips(self):
         model = _tracked_model()
-        # A calculation that reads the baseline, to exercise BASELINE decode too.
-        revenue = model.get_table("Sales").get_field("revenue")
-        model.add_calculation("delta", revenue - formulas.BASELINE("optimised", revenue))
+        # A calculated field that reads the baseline, to exercise BASELINE decode too. This lives
+        # on Sales (a per-row context) so the bare ``revenue`` reference resolves locally — a
+        # calculation has no table and could not reference the field directly.
+        sales = model.get_table("Sales")
+        revenue = sales.get_field("revenue")
+        sales.add_calculated_field("delta", revenue - formulas.BASELINE("optimised", revenue))
         built = model.build()
         reloaded = ModelBuilder.read_from_dict(built)
         assert reloaded.build() == built

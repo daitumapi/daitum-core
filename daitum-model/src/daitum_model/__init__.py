@@ -53,7 +53,7 @@ from .model import ModelBuilder
 from .named_values import Calculation, Parameter
 from .tables import Table
 from .tracking import AutoCapture, Baseline, TrackingGroup
-from .union_table import UnionSource, UnionTable
+from .union_table import FoldedTable, UnionSource, UnionTable
 from .validation import (
     CircularDependencyError,
     FieldReferenceError,
@@ -90,6 +90,7 @@ __all__ = [
     "Calculation",
     "Parameter",
     "UnionSource",
+    "FoldedTable",
     "FieldMapping",
     "Validator",
     "RangeValidator",

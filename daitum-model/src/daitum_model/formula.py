@@ -344,3 +344,46 @@ class Constant(Formula):
 
     def children(self) -> Sequence[Operand]:
         return ()
+
+
+class Reference(Formula):
+    """A :class:`Formula` leaf wrapping a bare reference operand used directly in a formula.
+
+    A ``Field`` / ``Calculation`` / ``Parameter`` / ``Table`` is an :class:`Operand` but not a
+    :class:`Formula`, so when one is used as a whole formula (e.g. a calculated field that just
+    aliases a field) it must be wrapped to become a tree node. ``Reference`` renders identically
+    to the wrapped operand (``[id]`` for a field, bare ``id`` for a named value or table) and,
+    because the referent is its sole child, the inherited :meth:`Formula.dependencies` and
+    :meth:`Formula.local_field_references` surface the referent — preserving its identity so
+    validation and cycle detection can see it. Only bare, non-``Formula`` operands are wrapped;
+    a genuine :class:`Constant` is never wrapped.
+    """
+
+    def __init__(self, referent: Operand):
+        self._referent = referent
+
+    def to_data_type(self) -> BaseDataType:
+        return self._referent.to_data_type()
+
+    def to_string(self) -> str:
+        return self._referent.to_string()
+
+    def children(self) -> Sequence[Operand]:
+        return (self._referent,)
+
+
+def to_formula(value: bool | float | int | str | Operand) -> Formula:
+    """Coerce *value* to a :class:`Formula` for use as a field/calculation definition.
+
+    A :class:`Formula` passes through unchanged; a Python literal is wrapped via :func:`CONST`;
+    a bare reference operand (``Field`` / ``Calculation`` / ``Parameter`` / ``Table``) is wrapped
+    in :class:`Reference` so it stays visible to ``dependencies()`` rather than being flattened
+    to a string. This is the single boundary where a bare operand becomes a formula node — it
+    must not be applied mid-expression (operator building keeps bare operands as leaf children,
+    which ``dependencies()`` already handles).
+    """
+    if isinstance(value, Formula):
+        return value
+    if isinstance(value, Operand):
+        return Reference(value)
+    return CONST(value)

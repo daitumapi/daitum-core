@@ -65,7 +65,8 @@ def table_cycle_via_formula() -> ModelBuilder:
     key = a.add_data_field("K", DataType.STRING)
     amt = a.add_data_field("AV", DataType.DECIMAL)
 
-    derived = model.add_derived_table("B", a, group_by=[key])
+    derived = model.add_derived_table("B", a)
+    derived.group_by(key)
     derived.add_source_fields([key])
     derived.add_aggregated_field("SumAV", amt, AggregationMethod.SUM)
 
@@ -134,6 +135,38 @@ def calculated_field_missing_reference() -> ModelBuilder:
     return model
 
 
+def derived_calc_references_uncopied_source_field() -> ModelBuilder:
+    """A derived table's calculated field references a group-by field it never copied in.
+
+    ``Category`` is a group-by/source field defined on ``Parent``. The modeller forgot to call
+    ``add_source_fields`` for it, so it is not a column on ``Child`` — but a calculated field on
+    ``Child`` references it directly. The platform rejects this; the local-scope rule must too.
+    """
+    model = ModelBuilder()
+    parent = model.add_data_table("Parent")
+    category = parent.add_data_field("Category", DataType.STRING)
+    amount = parent.add_data_field("Amount", DataType.DECIMAL)
+    child = model.add_derived_table("Child", parent)
+    child.group_by(category)
+    child.add_aggregated_field("Total", amount, AggregationMethod.SUM)
+    # ``Category`` is NOT copied onto ``Child`` (no ``add_source_fields``), yet referenced here.
+    child.add_calculated_field("Label", category)
+    return model
+
+
+def calculation_references_bare_field() -> ModelBuilder:
+    """A calculation references a bare field, but a calculation has no table context.
+
+    A calculation is table-less, so a bare ``[Value]`` reference cannot resolve — the field must
+    be read through a table (e.g. ``T[Value]``). The platform rejects the bare form.
+    """
+    model = ModelBuilder()
+    table = model.add_data_table("T")
+    value = table.add_data_field("Value", DataType.DECIMAL)
+    model.add_calculation("BadCalc", value)
+    return model
+
+
 def derived_sort_field_missing() -> ModelBuilder:
     """A derived table sorts on a field that is not on its source table."""
     model = ModelBuilder()
@@ -141,7 +174,8 @@ def derived_sort_field_missing() -> ModelBuilder:
     src.set_key_column("Id")
     idf = src.add_data_field("Id", DataType.STRING)
     amt = src.add_data_field("Amt", DataType.DECIMAL)
-    derived = model.add_derived_table("Grouped", src, group_by=[idf])
+    derived = model.add_derived_table("Grouped", src)
+    derived.group_by(idf)
     derived.add_source_fields([idf])
     derived.add_aggregated_field("Total", amt, AggregationMethod.SUM)
 

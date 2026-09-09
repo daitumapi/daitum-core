@@ -33,7 +33,7 @@ from daitum_model.serialisation import Buildable
 from ._helpers import _validate_name
 from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType, _TableBase
 from .fields import CalculatedField, ComboField, DataField, Field
-from .formula import CONST, Formula, Operand
+from .formula import Formula, Operand, to_formula
 
 
 @typechecked
@@ -231,8 +231,7 @@ class Table(Buildable, _TableBase, Operand):  # pylint: disable=too-many-instanc
         Returns:
             CalculatedField: The created `CalculatedField` object.
         """
-        if not isinstance(formula, Formula):
-            return self.add_calculated_field(id, CONST(formula), order_index, description)
+        formula = to_formula(formula)
         calculated_field = CalculatedField(id, self, formula)
         if order_index is not None:
             calculated_field.set_order_index(order_index)
@@ -391,8 +390,7 @@ class DataTable(Table):
         Returns:
             ComboField: The created `ComboField` object.
         """
-        if not isinstance(formula, Formula):
-            return self.add_combo_field(id, CONST(formula), calculate_in_optimiser)
+        formula = to_formula(formula)
         combo_field = ComboField(id, self, formula, calculate_in_optimiser)
         self._add_field(combo_field)
         return combo_field

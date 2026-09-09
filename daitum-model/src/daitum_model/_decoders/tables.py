@@ -213,16 +213,14 @@ def _construct_derived(
     table_id: str, data: dict[str, Any], model: ModelBuilder, ctx: LoadContext
 ) -> DerivedTable:
     source_table = _source_table(ctx, data["sourceTableId"])
+    table = model.add_derived_table(table_id, source_table)
     grouping = data.get("groupingConfiguration")
-    group_by = None
     if grouping is not None:
-        group_by = [source_table.get_field(fid) for fid in optional_seq(grouping, "groupByFields")]
-    filter_field = None
+        table.group_by(
+            *[source_table.get_field(fid) for fid in optional_seq(grouping, "groupByFields")]
+        )
     if data.get("filterField") is not None:
-        filter_field = source_table.get_field(data["filterField"])
-    table = model.add_derived_table(
-        table_id, source_table, group_by=group_by, filter_field=filter_field
-    )
+        table.set_filter_field(source_table.get_field(data["filterField"]))
     return table
 
 
@@ -302,10 +300,19 @@ def _populate_derived_fields(table: DerivedTable, data: dict[str, Any], ctx: Loa
     if grouping is not None:
         for agg in optional_seq(grouping, "aggregatedFields"):
             source_field = table._source_table.get_field(agg["sourceFieldId"])  # noqa: SLF001
-            table.add_aggregated_field(
+            # A ``keyField``/``keyValue`` pair marks a pivot column — an aggregated field scoped
+            # to source rows whose key field equals the value. Absent on a plain aggregate.
+            key_field = (
+                table._source_table.get_field(agg["keyField"])  # noqa: SLF001
+                if agg.get("keyField") is not None
+                else None
+            )
+            table._add_aggregated_field(  # noqa: SLF001
                 agg["aggregatedFieldId"],
                 source_field,
                 AggregationMethod(agg["aggregationMethod"]),
+                key_field=key_field,
+                key_value=agg.get("keyValue"),
             )
             aggregated_ids.add(agg["aggregatedFieldId"])
 

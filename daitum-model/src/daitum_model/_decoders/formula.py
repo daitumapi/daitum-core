@@ -120,11 +120,12 @@ def decode_formula(
         # A formula may be a single reference — a calculated field that just aliases another field
         # or a named value (its ``formulaString`` is a bare ``[field]`` / id). ``parse_formula``
         # resolves that to the referenced operand (not a ``Formula`` node), which is exactly what
-        # the builder wraps in a ``Constant`` via ``CONST`` (see ``add_calculated_field``). Mirror
-        # that here so decode is the inverse of build.
-        from daitum_model.formula import Constant  # noqa: PLC0415 - avoid an import cycle
+        # the builder wraps in a ``Reference`` via ``to_formula`` (see ``add_calculated_field``).
+        # Mirror that here so decode is the inverse of build and the reference stays visible to
+        # ``dependencies()``.
+        from daitum_model.formula import Reference  # noqa: PLC0415 - avoid an import cycle
 
-        parsed = Constant(data_type, parsed.to_string())
+        parsed = Reference(parsed)
     if parsed.to_data_type() != data_type:
         raise LoadError(
             f"Decoded formula type mismatch: {expression!r} declared {data_type} but inferred "

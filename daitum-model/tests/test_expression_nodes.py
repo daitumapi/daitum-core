@@ -242,3 +242,19 @@ class TestDependencies:
         fx = build_fixture()
         field = fx.table.add_calculated_field("Const", CONST(2.0))
         assert field.dependencies() == set()
+
+    def test_bare_field_as_whole_formula_is_tracked(self):
+        # A bare Field used directly as a formula is wrapped in a Reference node, so it stays
+        # visible to dependencies() (previously it was flattened to a Constant and lost).
+        fx = build_fixture()
+        field = fx.table.add_calculated_field("Alias", fx.fields["Cost"])
+        assert field.dependencies() == {fx.fields["Cost"]}
+        assert field.formula.to_string() == "[Cost]"
+
+    def test_bare_named_value_as_whole_formula_is_tracked(self):
+        # A bare Calculation/Parameter used directly as a formula is likewise tracked, and renders
+        # as its bare id (no brackets).
+        fx = build_fixture()
+        aliased = fx.table.add_calculated_field("AliasCalc", fx.calc)
+        assert aliased.dependencies() == {fx.calc}
+        assert aliased.formula.to_string() == fx.calc.to_string()

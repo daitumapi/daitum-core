@@ -379,7 +379,8 @@ class TestTables:
         items = model.add_data_table("Items")
         items.add_data_field("Cat", DataType.STRING)
         items.add_data_field("Qty", DataType.INTEGER)
-        derived = model.add_derived_table("ByCat", items, group_by=[items.get_field("Cat")])
+        derived = model.add_derived_table("ByCat", items)
+        derived.group_by(items.get_field("Cat"))
         derived.add_source_fields([items.get_field("Cat")])
         derived.add_aggregated_field("TotQty", items.get_field("Qty"), AggregationMethod.SUM)
         derived.add_sort_key(items.get_field("Cat"), SortDirection.ASCENDING)
@@ -393,6 +394,47 @@ class TestTables:
         assert isinstance(decoded, DerivedTable)
         assert decoded.build() == built
 
+    def test_pivot_table_round_trips(self):
+        model = ModelBuilder()
+        source = model.add_data_table("Source")
+        source.add_data_field("Location", DataType.STRING)
+        source.add_data_field("Hour", DataType.INTEGER)
+        source.add_data_field("Value", DataType.DECIMAL)
+        report = model.add_derived_table("Report", source)
+        report.group_by(source.get_field("Location"))
+        report.add_source_fields([source.get_field("Location")])
+        report.add_aggregated_field("Total", source.get_field("Value"), AggregationMethod.SUM)
+        pivot = report.add_pivot(source.get_field("Hour"), source.get_field("Value"))
+        pivot.add_column("H0", 0).add_column("H1", 1)
+        ctx = LoadContext()
+        ctx.register("Source", source)
+        ctx.register("Report", report)
+        from daitum_model.derived_table import DerivedTable
+
+        built = report.build()
+        # Pivot columns serialise as keyed aggregated fields, not a separate ``pivots`` block.
+        assert built["groupingConfiguration"]["aggregatedFields"] == [
+            {"aggregatedFieldId": "Total", "sourceFieldId": "Value", "aggregationMethod": "SUM"},
+            {
+                "aggregatedFieldId": "H0",
+                "sourceFieldId": "Value",
+                "aggregationMethod": "FIRST",
+                "keyField": "Hour",
+                "keyValue": 0,
+            },
+            {
+                "aggregatedFieldId": "H1",
+                "sourceFieldId": "Value",
+                "aggregationMethod": "FIRST",
+                "keyField": "Hour",
+                "keyValue": 1,
+            },
+        ]
+        assert "pivots" not in built["groupingConfiguration"]
+        decoded = decode_into(Table, built, ctx)
+        assert isinstance(decoded, DerivedTable)
+        assert decoded.build() == built
+
     def test_derived_table_decodes_with_null_optional_collections(self):
         # An exported model may serialise optional collection keys as an explicit ``null``
         # rather than omitting them. ``dict.get(key, default)`` returns that ``null`` verbatim,
@@ -401,7 +443,8 @@ class TestTables:
         model = ModelBuilder()
         items = model.add_data_table("Items")
         items.add_data_field("Cat", DataType.STRING)
-        derived = model.add_derived_table("ByCat", items, group_by=[items.get_field("Cat")])
+        derived = model.add_derived_table("ByCat", items)
+        derived.group_by(items.get_field("Cat"))
         derived.add_source_fields([items.get_field("Cat")])
         ctx = LoadContext()
         ctx.register("Items", items)
@@ -453,6 +496,28 @@ class TestTables:
         from daitum_model.union_table import UnionTable
 
         built = union.build()
+        decoded = decode_into(Table, built, ctx)
+        assert isinstance(decoded, UnionTable)
+        assert decoded.build() == built
+
+    def test_folded_table_round_trips(self):
+        model = ModelBuilder()
+        roster = model.add_data_table("Roster")
+        roster.add_data_field("Employee", DataType.STRING)
+        roster.add_data_field("Day1Wages", DataType.DECIMAL)
+        roster.add_data_field("Day2Wages", DataType.DECIMAL)
+        folded = model.add_folded_table("Long", roster)
+        folded.add_column("Day", DataType.INTEGER)
+        folded.add_column("Wages", DataType.DECIMAL)
+        folded.carry(roster.get_field("Employee"))
+        folded.fold(Day=1, Wages=roster.get_field("Day1Wages"))
+        folded.fold(Day=2, Wages=roster.get_field("Day2Wages"))
+        ctx = LoadContext()
+        ctx.register("Roster", roster)
+        ctx.register("Long", folded.table)
+        from daitum_model.union_table import UnionTable
+
+        built = folded.table.build()
         decoded = decode_into(Table, built, ctx)
         assert isinstance(decoded, UnionTable)
         assert decoded.build() == built
@@ -700,9 +765,9 @@ class TestModelRoundTrip:
         other.set_key_column("Cat")
         other.add_data_field("Cat", DataType.STRING)
 
-        derived = model.add_derived_table(
-            "ByCat", items, group_by=[items.get_field("Cat")], filter_field=items.get_field("Keep")
-        )
+        derived = model.add_derived_table("ByCat", items)
+        derived.group_by(items.get_field("Cat"))
+        derived.set_filter_field(items.get_field("Keep"))
         derived.add_source_fields([items.get_field("Cat")])
         derived.add_aggregated_field("TotQty", items.get_field("Qty"), AggregationMethod.SUM)
         derived.add_sort_key(items.get_field("Cat"), SortDirection.ASCENDING)
@@ -804,7 +869,8 @@ class TestModelRoundTrip:
         other.set_key_column("Cat")
         other.add_data_field("Cat", DataType.STRING)
 
-        derived = model.add_derived_table("ByCat", items, group_by=[items.get_field("Cat")])
+        derived = model.add_derived_table("ByCat", items)
+        derived.group_by(items.get_field("Cat"))
         derived.add_source_fields([items.get_field("Cat")])
         derived.add_aggregated_field("TotQty", items.get_field("Qty"), AggregationMethod.SUM)
         derived.add_calculated_field("Doubled", derived.get_field("TotQty") * 2)
@@ -836,7 +902,7 @@ class TestModelRoundTrip:
         source = model.add_data_table("Zebra")  # sorts after its dependent "Alpha"
         source.set_key_column("K")
         source.add_data_field("K", DataType.STRING)
-        model.add_derived_table("Alpha", source, group_by=[source.get_field("K")])
+        model.add_derived_table("Alpha", source).group_by(source.get_field("K"))
 
         built = model.build()
         # Reproduce the on-disk alphabetical ordering write_to_file would produce.

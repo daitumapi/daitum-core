@@ -24,6 +24,7 @@ data type.
 
 from __future__ import annotations
 
+import warnings
 from enum import Enum
 
 from typeguard import typechecked
@@ -248,13 +249,62 @@ class DerivedTable(Table):
         self.sort_keys: list[DerivedTable._SortKey] = []
 
         if group_by is not None:
-            self.grouping_configuration = DerivedTable._GroupingConfiguration(group_by)
+            warnings.warn(
+                "[deprecated] Passing 'group_by' to DerivedTable/add_derived_table is deprecated; "
+                "call DerivedTable.group_by(*fields) instead.",
+                stacklevel=2,
+            )
+            self.group_by(*group_by)
 
         if filter_field is not None:
-            if filter_field.data_type != DataType.BOOLEAN:
-                raise ValueError(f"Cannot filter on field with data type: {filter_field.data_type}")
-            self._filter_field_ref = filter_field
-            self.filter_field = filter_field.id
+            warnings.warn(
+                "[deprecated] Passing 'filter_field' to DerivedTable/add_derived_table is "
+                "deprecated; call DerivedTable.set_filter_field(field) instead.",
+                stacklevel=2,
+            )
+            self.set_filter_field(filter_field)
+
+    def group_by(self, *fields: Field) -> DerivedTable:
+        """
+        Group the derived table's rows by *fields*.
+
+        Each distinct combination of the grouped fields produces one output row. Any source
+        column not grouped on must be folded away via an aggregated field or a pivot column.
+        Calling this with no arguments collapses the whole (filtered) source into a single
+        output row.
+
+        This must be called before adding aggregated fields or pivots. Calling it more than
+        once replaces the previous grouping.
+
+        Args:
+            *fields: The source fields to group by.
+
+        Returns:
+            This ``DerivedTable``, to allow chaining.
+        """
+        self.grouping_configuration = DerivedTable._GroupingConfiguration(list(fields))
+        return self
+
+    def set_filter_field(self, field: Field) -> DerivedTable:
+        """
+        Restrict the derived table to source rows where *field* is ``True``.
+
+        Rows are filtered before grouping and pivoting.
+
+        Args:
+            field: A ``BOOLEAN`` field on the source table.
+
+        Returns:
+            This ``DerivedTable``, to allow chaining.
+
+        Raises:
+            ValueError: If *field* is not a ``BOOLEAN`` field.
+        """
+        if field.data_type != DataType.BOOLEAN:
+            raise ValueError(f"Cannot filter on field with data type: {field.data_type}")
+        self._filter_field_ref = field
+        self.filter_field = field.id
+        return self
 
     def add_source_fields(  # noqa: PLR0912
         self, source_fields: list[Field] | None = None, include_validators: bool = False
@@ -360,15 +410,126 @@ class DerivedTable(Table):
             ValueError: If no grouped fields are present in the table.
             ValueError: If the aggregation method is not valid for the source field's data type.
         """
+        return self._add_aggregated_field(id, source_field, aggregation_method)
+
+    def _add_aggregated_field(
+        self,
+        id: str,
+        source_field: Field,
+        aggregation_method: AggregationMethod,
+        key_field: Field | None = None,
+        key_value: bool | int | float | str | None = None,
+    ) -> DataField:
+        """Create an aggregated field, optionally keyed (a pivot column).
+
+        When *key_field* / *key_value* are supplied the aggregation is applied only to the source
+        rows whose *key_field* equals *key_value* — this is how a pivot column is expressed. Pivot
+        columns are declared through :meth:`add_pivot` / :meth:`DerivedTable.Pivot.add_column`,
+        which call this; plain aggregates go through the public :meth:`add_aggregated_field`.
+        """
         if self.grouping_configuration is None:
             raise ValueError(
                 "Cannot add an aggregated field to a DerivedTable with no grouped fields"
             )
         data_type = _get_aggregated_data_type(source_field, aggregation_method)
-        self.grouping_configuration.add_aggregated_field(id, source_field, aggregation_method)
+        self.grouping_configuration.add_aggregated_field(
+            id, source_field, aggregation_method, key_field=key_field, key_value=key_value
+        )
         data_field = DataField(id, self, data_type)
         self._add_field(data_field)
         return data_field
+
+    def add_pivot(
+        self,
+        key_field: Field,
+        value_field: Field,
+        aggregation_method: AggregationMethod = AggregationMethod.FIRST,
+    ) -> DerivedTable.Pivot:
+        """
+        Adds a pivot to the table, turning *key_field*'s values into explicit output columns.
+
+        A pivot produces one output column per declared column (see
+        :meth:`DerivedTable.Pivot.add_column`). Cell ``(row, column)`` is filled from
+        *value_field*, drawn only from the source rows in the group whose *key_field* equals
+        the column's key value, collapsed with *aggregation_method*.
+
+        Pivots and aggregated fields may be used together on the same table.
+
+        Args:
+            key_field (Field): The source field whose values select an output column.
+            value_field (Field): The source field whose values fill the cells.
+            aggregation_method (AggregationMethod): How to collapse multiple source rows that
+                reach the same cell. Defaults to ``FIRST``. ``REFERENCE`` is not permitted.
+
+        Returns:
+            A ``Pivot`` builder; call :meth:`DerivedTable.Pivot.add_column` on it to declare
+            the output columns.
+
+        Raises:
+            ValueError: If no grouped fields are present, if *aggregation_method* is
+                ``REFERENCE``, or if it is invalid for *value_field*'s data type.
+        """
+        if self.grouping_configuration is None:
+            raise ValueError("Cannot add a pivot to a DerivedTable with no grouped fields")
+        if aggregation_method == AggregationMethod.REFERENCE:
+            raise ValueError("Aggregation method REFERENCE is not permitted for pivots")
+        # Validate the aggregation against the value field's type up front (raises on mismatch).
+        _get_aggregated_data_type(value_field, aggregation_method)
+        # Columns register themselves as keyed aggregated fields as they are added.
+        return DerivedTable.Pivot(self, key_field, value_field, aggregation_method)
+
+    class Pivot(Buildable):
+        """
+        A pivot declared on a ``DerivedTable``.
+
+        Turns the values of ``key_field`` into explicit output columns. Create one via
+        :meth:`DerivedTable.add_pivot` and declare its columns with :meth:`add_column`.
+
+        A pivot is purely an authoring convenience: each column is emitted as a keyed aggregated
+        field (an ``aggregatedFields`` entry carrying ``keyField`` / ``keyValue``), so a pivot has
+        no distinct serialised form of its own.
+        """
+
+        def __init__(
+            self,
+            table: DerivedTable,
+            key_field: Field,
+            value_field: Field,
+            aggregation_method: AggregationMethod,
+        ):
+            self._table = table
+            self._key_field = key_field
+            self._value_field = value_field
+            self._aggregation_method = aggregation_method
+
+        def add_column(
+            self, field_id: str, key_value: bool | int | float | str
+        ) -> DerivedTable.Pivot:
+            """
+            Declares one output column of this pivot.
+
+            The column is a keyed aggregated field: it aggregates the pivot's value field over
+            only the source rows whose key field equals *key_value*. A ``DataField`` of the
+            derived type is synthesised on the table so calculations elsewhere in the model may
+            reference it.
+
+            Args:
+                field_id (str): The output column name. Must be unique across the table.
+                key_value (bool | int | float | str): The raw scalar value of the pivot's key
+                    field that routes source rows into this column. Typed against the key
+                    field's data type by the platform at parse time.
+
+            Returns:
+                This ``Pivot``, to allow chaining.
+            """
+            self._table._add_aggregated_field(  # noqa: SLF001
+                field_id,
+                self._value_field,
+                self._aggregation_method,
+                key_field=self._key_field,
+                key_value=key_value,
+            )
+            return self
 
     class _SortKey(Buildable):
         def __init__(self, field: Field, direction: SortDirection):
@@ -383,16 +544,32 @@ class DerivedTable(Table):
 
         # pylint: disable=missing-function-docstring
         def add_aggregated_field(
-            self, id: str, source_field: Field, aggregation_method: AggregationMethod
+            self,
+            id: str,
+            source_field: Field,
+            aggregation_method: AggregationMethod,
+            key_field: Field | None = None,
+            key_value: bool | int | float | str | None = None,
         ):
             self.aggregated_fields.append(
                 DerivedTable._GroupingConfiguration._AggregatedField(
-                    id, source_field, aggregation_method
+                    id, source_field, aggregation_method, key_field, key_value
                 )
             )
 
         class _AggregatedField(Buildable):
-            def __init__(self, id: str, source_field: Field, aggregation_method: AggregationMethod):
+            def __init__(
+                self,
+                id: str,
+                source_field: Field,
+                aggregation_method: AggregationMethod,
+                key_field: Field | None = None,
+                key_value: bool | int | float | str | None = None,
+            ):
                 self.aggregated_field_id = id
                 self.source_field_id = source_field.id
                 self.aggregation_method = aggregation_method.name
+                # A keyed aggregated field is a pivot column: it aggregates only the source rows
+                # whose ``key_field`` equals ``key_value``. Both are absent on a plain aggregate.
+                self.key_field = key_field.id if key_field is not None else None
+                self.key_value = key_value

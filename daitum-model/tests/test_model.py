@@ -119,6 +119,163 @@ class TestTable:
         ui_jobs = model.add_derived_table("UiJobs", jobs)
         assert ui_jobs.id == "UiJobs"
 
+    def test_group_by_and_set_filter_field_are_chainable(self):
+        model = ModelBuilder()
+        src = model.add_data_table("Src")
+        cat = src.add_data_field("Cat", DataType.STRING)
+        keep = src.add_data_field("Keep", DataType.BOOLEAN)
+        derived = model.add_derived_table("D", src)
+        assert derived.group_by(cat) is derived
+        assert derived.set_filter_field(keep) is derived
+        assert derived.grouping_configuration.group_by_fields == ["Cat"]
+        assert derived.filter_field == "Keep"
+
+    def test_group_by_with_no_fields_collapses_to_single_row(self):
+        model = ModelBuilder()
+        src = model.add_data_table("Src")
+        src.add_data_field("Cat", DataType.STRING)
+        derived = model.add_derived_table("D", src).group_by()
+        assert derived.grouping_configuration.group_by_fields == []
+
+    def test_set_filter_field_rejects_non_boolean(self):
+        model = ModelBuilder()
+        src = model.add_data_table("Src")
+        cat = src.add_data_field("Cat", DataType.STRING)
+        derived = model.add_derived_table("D", src)
+        with pytest.raises(ValueError, match="Cannot filter on field"):
+            derived.set_filter_field(cat)
+
+    def test_add_pivot_synthesises_columns_and_serialises(self):
+        model = ModelBuilder()
+        src = model.add_data_table("Src")
+        src.add_data_field("Loc", DataType.STRING)
+        hour = src.add_data_field("Hour", DataType.INTEGER)
+        value = src.add_data_field("Value", DataType.DECIMAL)
+        derived = model.add_derived_table("Report", src).group_by(src.get_field("Loc"))
+        pivot = derived.add_pivot(hour, value)
+        assert pivot.add_column("H0", 0) is pivot
+        pivot.add_column("H1", 1)
+
+        field_ids = [f.id for f in derived.get_fields()]
+        assert "H0" in field_ids and "H1" in field_ids
+        assert derived.get_field("H0").data_type == DataType.DECIMAL
+
+        # Each pivot column serialises as a keyed aggregated field.
+        aggregated = derived.build()["groupingConfiguration"]["aggregatedFields"]
+        assert aggregated == [
+            {
+                "aggregatedFieldId": "H0",
+                "sourceFieldId": "Value",
+                "aggregationMethod": "FIRST",
+                "keyField": "Hour",
+                "keyValue": 0,
+            },
+            {
+                "aggregatedFieldId": "H1",
+                "sourceFieldId": "Value",
+                "aggregationMethod": "FIRST",
+                "keyField": "Hour",
+                "keyValue": 1,
+            },
+        ]
+
+    def test_add_pivot_requires_grouping(self):
+        model = ModelBuilder()
+        src = model.add_data_table("Src")
+        hour = src.add_data_field("Hour", DataType.INTEGER)
+        value = src.add_data_field("Value", DataType.DECIMAL)
+        derived = model.add_derived_table("Report", src)
+        with pytest.raises(ValueError, match="no grouped fields"):
+            derived.add_pivot(hour, value)
+
+    def test_add_pivot_rejects_reference(self):
+        from daitum_model import AggregationMethod
+
+        model = ModelBuilder()
+        src = model.add_data_table("Src")
+        hour = src.add_data_field("Hour", DataType.INTEGER)
+        value = src.add_data_field("Value", DataType.DECIMAL)
+        derived = model.add_derived_table("Report", src).group_by()
+        with pytest.raises(ValueError, match="REFERENCE"):
+            derived.add_pivot(hour, value, AggregationMethod.REFERENCE)
+
+    def test_deprecated_kwargs_still_work_and_warn(self):
+        model = ModelBuilder()
+        src = model.add_data_table("Src")
+        cat = src.add_data_field("Cat", DataType.STRING)
+        keep = src.add_data_field("Keep", DataType.BOOLEAN)
+        with pytest.warns(UserWarning, match="deprecated.*group_by"):
+            derived = model.add_derived_table("D", src, group_by=[cat])
+        with pytest.warns(UserWarning, match="deprecated.*set_filter_field"):
+            model.add_derived_table("D2", src, filter_field=keep)
+        assert derived.grouping_configuration.group_by_fields == ["Cat"]
+
+
+class TestFoldedTable:
+    def _roster(self):
+        model = ModelBuilder()
+        roster = model.add_data_table("Roster")
+        roster.add_data_field("Employee", DataType.STRING)
+        roster.add_data_field("Day1Wages", DataType.DECIMAL)
+        roster.add_data_field("Day2Wages", DataType.DECIMAL)
+        return model, roster
+
+    def test_fold_with_literal_labels(self):
+        model, roster = self._roster()
+        folded = model.add_folded_table("Long", roster)
+        folded.add_column("Day", DataType.INTEGER)
+        folded.add_column("Wages", DataType.DECIMAL)
+        folded.carry(roster.get_field("Employee"))
+        folded.fold(Day=1, Wages=roster.get_field("Day1Wages"))
+        folded.fold(Day=2, Wages=roster.get_field("Day2Wages"))
+
+        built = folded.table.build()
+        assert list(built["fieldDefinitions"]) == ["Day", "Wages", "Employee"]
+        mappings = built["fieldMappings"]
+        assert len(mappings) == 2
+        first = mappings["Roster#0"]
+        assert first["Wages"] == "Day1Wages"
+        assert first["Employee"] == "Employee"
+        # literal label folded in as a synthesised constant field on the source
+        assert first["Day"].startswith("__fold__")
+
+    def test_fold_with_source_label_columns_does_not_mutate_source(self):
+        model, roster = self._roster()
+        roster.add_data_field("Day1Label", DataType.STRING)
+        roster.add_data_field("Day2Label", DataType.STRING)
+        folded = model.add_folded_table("Long", roster)
+        folded.add_column("Day", DataType.STRING)
+        folded.add_column("Wages", DataType.DECIMAL)
+        folded.carry(roster.get_field("Employee"))
+        folded.fold(Day=roster.get_field("Day1Label"), Wages=roster.get_field("Day1Wages"))
+        folded.fold(Day=roster.get_field("Day2Label"), Wages=roster.get_field("Day2Wages"))
+
+        mappings = folded.table.build()["fieldMappings"]
+        assert mappings["Roster#0"]["Day"] == "Day1Label"
+        assert not [f for f in roster.field_definitions if f.startswith("__fold")]
+
+    def test_fold_rejects_missing_unknown_and_carried_columns(self):
+        model, roster = self._roster()
+        folded = model.add_folded_table("Long", roster)
+        folded.add_column("Day", DataType.INTEGER)
+        folded.add_column("Wages", DataType.DECIMAL)
+        folded.carry(roster.get_field("Employee"))
+        with pytest.raises(ValueError, match="missing"):
+            folded.fold(Wages=roster.get_field("Day1Wages"))
+        with pytest.raises(ValueError, match="Unknown"):
+            folded.fold(Day=1, Wages=roster.get_field("Day1Wages"), Bogus=2)
+        with pytest.raises(ValueError, match="Carried"):
+            folded.fold(
+                Employee=roster.get_field("Employee"),
+                Day=1,
+                Wages=roster.get_field("Day1Wages"),
+            )
+
+    def test_folded_table_registered_on_model(self):
+        model, roster = self._roster()
+        folded = model.add_folded_table("Long", roster)
+        assert folded.table is model.get_table("Long")
+
 
 class TestValidators:
     def test_range_validator_attach(self):

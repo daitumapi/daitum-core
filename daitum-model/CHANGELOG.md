@@ -1,5 +1,43 @@
 # Changelog
 
+## [2.3.0]
+
+### Added
+- Pivots on derived tables: `DerivedTable.add_pivot(key_field, value_field, aggregation_method)`
+  turns the values of a source field into explicit output columns. It returns a `Pivot` builder
+  whose chainable `add_column(field_id, key_value)` declares one column per value. A pivot column
+  is a keyed aggregated field — it serialises as an `aggregatedFields` entry carrying `keyField`
+  and `keyValue`, so plain aggregates and pivot columns share the one block. `add_pivot` is a
+  convenience over `add_aggregated_field(..., key_field=, key_value=)`. Each column is synthesised
+  as a read-only derived field (so formulas may reference it). `REFERENCE` is rejected.
+- Fluent grouping and filtering on derived tables: `DerivedTable.group_by(*fields)` (call with no
+  arguments to collapse to a single row) and `DerivedTable.set_filter_field(field)` — consistent
+  with the rest of the builder API and with `UnionTable.set_filter_field`.
+- Folded tables: `ModelBuilder.add_folded_table(id, source_table)` returns a new `FoldedTable`
+  builder that turns a wide table's columns into rows (the "columns to rows" transform). Declare
+  output columns with `add_column`, pass-through columns with `carry`, and call `fold(**outputs)`
+  once per column group — each output value is either a source field (mapped directly) or a
+  literal (folded in as a typed constant). It wraps a `UnionTable`, exposed as `FoldedTable.table`.
+  `FoldedTable` is re-exported from the package root.
+
+### Deprecated
+- Passing `group_by=` or `filter_field=` to `ModelBuilder.add_derived_table` /
+  `DerivedTable(...)`. Use `DerivedTable.group_by(...)` and `DerivedTable.set_filter_field(...)`
+  instead. The keyword arguments still work but emit a warning (a `UserWarning`, so it is shown
+  by default even when the deprecated call lives in an imported module).
+
+### Fixed
+- Bare reference operands (a `Field` / `Calculation` / `Parameter` / `Table` used directly as a
+  formula) are now tracked as formula dependencies. They were previously flattened to a string
+  constant, so they were invisible to dependency and cycle detection, and to validation. A bare
+  reference is now wrapped in an internal `Reference` node that renders identically.
+- Validation now enforces that a bare field reference (unqualified `[id]`) resolves in the
+  formula's own scope: on a calculated/combo field it must exist on that field's own table (not
+  merely on the source/parent table), and a calculation — being table-less — may not reference a
+  bare field at all (fields must be read through a table, e.g. `Table[Field]`). These models
+  built cleanly before but were rejected by the platform on upload. Cross-table reads via
+  `Table[col]` or `obj.field` remain valid.
+
 ## [2.2.0]
 
 ### Added

@@ -32,12 +32,12 @@ from typeguard import typechecked
 from .data_types import BaseDataType, DataType
 from .derived_table import DerivedTable
 from .fields import Field
-from .formula import CONST, Formula, Operand
+from .formula import Operand, to_formula
 from .joined_table import JoinCondition, JoinedTable
 from .named_values import Calculation, Parameter
 from .tables import DataTable, Table
 from .tracking import AutoCapture, Baseline, TrackingGroup
-from .union_table import UnionSource, UnionTable
+from .union_table import FoldedTable, UnionSource, UnionTable
 
 if TYPE_CHECKING:
     from .validation import ValidationReport
@@ -115,8 +115,7 @@ class ModelBuilder:
             ValueError: If a calculation or parameter with the same ``id``
                 already exists in the model.
         """
-        if not isinstance(formula, Formula):
-            return self.add_calculation(id, CONST(formula), model_level)
+        formula = to_formula(formula)
         if any(calculation.id == id for calculation in self._calculations) or any(
             parameter.id == id for parameter in self._parameters
         ):
@@ -241,11 +240,10 @@ class ModelBuilder:
         Args:
             id: Unique identifier for the derived table.
             source_table: The table whose rows the derived table draws from.
-            group_by: Optional fields to group rows by. When supplied,
-                non-group fields must be added with an
-                :class:`~daitum_model.AggregationMethod`.
-            filter_field: Optional ``BOOLEAN`` field on ``source_table``;
-                only rows where it is ``True`` are kept.
+            group_by: Deprecated. Call :meth:`DerivedTable.group_by` on the returned
+                table instead.
+            filter_field: Deprecated. Call :meth:`DerivedTable.set_filter_field` on the
+                returned table instead.
 
         Returns:
             The newly added :class:`~daitum_model.derived_table.DerivedTable`.
@@ -305,6 +303,42 @@ class ModelBuilder:
         table = UnionTable(id, source_tables)
         self._add_table(table)
         return table
+
+    def add_folded_table(self, id: str, source_table: Table) -> FoldedTable:
+        """
+        Add a folded table — the "columns to rows" transform — to the model.
+
+        A folded table turns wide columns of ``source_table`` into rows. Declare the output
+        columns with :meth:`~daitum_model.union_table.FoldedTable.add_column`, pass-through
+        columns with :meth:`~daitum_model.union_table.FoldedTable.carry`, then call
+        :meth:`~daitum_model.union_table.FoldedTable.fold` once per column group to collapse.
+
+        For example, folding ``(Employee, Day1Wages, Day2Wages)`` into
+        ``(Employee, Day, Wages)``::
+
+            folded = model.add_folded_table("Roster_Long", roster)
+            folded.add_column("Day", DataType.INTEGER)
+            folded.add_column("Wages", DataType.DECIMAL)
+            folded.carry(roster["Employee"])
+            folded.fold(Day=1, Wages=roster["Day1Wages"])
+            folded.fold(Day=2, Wages=roster["Day2Wages"])
+
+        The builder wraps a :class:`~daitum_model.union_table.UnionTable`, which is registered
+        on the model and available as :attr:`~daitum_model.union_table.FoldedTable.table`.
+
+        Args:
+            id: Unique identifier for the folded table.
+            source_table: The wide table whose columns are folded into rows.
+
+        Returns:
+            A :class:`~daitum_model.union_table.FoldedTable` builder.
+
+        Raises:
+            ValueError: If a table with the same ``id`` already exists.
+        """
+        folded = FoldedTable(id, source_table)
+        self._add_table(folded.table)
+        return folded
 
     def set_partial_evaluation_allowed(self, partial_evaluation_allowed: bool = True):
         """

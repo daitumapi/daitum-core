@@ -78,14 +78,16 @@ over a source table. Aggregated fields are added with an
     products.add_data_field("Category", DataType.STRING)
     category = products.field_definitions["Category"]
 
-    summary = model.add_derived_table(
-        "ProductsByCategory",
-        source_table=products,
-        group_by=[category],
-    )
+    summary = model.add_derived_table("ProductsByCategory", source_table=products)
+    summary.group_by(category)
     summary.add_source_fields([category])
     summary.add_aggregated_field("TotalQuantity", quantity, AggregationMethod.SUM)
     summary.add_aggregated_field("AveragePrice", price, AggregationMethod.AVERAGE)
+
+:meth:`~daitum_model.derived_table.DerivedTable.group_by` sets the fields
+that define each output row; call it with no arguments to collapse the whole
+table to a single row. See :doc:`tables/derived_table` for filtering, sorting
+and pivots.
 
 Where to next
 -------------

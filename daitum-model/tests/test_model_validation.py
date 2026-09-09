@@ -89,6 +89,51 @@ class TestFieldReferences:
         # Reuses the "available fields" wording from Table.get_field.
         assert "available fields" in message
 
+    def test_derived_calc_references_uncopied_source_field(self):
+        report = invalid_models.derived_calc_references_uncopied_source_field().validate()
+        issues = [i for i in report if isinstance(i, FieldReferenceError)]
+        assert len(issues) == 1
+        message = issues[0].render()
+        assert "Category" in message
+        assert "Child" in message
+        assert "own table" in message
+
+    def test_calculation_referencing_bare_field(self):
+        report = invalid_models.calculation_references_bare_field().validate()
+        issues = [i for i in report if isinstance(i, FieldReferenceError)]
+        assert len(issues) == 1
+        message = issues[0].render()
+        assert "Value" in message
+        assert "no table context" in message
+
+    def test_derived_calc_with_copied_field_is_valid(self):
+        # The same model but with the source field copied in via add_source_fields is valid.
+        from daitum_model import AggregationMethod, DataType, ModelBuilder
+
+        model = ModelBuilder()
+        parent = model.add_data_table("Parent")
+        category = parent.add_data_field("Category", DataType.STRING)
+        amount = parent.add_data_field("Amount", DataType.DECIMAL)
+        child = model.add_derived_table("Child", parent)
+        child.group_by(category)
+        child.add_source_fields([category])
+        child.add_aggregated_field("Total", amount, AggregationMethod.SUM)
+        child.add_calculated_field("Label", category)
+        assert model.validate().ok
+
+    def test_calc_reading_column_via_table_access_is_valid(self):
+        # A cross-table read via table["col"] is legitimate and must not be flagged as local.
+        import daitum_model.formulas as formulas
+        from daitum_model import DataType, ModelBuilder
+
+        model = ModelBuilder()
+        source = model.add_data_table("Source")
+        source.add_data_field("Value", DataType.DECIMAL)
+        other = model.add_data_table("Other")
+        other.add_data_field("X", DataType.DECIMAL)
+        other.add_calculated_field("SumValue", formulas.SUM(source["Value"]))
+        assert model.validate().ok
+
 
 class TestMissingSourceFields:
     def test_derived_sort_field_not_on_source(self):
