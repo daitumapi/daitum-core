@@ -1,5 +1,23 @@
 # Changelog
 
+## [3.2.0]
+
+### Added
+- `TableView.add_context_menu_event(name, event)` and
+  `TreeView.add_context_menu_event(name, event, levels=None)` — add a named command to a view's
+  right-click (context) menu. The command fires its `ModelEvent` with the clicked row as context.
+  Only tree views take `levels`, the tree depth(s) — indexed against `table_evaluation_order`,
+  `0` being the root — at which the command appears; a single `int` is accepted and coerced to a
+  list, and omitting it shows the command at every depth. Levels are validated eagerly against the
+  view's `table_evaluation_order` (which must be set first), rejecting negative, duplicate, or
+  out-of-range depths. Round-trips through the UI decoders.
+
+### Fixed
+- `EditorEvent` (a `ViewField`/`FormElement` on-click/on-change binding) now decodes to a typed
+  instance: its `type` becomes an `EditorEventType` member and its nested `event` a real
+  `ModelEvent` (with typed, polymorphic actions) rather than a raw `str` and `dict`. The built
+  JSON was already correct; only `read_from_file` was affected.
+
 ## [3.1.0]
 
 ### Added

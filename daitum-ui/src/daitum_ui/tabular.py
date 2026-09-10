@@ -490,6 +490,26 @@ class TreeViewField(ViewField):
         return self
 
 
+class ContextMenuEvent(Buildable):
+    """
+    A named command shown on a table or tree view's right-click (context) menu.
+
+    Selecting the command fires its :class:`ModelEvent` with the clicked row as context.
+
+    Attributes:
+        name (str): The label shown in the context menu.
+        event (ModelEvent): The event fired when the command is selected.
+        levels (list[int] | None): Tree-view depths, indexed against the view's
+            ``table_evaluation_order``, at which this command appears. ``None`` (the default)
+            means every depth. Not applicable to a single-table view, where it stays ``None``.
+    """
+
+    def __init__(self, name: str, event: ModelEvent, levels: list[int] | None = None):
+        self.name: str = name
+        self.event: ModelEvent = event
+        self.levels: list[int] | None = levels
+
+
 @dataclass
 class NestedHeaders(Buildable):
     """
@@ -587,6 +607,17 @@ class BaseTableView(BaseView, FilterableView):
         self.table_height: str | None = None
         self.only_display_nested_headers: bool = False
         self.show_dropdowns_below: bool = True
+
+        self.context_menu_events: list[ContextMenuEvent] | None = None
+
+    def _add_context_menu_event(
+        self, name: str, event: ModelEvent, levels: list[int] | None
+    ) -> ContextMenuEvent:
+        context_menu_event = ContextMenuEvent(name, event, levels)
+        if self.context_menu_events is None:
+            self.context_menu_events = []
+        self.context_menu_events.append(context_menu_event)
+        return context_menu_event
 
     def set_disable_table_controls(self, disable: bool) -> "BaseTableView":
         """Disables or enables user controls (row movement, resizing, sorting, filtering)."""
@@ -686,6 +717,21 @@ class TableView(BaseTableView):
         self.fields.append(_validation_view_field(table_field, view_field))
 
         return view_field
+
+    def add_context_menu_event(self, name: str, event: ModelEvent) -> ContextMenuEvent:
+        """
+        Adds a named command to the view's right-click (context) menu.
+
+        The command fires ``event`` with the clicked row as context.
+
+        Args:
+            name (str): The label shown in the context menu.
+            event (ModelEvent): The event fired when the command is selected.
+
+        Returns:
+            ContextMenuEvent: The created command.
+        """
+        return self._add_context_menu_event(name, event, None)
 
 
 @json_type_info("tree")
@@ -844,3 +890,46 @@ class TreeView(BaseTableView):
             self.fields.append(view_field)
 
         return view_field
+
+    def add_context_menu_event(
+        self, name: str, event: ModelEvent, levels: int | list[int] | None = None
+    ) -> ContextMenuEvent:
+        """
+        Adds a named command to the tree view's right-click (context) menu.
+
+        The command fires ``event`` with the clicked row as context.
+
+        Args:
+            name (str): The label shown in the context menu.
+            event (ModelEvent): The event fired when the command is selected.
+            levels (int | list[int] | None): The tree depth(s) at which the command appears,
+                indexed against ``table_evaluation_order`` (0 is the root level). A single ``int``
+                is accepted for one depth. Omit (or pass ``None``) to show the command at every
+                depth.
+
+        Returns:
+            ContextMenuEvent: The created command.
+
+        Raises:
+            ValueError: If ``table_evaluation_order`` has not been set, or a level is negative,
+                duplicated, or not a valid depth in ``table_evaluation_order``.
+        """
+        resolved_levels: list[int] | None = None
+        if levels is not None:
+            if self.table_evaluation_order is None:
+                raise ValueError(
+                    "`set_table_evaluation_order` must be called before adding levelled "
+                    "context menu events."
+                )
+            resolved_levels = [levels] if isinstance(levels, int) else list(levels)
+            depth_count = len(self.table_evaluation_order)
+            for level in resolved_levels:
+                if not 0 <= level < depth_count:
+                    raise ValueError(
+                        f"Context menu level {level} is out of range for a tree of depth "
+                        f"{depth_count} (valid levels are 0 to {depth_count - 1})."
+                    )
+            if len(set(resolved_levels)) != len(resolved_levels):
+                raise ValueError("Context menu levels must not contain duplicates.")
+
+        return self._add_context_menu_event(name, event, resolved_levels)

@@ -45,6 +45,7 @@ from daitum_ui._decoders._template import (
     register_template,
 )
 from daitum_ui._decoders._value import decode_value
+from daitum_ui._events import EditorEventType
 from daitum_ui.base_view import BaseView
 from daitum_ui.card_view import CardView
 from daitum_ui.chart_view import ChartView, CombinationChartView
@@ -61,7 +62,7 @@ from daitum_ui.gantt_view import (
 )
 from daitum_ui.layout import FlexView, GridLayout, GridView
 from daitum_ui.map_view import MapType, MapView
-from daitum_ui.model_event import EditorEvent
+from daitum_ui.model_event import EditorEvent, ModelEvent
 from daitum_ui.named_value_view import NamedValueView
 from daitum_ui.roster_view import (
     RosterAxis,
@@ -72,7 +73,7 @@ from daitum_ui.roster_view import (
 )
 from daitum_ui.styles import AxisLabelStyle, ColumnStyle, ConditionalFormattingRule, Title
 from daitum_ui.tabbed_view import TabbedView, TabDefinition
-from daitum_ui.tabular import TableView, TreeView, ViewField
+from daitum_ui.tabular import BaseTableView, ContextMenuEvent, TableView, TreeView, ViewField
 
 _ENVELOPE_KEYS = frozenset({"id", "displayName", "hidden", "hiddenConditions"})
 _VIEW_DEF_SKIP = frozenset({"@type"})
@@ -244,6 +245,19 @@ def _gantt_task_template(cls: type):
     return factory
 
 
+def _context_menu_event_template(data: dict[str, Any], ctx: LoadContext) -> ContextMenuEvent:
+    # The nested ModelEvent has no @type of its own, so decode it against a live ModelEvent
+    # template to reconstruct its polymorphic actions; the walk restores name and levels.
+    event = decode_value(data["event"], ModelEvent(), None, ctx)
+    return ContextMenuEvent(data["name"], event)
+
+
+def _editor_event_template(data: dict[str, Any], ctx: LoadContext) -> EditorEvent:
+    # type is an enum and the nested ModelEvent has no @type; both ctor args need seeding.
+    event = decode_value(data["event"], ModelEvent(), None, ctx)
+    return EditorEvent(EditorEventType(data["type"]), event)
+
+
 def _seed_field(data: dict[str, Any], ctx: LoadContext):
     """Resolve any field of a chart/gantt view's table to seed a placeholder template arg.
 
@@ -386,6 +400,12 @@ def register() -> None:
     # title is a body-assigned BaseView attribute shared by every concrete view; registering it
     # on the base class makes it apply to all subclasses via the MRO-merged schema.
     register_elements(BaseView, {"title": Title})
+
+    # context_menu_events is a body-assigned list shared by TableView and TreeView; declaring it
+    # on BaseTableView applies to both via the MRO-merged schema.
+    register_elements(BaseTableView, {"context_menu_events": ContextMenuEvent})
+    register_template(ContextMenuEvent, factory=_context_menu_event_template)
+    register_template(EditorEvent, factory=_editor_event_template)
 
     # ViewField is decoded as a leaf, but its nested optional Buildables are body-assigned, so
     # their types are declared here rather than auto-derived from the (field_id, readonly) ctor.

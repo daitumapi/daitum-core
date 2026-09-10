@@ -82,6 +82,26 @@ class TestViewRoundTrip:
         view = ui.add_tree_view(table, display_name="Tree")
         self._roundtrip(ui, view, model)
 
+    def test_table_view_field_editor_event(self):
+        from daitum_ui._events import EditorEventType
+        from daitum_ui.model_event import EditorEvent, ModelEvent
+
+        model, table = _model()
+        ui = UiBuilder()
+        view = ui.add_table_view(table, display_name="Jobs")
+        click = ModelEvent()
+        click.add_switch_view_action("detail")
+        view.add_field("ID").set_on_click_event(click)
+        self._roundtrip(ui, view, model)
+
+        decoded = decode_view(view.build(), _ctx(model))
+        editor_event = decoded.fields[0].editor_event
+        # The nested event and its enum type must decode to their typed forms, not raw
+        # dict/str — a difference build() output alone would not surface.
+        assert isinstance(editor_event, EditorEvent)
+        assert editor_event.type is EditorEventType.ON_CLICK
+        assert isinstance(editor_event.event, ModelEvent)
+
     def test_form_view(self):
         model, table = _model()
         ui = UiBuilder()
@@ -660,6 +680,18 @@ class TestTemplateFactoryFragilityGuard:
         )
         roster_column = RosterColumn(table_field_reference=table.get_field("ID"))
 
+        from daitum_ui.model_event import ModelEvent
+
+        context_menu_event_model = ModelEvent()
+        context_menu_event_model.add_switch_view_action("Jobs")
+        context_menu_event = table_view.add_context_menu_event(
+            "Open", context_menu_event_model
+        )
+
+        on_click_model = ModelEvent()
+        on_click_model.add_switch_view_action("Jobs")
+        editor_event = table_view.fields[0].set_on_click_event(on_click_model).editor_event
+
         return model, [
             table_view,
             tree_view,
@@ -690,6 +722,8 @@ class TestTemplateFactoryFragilityGuard:
             roster_task,
             roster_drop_write,
             roster_column,
+            context_menu_event,
+            editor_event,
             default_filter,
             search_config,
         ]
