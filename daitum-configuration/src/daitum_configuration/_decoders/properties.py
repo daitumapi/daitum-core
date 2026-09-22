@@ -42,6 +42,7 @@ def decode_report_data(data: dict[str, Any], _ctx: LoadContext) -> ReportData:
         required_sheets=set(sheets) if sheets is not None else None,
         requires_monte_carlo=data.get("requiresMonteCarlo", False),
         requires_scenario_comparison=data.get("requiresScenarioComparison", False),
+        export_values_only=data.get("exportValuesOnly", False),
     )
     return report_data
 

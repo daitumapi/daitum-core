@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.0]
+
+### Added
+- `ReportData(export_values_only=...)` — export the Excel workbook with computed cell values
+  instead of live formulas (emitted as `exportValuesOnly`; defaults to `False`, preserving
+  formulas). Round-trips through `read_from_file`.
+
 ## [2.4.0]
 
 ### Added

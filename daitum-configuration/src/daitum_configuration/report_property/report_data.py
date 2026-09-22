@@ -35,6 +35,9 @@ class ReportData(Buildable):
             a transform does not produce it.
         requires_scenario_comparison: Whether the report depends on scenario comparison
             output. Workbook-only; a transform does not produce it.
+        export_values_only: Whether the exported Excel workbook holds computed cell values
+            instead of formulas. When ``True``, formulas are evaluated and only their results
+            are written; when ``False`` — the default — the live formulas are preserved.
     """
 
     def __init__(
@@ -42,7 +45,9 @@ class ReportData(Buildable):
         required_sheets: set[str] | None = None,
         requires_monte_carlo: bool = False,
         requires_scenario_comparison: bool = False,
+        export_values_only: bool = False,
     ):
         self.required_sheets = list(required_sheets) if required_sheets is not None else []
         self.requires_monte_carlo = requires_monte_carlo
         self.requires_scenario_comparison = requires_scenario_comparison
+        self.export_values_only = export_values_only
