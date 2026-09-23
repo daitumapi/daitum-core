@@ -1,5 +1,16 @@
 # Changelog
 
+## [3.2.1]
+
+### Added
+- `Icon` members `CIRCLE_CHECK`, `TRASH_CAN`, `CIRCLE_MINUS`, `PLUS`, `XMARK`, `GRIP_LINES`, and
+  `ROTATE_LEFT` (FontAwesome 6), plus `RESTORE_ORIGINAL`.
+
+### Changed
+- `Icon.ADD_ROW`, `REMOVE_ROW`, `MOVE_ROW`, `CHECK`, and `RESET_ICON` now point at their
+  FontAwesome 6 equivalents. They are retained as deprecated aliases — prefer `PLUS`, `XMARK`,
+  `GRIP_LINES`, `CIRCLE_CHECK`, and `ROTATE_LEFT` respectively.
+
 ## [3.2.0]
 
 ### Added

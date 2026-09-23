@@ -326,6 +326,13 @@ class Icon(Enum):
     DICE = "FontAwesome.6.DICE"
     HALF_CIRCLE = "FontAwesome.6.HALF_CIRCLE"
     TRUCK = "FontAwesome.6.TRUCK"
+    CIRCLE_CHECK = "FontAwesome.6.CIRCLE_CHECK"
+    TRASH_CAN = "FontAwesome.6.TRASH_CAN"
+    CIRCLE_MINUS = "FontAwesome.6.CIRCLE_MINUS"
+    PLUS = "FontAwesome.6.PLUS"
+    XMARK = "FontAwesome.6.XMARK"
+    GRIP_LINES = "FontAwesome.6.GRIP_LINES"
+    ROTATE_LEFT = "FontAwesome.6.ROTATE_LEFT"
 
     # FontAwesome Pro - Solid Icons
     LOCATION_DOT = "FAPro.solid.LOCATION_DOT"
@@ -349,9 +356,6 @@ class Icon(Enum):
     REG_CIRCLE = "FontAwesome.6.REG_CIRCLE"
     REG_HALF_CIRCLE = "FontAwesome.6.REG_HALF_CIRCLE"
     REG_ACCOMMODATION = "FontAwesome.6.REG_ACCOMMODATION"
-
-    # Daitum - Validation Icons
-    CHECK = "Daitum.ribbonMenu.validationDialog.VALID"
 
     # Daitum - Rostering & Child Care Application Icons
     CONTACT_TIME = "Daitum.applications.rostering.forChildCare.CONTACT_TIME"
@@ -378,16 +382,15 @@ class Icon(Enum):
     HELP = "Daitum.applications.rostering.forChildCare.HELP"
     ALERT = "Daitum.applications.rostering.forChildCare.ALERT"
 
-    # Daitum - Model Editor Icons
-    ADD_ROW = "Daitum.modelEditor.editors.array.ADD_ROW"
-    REMOVE_ROW = "Daitum.modelEditor.editors.array.REMOVE_ROW"
-    MOVE_ROW = "Daitum.modelEditor.editors.array.MOVE_ROW"
+    ADD_ROW = "FontAwesome.6.PLUS"  # Deprecated: use PLUS
+    REMOVE_ROW = "FontAwesome.6.XMARK"  # Deprecated: use XMARK
+    MOVE_ROW = "FontAwesome.6.GRIP_LINES"  # Deprecated: use GRIP_LINES
+    CHECK = "FontAwesome.6.CIRCLE_CHECK"  # Deprecated: use CIRCLE_CHECK
+    RESET_ICON = "FontAwesome.6.ROTATE_LEFT"  # Deprecated: use ROTATE_LEFT
 
-    # Daitum - Common Component Icons
-    RESET_ICON = "Daitum.commonComponents.readOnlyResettableField.RESET_VALUE"
-
-    # Daitum - Model Visualization
+    # TODO - update once FontAwesome versions available
     CAMP = "Daitum.modelVisualisation.mapDisplay.CAMP"
+    RESTORE_ORIGINAL = "Daitum.commonComponents.readOnlyResettableField.RESTORE_ORIGINAL"
 
     # Special - Empty/Null Icon
     NULL = ""
