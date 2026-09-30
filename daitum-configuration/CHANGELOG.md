@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.5.1]
+
+### Changed
+- `ModelTransformConfig.add_log_table` now builds the validation list table via
+  `ModelBuilder.set_validation_table()` instead of the removed
+  `daitum_model.validation_list.get_validation_list_table` helper.
+
 ## [2.5.0]
 
 ### Added

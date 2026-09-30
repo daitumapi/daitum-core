@@ -41,7 +41,7 @@ from typing import Any
 
 import daitum_model.formulas as formulas
 import pytest
-from daitum_model import DataType, ModelBuilder
+from daitum_model import DataType, ModelBuilder, NonBlankValidator, Severity
 from daitum_model._decoders.fields import _KNOWN_KEYS
 from daitum_model._decoders.model import _MODEL_KEYS
 from daitum_model._decoders.tables import _UNION_FIELD_KEYS
@@ -49,16 +49,19 @@ from daitum_model.tracking import AutoCapture
 
 
 def _maximal_model() -> ModelBuilder:
-    """A model exercising every top-level ``build()`` key, including the tracking-only keys.
+    """A model exercising every top-level ``build()`` key, including the conditional ones.
 
     The optimisation-check named value must be boolean, so the driving calculation compares a sum to
-    a constant; tracking requires an ``id_field`` on any table carrying a tracked field.
+    a constant; tracking requires an ``id_field`` on any table carrying a tracked field; and
+    ``validationListTable`` needs a validated field on a table carrying a validation group.
     """
     model = ModelBuilder()
     table = model.add_data_table("T")
     table.set_id_field("K")
+    table.set_validation_group("G")
     table.add_data_field("K", DataType.STRING)
     tracked = table.add_data_field("V", DataType.INTEGER)
+    tracked.add_validator(NonBlankValidator(Severity.ERROR))
 
     model.add_tracking_group("G")
     tracked.set_tracking_groups(["G"])
@@ -67,6 +70,7 @@ def _maximal_model() -> ModelBuilder:
     check = model.add_calculation("CALC", formulas.SUM(table["V"]) > formulas.CONST(0))
     model.add_parameter("P", DataType.INTEGER, 5)
     model.set_data_validation_rule(check)
+    model.set_validation_table()
     return model
 
 

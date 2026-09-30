@@ -1,5 +1,14 @@
 # Changelog
 
+## [3.3.0]
+
+### Added
+- `Icon` members `EMPTY_FILTER`, `FILLED_FILTER`, `REMOVE_FILTER`, `EMPTY_FILTERS`, and
+  `FILLED_FILTERS` (FontAwesome 6).
+
+### Changed
+- Built UI definitions now emit `schemaVersion: 3`.
+
 ## [3.2.1]
 
 ### Added

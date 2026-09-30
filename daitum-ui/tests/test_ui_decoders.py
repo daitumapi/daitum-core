@@ -684,9 +684,7 @@ class TestTemplateFactoryFragilityGuard:
 
         context_menu_event_model = ModelEvent()
         context_menu_event_model.add_switch_view_action("Jobs")
-        context_menu_event = table_view.add_context_menu_event(
-            "Open", context_menu_event_model
-        )
+        context_menu_event = table_view.add_context_menu_event("Open", context_menu_event_model)
 
         on_click_model = ModelEvent()
         on_click_model.add_switch_view_action("Jobs")

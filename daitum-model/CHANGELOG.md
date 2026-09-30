@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.4.0]
+- Validation list tables are built from the model: `ModelBuilder.set_validation_table()` scans
+  the model's tables for validated fields, aggregates their errors into a `ValidationList` union
+  table and returns the sorted `ValidationListSorted` derived table. It is idempotent, so a model
+  transform's log table and a validation list view can both ask for it without building it twice.
+  `ModelBuilder.get_validated_table_ids()` reports which tables contribute rows, and
+  `ModelBuilder.set_subgroup_order(mapping)` overrides the sort position of their subgroups once
+  the table exists.
+- New top-level `validationListTable` key in the built model definition, naming the table that
+  aggregates the model's validation errors so the platform can find it.
+  `set_validation_table()` records the id it builds and `build()` emits what was recorded. The
+  key is always present and is `null` on a model carrying no validation list table, so it can be
+  read unconditionally. It round-trips through `read_from_file`/`read_from_dict` — the decoder
+  records the id it loaded — and a `validationListTable` naming no table in the model is rejected
+  with a `LoadError`.
+- The table and field ids the validation list exposes (`__Group__`, `__Subgroup__`,
+  `__Source Table__`, `__Type__`, `__Row__`, `__Value__`, `__Field__`, `__Message__`,
+  `__Summary Message__`, `__Severity Rank__`, `__Subgroup Order__`, `__Filter__`, and the two
+  table ids) are re-exported from `daitum_model`; import them from the package root. The
+  construction itself is internal, so there is no public `daitum_model.validation_list` module —
+  callers that used `get_validation_list_table(model)`, `get_validated_table_ids(model)` or
+  `set_subgroup_order(model, ...)` call the corresponding `ModelBuilder` method instead.
+- `Severity` and `SEVERITY_RANK` moved to their own dependency-free module. They are unchanged
+  and still re-exported from both `daitum_model` and `daitum_model.validator`.
+
 ## [2.3.0]
 
 ### Added

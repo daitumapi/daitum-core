@@ -13,45 +13,43 @@
 # limitations under the License.
 
 """
-Validation list table builder for aggregating model validation errors.
+Construction of the model's validation list tables.
 
-This module collects validation errors across all model tables into a single
-``ValidationList`` table. It inspects each table for fields following the
-``__invalid__`` and ``__message__`` naming conventions, derives filtered tables
-containing only invalid rows, and unions them into a sorted validation table.
+Internal to :mod:`daitum_model`: the public API that builds and orders the table lives on
+:class:`~daitum_model.ModelBuilder`, whose
+:meth:`~daitum_model.ModelBuilder.set_validation_table` is this module's only caller.
+Only the table construction lives here, to keep it out of the builder's own module.
 
-This is a model-only helper: it builds tables and nothing else. Presentation --
-views, filters, navigation and click-through behaviour -- is built on top of the
-resulting table by ``daitum_components``, which uses ``SOURCE_TABLE_FIELD`` to
-derive whatever per-source columns it needs.
+The table and field ids below are the contract between the built table and anything
+presented on top of it, so they are re-exported from :mod:`daitum_model`; import them from
+there rather than from this module. They sit in this module, not on
+:mod:`daitum_model.model`, because ``model`` is imported while the package is still
+initialising -- a module it depends on must not reach back into the package.
 """
 
-from collections.abc import Mapping
+from typing import TYPE_CHECKING
 
 from typeguard import typechecked
 
-from daitum_model import (
-    DataType,
-    Field,
-    Formula,
-    MapDataType,
-    ModelBuilder,
-    ObjectDataType,
-    Severity,
-    SortDirection,
-    Table,
-    UnionSource,
-)
-from daitum_model.fields import CalculatedField, ValidationFieldsContainer
-from daitum_model.formula import CONST
 from daitum_model.formulas import ARRAY, IF, INDEX, ISBLANK, ROW, ROWS, TEXT, TEXTJOIN, VALUES
-from daitum_model.validator import SEVERITY_RANK
 
-# Table ids produced by this module
+from ._severity import SEVERITY_RANK, Severity
+from .data_types import DataType, MapDataType, ObjectDataType
+from .derived_table import SortDirection
+from .fields import Field, ValidationFieldsContainer
+from .formula import Formula
+from .tables import Table
+from .union_table import UnionSource
+
+if TYPE_CHECKING:
+    from .model import ModelBuilder
+
+
+#: Table ids produced by :meth:`~daitum_model.ModelBuilder.set_validation_table`.
 VALIDATION_LIST_TABLE = "ValidationList"
 VALIDATION_LIST_SORTED_TABLE = "ValidationListSorted"
 
-# Field ids shared between the validation list table and anything built on top of it
+#: Field ids shared between the validation list table and anything built on top of it.
 GROUP_FIELD = "__Group__"
 SUBGROUP_FIELD = "__Subgroup__"
 SOURCE_TABLE_FIELD = "__Source Table__"
@@ -65,111 +63,11 @@ SEVERITY_RANK_FIELD = "__Severity Rank__"
 SUBGROUP_ORDER_FIELD = "__Subgroup Order__"
 FILTER_FIELD = "__Filter__"
 
-# Maximum number of array elements rendered into the value column before eliding
+#: Maximum number of array elements rendered into the value column before eliding.
 MAX_VALUE_ROWS = 3
 
-# Subgroups sort equal until a presentation layer calls set_subgroup_order
+#: Subgroups sort equal until a presentation layer calls :meth:`ModelBuilder.set_subgroup_order`.
 DEFAULT_SUBGROUP_ORDER = 0
-
-
-@typechecked
-def get_validation_list_table(model: ModelBuilder) -> Table | None:
-    """Build the model's validation list table, or return the one already built.
-
-    Scans every table registered with *model* for fields following the
-    ``<base_id>__invalid__<severity>`` / ``<base_id>__message__<severity>`` naming
-    convention. For each matching pair a union source is created that filters to
-    invalid rows only, all sources are unioned into a ``ValidationList`` table, and
-    a ``ValidationListSorted`` derived table is returned, ordered by subgroup, row,
-    severity rank and field.
-
-    Subgroups themselves sort equal, so they fall back to sorting by name. Call
-    :func:`set_subgroup_order` afterwards to impose an order the model does not know
-    about, such as the one the navigation bar uses.
-
-    Safe to call more than once. The second call returns the table built by the
-    first, so a single model can carry both a model transform's log table and a
-    validation list view without building the table twice.
-
-    Every table with a validated field must carry a validation group, set via
-    :meth:`~daitum_model.Table.set_validation_group`.
-
-    Args:
-        model: The model builder whose tables are scanned, and onto which the
-            validation list tables and their supporting calculated fields are added.
-
-    Returns:
-        The sorted validation list table, or ``None`` when the model has no
-        validated fields.
-
-    Raises:
-        ValueError: If a table with a validated field has no validation group.
-    """
-
-    for table in model.get_tables():
-        if table.id == VALIDATION_LIST_SORTED_TABLE:
-            return table
-    return _ValidationListBuilder(model).build()
-
-
-@typechecked
-def get_validated_table_ids(model: ModelBuilder) -> list[str]:
-    """Return the ids of tables with at least one validated field, in registration order.
-
-    These are the tables that contribute rows to the validation list, and the values
-    that appear in ``SOURCE_TABLE_FIELD``. A pure query -- it does not modify the model.
-    """
-
-    return [table.id for table in model.get_tables() if _validated_fields(table)]
-
-
-@typechecked
-def set_subgroup_order(model: ModelBuilder, subgroup_order: Mapping[str, int]) -> None:
-    """Override the subgroup sort position of source tables on a built validation list.
-
-    The validation list leaves every subgroup sorting equal, so they fall back to sorting
-    by name -- fine for a model transform's log table, which has no navigation to follow.
-    A presentation layer that wants a particular order -- matching the navigation bar,
-    say -- calls this once the table has been built.
-
-    Only the sort position changes: the column, the union mappings and the sort keys are
-    all untouched, so any table derived from the validation list picks the new order up.
-    Call it before the model is built, and after
-    :func:`get_validation_list_table`.
-
-    Args:
-        model: The model builder carrying the validation list.
-        subgroup_order: Source table id to sort position. Ids that contributed no rows to
-            the validation list are ignored, so a caller may pass positions for every
-            table it knows about.
-
-    Raises:
-        ValueError: If the validation list has not been built yet.
-    """
-
-    source_table_ids = get_validated_table_ids(model)
-    if not source_table_ids:
-        raise ValueError(
-            "Cannot set the subgroup order: the model has no validated fields, so no "
-            "validation list table was produced."
-        )
-
-    for table_id in source_table_ids:
-        if table_id not in subgroup_order:
-            continue
-        _subgroup_order_field(model.get_table(table_id)).formula = CONST(subgroup_order[table_id])
-
-
-def _subgroup_order_field(table: Table) -> CalculatedField:
-    """Return the table's subgroup order column, added when the validation list is built."""
-
-    for field in table.get_fields():
-        if field.id == SUBGROUP_ORDER_FIELD and isinstance(field, CalculatedField):
-            return field
-    raise ValueError(
-        f"Cannot set the subgroup order for {table.id}: the validation list has not been "
-        f"built. Call get_validation_list_table() first."
-    )
 
 
 def _validated_fields(table: Table) -> list[tuple[Field, ValidationFieldsContainer]]:
@@ -188,7 +86,10 @@ def _validated_fields(table: Table) -> list[tuple[Field, ValidationFieldsContain
 class _ValidationListBuilder:
     """Builds the validation list tables for one model. Single use, via ``build()``."""
 
-    def __init__(self, model: ModelBuilder):
+    # ``model`` can only be a forward reference here, since ``model`` imports this module,
+    # so typeguard does not check it. The sole caller is
+    # ``ModelBuilder.set_validation_table``, which passes itself.
+    def __init__(self, model: "ModelBuilder"):
         self.model = model
         self._source_tables: set[str] = set()
 
@@ -196,7 +97,7 @@ class _ValidationListBuilder:
         union_sources: list[Table | UnionSource] = []
         source_field_mappings: list[list[tuple[str, Field]]] = []
 
-        for table_id in get_validated_table_ids(self.model):
+        for table_id in self.model.get_validated_table_ids():
             table = self.model.get_table(table_id)
             for field, container in _validated_fields(table):
                 source, field_mappings = self._build_union_source(table, field, container)

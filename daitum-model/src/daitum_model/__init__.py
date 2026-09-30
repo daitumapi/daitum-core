@@ -43,6 +43,22 @@ Usage::
     is_valid = formulas.NOT(formulas.ISBLANK(cost))
 """
 
+from ._validation_list import (
+    FIELD_NAME_FIELD,
+    FILTER_FIELD,
+    GROUP_FIELD,
+    MESSAGE_FIELD,
+    ROW_FIELD,
+    SEVERITY_RANK_FIELD,
+    SOURCE_TABLE_FIELD,
+    SUBGROUP_FIELD,
+    SUBGROUP_ORDER_FIELD,
+    SUMMARY_MESSAGE_FIELD,
+    TYPE_FIELD,
+    VALIDATION_LIST_SORTED_TABLE,
+    VALIDATION_LIST_TABLE,
+    VALUE_FIELD,
+)
 from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType
 from .decoding import LoadError
 from .derived_table import AggregationMethod, DerivedTable, SortDirection
@@ -84,6 +100,20 @@ __all__ = [
     "JoinType",
     "Severity",
     "ModelBuilder",
+    "FIELD_NAME_FIELD",
+    "FILTER_FIELD",
+    "GROUP_FIELD",
+    "MESSAGE_FIELD",
+    "ROW_FIELD",
+    "SEVERITY_RANK_FIELD",
+    "SOURCE_TABLE_FIELD",
+    "SUBGROUP_FIELD",
+    "SUBGROUP_ORDER_FIELD",
+    "SUMMARY_MESSAGE_FIELD",
+    "TYPE_FIELD",
+    "VALIDATION_LIST_SORTED_TABLE",
+    "VALIDATION_LIST_TABLE",
+    "VALUE_FIELD",
     "Table",
     "Formula",
     "Field",

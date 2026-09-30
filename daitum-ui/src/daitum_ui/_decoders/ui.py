@@ -47,6 +47,7 @@ _UI_KEYS = {
     "filters",
     "views",
     "optimisationValidationViewId",
+    "schemaVersion",
 }
 
 

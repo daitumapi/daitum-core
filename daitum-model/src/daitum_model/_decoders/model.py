@@ -18,9 +18,9 @@ Top-level model decoder: reconstruct a live :class:`ModelBuilder` from the outpu
 
 ``ModelBuilder.build()`` emits domain-named top-level keys
 (``calculationDefinitions``, ``parameterDefinitions``, ``tableDefinitions``,
-``optimisationCheckNamedValue``, ``partialEvaluationAllowed``) rather than the generic
-attribute walk, so it needs a hand decoder that owns the load ordering and symbol-table
-population.
+``optimisationCheckNamedValue``, ``partialEvaluationAllowed``, ``validationListTable``) rather
+than the generic attribute walk, so it needs a hand decoder that owns the load ordering and
+symbol-table population.
 
 Ordering matters because fields, formulas, and named values reference ids defined earlier:
 
@@ -30,6 +30,11 @@ Ordering matters because fields, formulas, and named values reference ids define
    ``sort_keys=True`` on-disk layout makes no difference.
 2. Decode parameters, then calculations (calculations may reference parameters and fields).
 3. Set the optimisation-check named value and the partial-evaluation flag.
+
+``validationListTable`` needs no decoding step: it is ``null`` or names a table
+``tableDefinitions`` already carried, so it is checked against the rebuilt tables -- a
+definition pointing at a table the model does not have fails loudly rather than silently --
+and then recorded, so the decoded model emits the same key it was loaded from.
 
 Calculation/parameter ``build()`` output omits the ``id`` (it keys the parent map), so the
 id is injected from the map key before dispatch.
@@ -92,6 +97,17 @@ def decode_model(data: dict[str, Any], ctx: LoadContext) -> ModelBuilder:
         model.set_data_validation_rule(ctx.resolve(optimisation_check))
 
     model.set_partial_evaluation_allowed(optional(data, "partialEvaluationAllowed", True))
+
+    validation_list_table = data.get("validationListTable")
+    if validation_list_table is not None:
+        if validation_list_table not in {table.id for table in model.get_tables()}:
+            raise LoadError(
+                f"Model definition: validationListTable {validation_list_table!r} is not a table "
+                f"in the model"
+            )
+        # Assigned rather than set through a public method: recording the id without building
+        # the table is only ever correct here, where ``tableDefinitions`` already carried it.
+        model._validation_list_table = validation_list_table
 
     # Phase 2: now every table, field and named value is registered, parse the deferred formula
     # strings into their structured trees. A formula that cannot be faithfully decoded raises

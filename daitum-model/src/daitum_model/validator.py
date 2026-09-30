@@ -30,22 +30,17 @@ from typing import Any
 
 from typeguard import typechecked
 
+from daitum_model import formulas
 
-class Severity(Enum):
-    """Enumeration of validation severity levels."""
-
-    INFO = "Info"
-    WARNING = "Warning"
-    ERROR = "Error"
-    CRITICAL = "Critical"
-
-
-SEVERITY_RANK = {
-    Severity.INFO: 1,
-    Severity.WARNING: 2,
-    Severity.ERROR: 3,
-    Severity.CRITICAL: 4,
-}
+# ``Severity`` and ``SEVERITY_RANK`` live in a leaf module so that this one can import
+# ``model`` at runtime; they are re-exported here, which is where callers expect them.
+from ._severity import SEVERITY_RANK, Severity  # noqa: F401
+from .data_types import BaseDataType, DataType, MapDataType
+from .fields import Field
+from .formula import CONST, Formula, Operand
+from .model import ModelBuilder
+from .named_values import NamedValue
+from .tables import Table
 
 
 class BoundType(Enum):
@@ -53,16 +48,6 @@ class BoundType(Enum):
 
     INCLUSIVE = "Inclusive"
     EXCLUSIVE = "Exclusive"
-
-
-from daitum_model import formulas  # noqa: E402
-
-from .data_types import BaseDataType, DataType, MapDataType  # noqa: E402
-from .fields import Field  # noqa: E402
-from .formula import CONST, Formula, Operand  # noqa: E402
-from .model import ModelBuilder  # noqa: E402
-from .named_values import NamedValue  # noqa: E402
-from .tables import Table  # noqa: E402
 
 
 @typechecked

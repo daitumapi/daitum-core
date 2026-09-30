@@ -333,6 +333,11 @@ class Icon(Enum):
     XMARK = "FontAwesome.6.XMARK"
     GRIP_LINES = "FontAwesome.6.GRIP_LINES"
     ROTATE_LEFT = "FontAwesome.6.ROTATE_LEFT"
+    EMPTY_FILTER = "FontAwesome.6.EMPTY_FILTER"
+    FILLED_FILTER = "FontAwesome.6.FILLED_FILTER"
+    REMOVE_FILTER = "FontAwesome.6.REMOVE_FILTER"
+    EMPTY_FILTERS = "FontAwesome.6.EMPTY_FILTERS"
+    FILLED_FILTERS = "FontAwesome.6.FILLED_FILTERS"
 
     # FontAwesome Pro - Solid Icons
     LOCATION_DOT = "FAPro.solid.LOCATION_DOT"

@@ -14,17 +14,21 @@
 
 """:class:`ModelTransformConfig` — data source backed by a secondary modelling-language model."""
 
-from daitum_model import Calculation, DataType, Field, ModelBuilder, Parameter, Table
-from daitum_model.serialisation import Buildable
-from daitum_model.validation_list import (
+from daitum_model import (
     FIELD_NAME_FIELD,
     MESSAGE_FIELD,
     ROW_FIELD,
     SUBGROUP_FIELD,
     TYPE_FIELD,
     VALUE_FIELD,
-    get_validation_list_table,
+    Calculation,
+    DataType,
+    Field,
+    ModelBuilder,
+    Parameter,
+    Table,
 )
+from daitum_model.serialisation import Buildable
 from typeguard import typechecked
 
 from daitum_configuration.data_source.data_source_config import DataSourceConfig
@@ -171,7 +175,7 @@ class ModelTransformConfig(DataSourceConfig):
     def add_log_table(self, model: ModelBuilder) -> "ModelTransformConfig":
         """Build the model's validation list table and write the transform's log into it.
 
-        Calls :func:`~daitum_model.validation_list.get_validation_list_table` on *model*,
+        Calls :meth:`~daitum_model.ModelBuilder.set_validation_table` on *model*,
         which aggregates every table's validation errors into a single sorted table, then
         registers that table as this transform's log table. That helper is idempotent, so
         the same model can also present the table as a validation list view without
@@ -201,7 +205,7 @@ class ModelTransformConfig(DataSourceConfig):
             ValueError: If *model* has no validated fields, so no validation list table is
                 produced, or if a resolved column has an unexpected data type.
         """
-        log_table = get_validation_list_table(model)
+        log_table = model.set_validation_table()
         if log_table is None:
             raise ValueError(
                 "Cannot add a log table: the model has no validated fields, so no "

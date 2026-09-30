@@ -25,14 +25,24 @@ import json
 import os
 import pathlib
 import warnings
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any
 
 from typeguard import typechecked
 
+from daitum_model import formulas
+
+from ._severity import SEVERITY_RANK
+from ._validation_list import (
+    SUBGROUP_ORDER_FIELD,
+    VALIDATION_LIST_SORTED_TABLE,
+    _validated_fields,
+    _ValidationListBuilder,
+)
 from .data_types import BaseDataType, DataType
 from .derived_table import DerivedTable
-from .fields import Field
-from .formula import Operand, to_formula
+from .fields import CalculatedField, Field
+from .formula import CONST, Operand, to_formula
 from .joined_table import JoinCondition, JoinedTable
 from .named_values import Calculation, Parameter
 from .tables import DataTable, Table
@@ -49,6 +59,7 @@ _ALWAYS_MODEL_KEYS: tuple[str, ...] = (
     "tableDefinitions",
     "optimisationCheckNamedValue",
     "partialEvaluationAllowed",
+    "validationListTable",
 )
 
 #: Top-level keys :meth:`ModelBuilder.build` emits only when at least one tracking group or
@@ -82,6 +93,7 @@ class ModelBuilder:
         self._tables: list[Table] = list[Table]()
 
         self._validation_named_val: Parameter | Calculation | None = None
+        self._validation_list_table: str | None = None
         self._partial_evaluation_allowed: bool = True
 
         # Populated by ``read_from_file`` so a loaded model exposes its symbol table.
@@ -439,10 +451,6 @@ class ModelBuilder:
             A model-level :class:`~daitum_model.Calculation` whose integer
             value is the highest severity rank of any currently-invalid entity.
         """
-        from daitum_model import formulas  # pylint: disable=import-outside-toplevel
-
-        from .validator import SEVERITY_RANK  # pylint: disable=import-outside-toplevel
-
         if "__validation_state__" in [cal.id for cal in self._calculations]:
             return self.get_named_value("__validation_state__")
 
@@ -474,6 +482,95 @@ class ModelBuilder:
             return self.add_calculation("__validation_state__", 0)
 
         return self.add_calculation("__validation_state__", formulas.MAX(*field_severity))
+
+    def set_validation_table(self) -> Table | None:
+        """
+        Build this model's validation list table, or return the one already built.
+
+        Scans every table on the model for fields following the
+        ``<base_id>__invalid__<severity>`` / ``<base_id>__message__<severity>`` naming
+        convention. For each matching pair a union source is created that filters to
+        invalid rows only, all sources are unioned into a ``ValidationList`` table, and a
+        ``ValidationListSorted`` derived table is returned, ordered by subgroup, row,
+        severity rank and field.
+
+        Subgroups themselves sort equal, so they fall back to sorting by name. Call
+        :meth:`set_subgroup_order` afterwards to impose an order the model does not know
+        about, such as the one the navigation bar uses.
+
+        Safe to call more than once. The second call returns the table built by the first,
+        so a single model can carry both a model transform's log table and a validation
+        list view without building the table twice.
+
+        Every table with a validated field must carry a validation group, set via
+        :meth:`~daitum_model.Table.set_validation_group`.
+
+        Returns:
+            The sorted validation list table, or ``None`` when the model has no validated
+            fields.
+
+        Raises:
+            ValueError: If a table with a validated field has no validation group.
+        """
+        validation_table = next(
+            (table for table in self._tables if table.id == VALIDATION_LIST_SORTED_TABLE),
+            None,
+        )
+        if validation_table is None:
+            validation_table = _ValidationListBuilder(self).build()
+
+        # Recorded on both paths, so a successful call always leaves ``build`` naming the
+        # table -- including on a model decoded from a definition that carried the table
+        # but no ``validationListTable`` key.
+        if validation_table is not None:
+            self._validation_list_table = validation_table.id
+        return validation_table
+
+    def get_validated_table_ids(self) -> list[str]:
+        """
+        Return the ids of tables with at least one validated field, in registration order.
+
+        These are the tables that contribute rows to the validation list, and the values
+        that appear in :data:`SOURCE_TABLE_FIELD`. A pure query -- it does not modify the
+        model.
+        """
+        return [table.id for table in self._tables if _validated_fields(table)]
+
+    def set_subgroup_order(self, subgroup_order: Mapping[str, int]) -> None:
+        """
+        Override the subgroup sort position of source tables on a built validation list.
+
+        The validation list leaves every subgroup sorting equal, so they fall back to
+        sorting by name -- fine for a model transform's log table, which has no navigation
+        to follow. A presentation layer that wants a particular order -- matching the
+        navigation bar, say -- calls this once the table has been built.
+
+        Only the sort position changes: the column, the union mappings and the sort keys
+        are all untouched, so any table derived from the validation list picks the new
+        order up. Call it before the model is built, and after
+        :meth:`set_validation_table`.
+
+        Args:
+            subgroup_order: Source table id to sort position. Ids that contributed no rows
+                to the validation list are ignored, so a caller may pass positions for
+                every table it knows about.
+
+        Raises:
+            ValueError: If the validation list has not been built yet.
+        """
+        source_table_ids = self.get_validated_table_ids()
+        if not source_table_ids:
+            raise ValueError(
+                "Cannot set the subgroup order: the model has no validated fields, so no "
+                "validation list table was produced."
+            )
+
+        for table_id in source_table_ids:
+            if table_id not in subgroup_order:
+                continue
+            _subgroup_order_field(self.get_table(table_id)).formula = CONST(
+                subgroup_order[table_id]
+            )
 
     def _add_table(self, table: Table):
         """
@@ -619,13 +716,15 @@ class ModelBuilder:
         :meth:`_validate_tracking`). The ``trackingGroupDefinitions`` and
         ``baselineDefinitions`` keys are only emitted when at least one tracking
         group or baseline has been declared, so untracked models are unaffected.
+        ``validationListTable`` is always emitted, and is ``None`` until
+        :meth:`set_validation_table` has built the table it names.
 
         Returns:
             A dict suitable for ``json.dump`` containing
             ``calculationDefinitions``, ``parameterDefinitions``,
             ``tableDefinitions``, ``optimisationCheckNamedValue``,
-            ``partialEvaluationAllowed`` and, when present, the change-tracking
-            definition maps.
+            ``partialEvaluationAllowed``, ``validationListTable`` and, when present,
+            the change-tracking definition maps.
 
         Raises:
             ValueError: If a change-tracking declaration is invalid.
@@ -648,6 +747,7 @@ class ModelBuilder:
             "partialEvaluationAllowed": lambda: self._partial_evaluation_allowed,
             "trackingGroupDefinitions": lambda: {g.name: g.build() for g in self._tracking_groups},
             "baselineDefinitions": lambda: {b.name: b.build() for b in self._baselines},
+            "validationListTable": lambda: self._validation_list_table,
         }
 
         definition: dict[str, Any] = {key: emitters[key]() for key in _ALWAYS_MODEL_KEYS}
@@ -734,3 +834,15 @@ class ModelBuilder:
                 if (param.model_level == model_level)
             }
         }
+
+
+def _subgroup_order_field(table: Table) -> CalculatedField:
+    """Return the table's subgroup order column, added when the validation list is built."""
+
+    for field in table.get_fields():
+        if field.id == SUBGROUP_ORDER_FIELD and isinstance(field, CalculatedField):
+            return field
+    raise ValueError(
+        f"Cannot set the subgroup order for {table.id}: the validation list has not been "
+        f"built. Call set_validation_table() first."
+    )
