@@ -1241,7 +1241,7 @@ class UiBuilder(Buildable):
         self._sort_views()
         built = super().build()
         built["views"] = [view.build() for view in self._views]
-        built["schemaVersion"] = 3
+        built["schemaVersion"] = 2
         return built
 
     def write_to_file(self, model_directory: str | os.PathLike[str]) -> None:

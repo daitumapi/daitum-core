@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.3.1]
+
+### Fixed
+- Built UI definitions now emit `schemaVersion: 2`; `schemaVersion: 3` is not yet supported by the
+  platform.
+
 ## [3.3.0]
 
 ### Added
