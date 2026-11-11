@@ -52,9 +52,7 @@ from daitum_model.data_types import (
 )
 from daitum_model.formula import CONST, Formula, Operand
 
-# ---------------------------------------------------------------------------
 # Type classes & combinators (the shared type engine)
-# ---------------------------------------------------------------------------
 
 #: Numeric scalar + array types.
 NUMERIC_TYPES = frozenset(
@@ -94,9 +92,7 @@ def _binary_type_error(x: BaseDataType, y: BaseDataType, symbol: str = "") -> Va
     return ValueError(f"{op}: unsupported operand type(s): {x}, {y}.")
 
 
-# ---------------------------------------------------------------------------
 # ExpressionNode base + Constant
-# ---------------------------------------------------------------------------
 
 
 #: ``ExpressionNode`` is now :class:`~daitum_model.formula.Formula` — the merged structured base.
@@ -115,9 +111,7 @@ def ensure_operand(value: Operand | bool | int | float | str) -> Operand:
     return CONST(value)
 
 
-# ---------------------------------------------------------------------------
 # Operator registry
-# ---------------------------------------------------------------------------
 
 
 # Operand/result type-class label tuples for the operator docs. These are the operators' declared
@@ -135,10 +129,14 @@ _ORDERED_LABELS = _NUMERIC_LABELS + _DATETIME_LABELS + _BOOLEAN_LABELS
 _CONCAT_LABELS = _NUMERIC_LABELS + _STRING_LABELS + _BOOLEAN_LABELS + _DATETIME_LABELS
 #: Equality operands: any data type (all primitives plus the composite object/map kinds compare for
 #: equality). The composite kinds are not ``DataType`` enum members, so they are listed explicitly.
+# Maps exist for every value type except coordinates (which have no map variant, matching the
+# platform). NULL is likewise excluded. The ``_ARRAY``-suffixed ``_MAP`` labels are historical and
+# left untouched to avoid shifting the operator golden for unrelated types.
+_NO_MAP_VARIANT = {DataType.NULL, DataType.COORDINATE, DataType.COORDINATE_ARRAY}
 _ANY_LABELS = (
     tuple(dt.name for dt in DataType if dt is not DataType.NULL)
     + ("OBJECT", "OBJECT_ARRAY")
-    + tuple(f"{dt.name}_MAP" for dt in DataType if dt is not DataType.NULL)
+    + tuple(f"{dt.name}_MAP" for dt in DataType if dt not in _NO_MAP_VARIANT)
 )
 
 
@@ -212,7 +210,7 @@ class UnaryOperator(ExpressionNode):
         return f"-({self._operand.to_string()})"
 
 
-# --- operator definitions ---------------------------------------------------
+# operator definitions
 
 # Precedence tiers (higher binds tighter). Only ``^`` is right-associative. These drive parsing of
 # unparenthesised operator chains authored elsewhere; the renderer here always fully parenthesises
@@ -344,7 +342,7 @@ BINARY_OPERATORS: tuple[OperatorDef, ...] = (
 _ARITHMETIC_SYMBOLS = {"+", "-", "*", "/", "^"}
 
 
-# --- builders used by the Operand overloads ---------------------------------
+# builders used by the Operand overloads
 
 
 def build_numeric(definition: OperatorDef, left: Operand, right: Operand) -> Formula:
@@ -425,9 +423,7 @@ def build_equality(definition: OperatorDef, left: Operand, right: Operand) -> Fo
     return BinaryOperator(definition, left, right, result)
 
 
-# ---------------------------------------------------------------------------
 # Member access (operand[field]) and column access (table[field])
-# ---------------------------------------------------------------------------
 
 
 def _resolve_member_field(source_table, field_id: str):
@@ -525,9 +521,7 @@ class ColumnAccess(ExpressionNode):
         return {self._field}
 
 
-# ---------------------------------------------------------------------------
 # Function nodes: declarative argument spec + validation engine
-# ---------------------------------------------------------------------------
 
 #: Named type classes — the declarative replacement for the module-level type sets that the legacy
 #: ``formulas`` module hand-rolled (``NUMERIC_AND_ARRAY_TYPES`` etc.).
@@ -549,11 +543,10 @@ TIMELIKE = frozenset(
     {DataType.TIME, DataType.DATETIME, DataType.TIME_ARRAY, DataType.DATETIME_ARRAY}
 )
 STRINGS = STRING_TYPES
+COORDINATES = frozenset({DataType.COORDINATE, DataType.COORDINATE_ARRAY})
 
 
-# ---------------------------------------------------------------------------
 # Composite type-kind tokens
-# ---------------------------------------------------------------------------
 #
 # A :class:`Arg`'s ``accepts`` set lists the data-type *kinds* the argument permits. The 14
 # primitive/array kinds are :class:`DataType` enum members and match an operand's data type by
@@ -671,7 +664,7 @@ class Function(ExpressionNode):
         self.validate()
         self._result = self.result_type()
 
-    # --- validation engine ---
+    # validation engine
 
     def _validate_arity(self) -> None:
         # Derived from the spec: enforce the minimum required leading args, and — when there is no
@@ -709,7 +702,7 @@ class Function(ExpressionNode):
         """Per-function hook for bespoke validation. Default: no extra checks."""
         return
 
-    # --- standardised validation errors ---
+    # standardised validation errors
     #
     # Every function raises ``ValueError`` for invalid arguments, through one of these helpers, so
     # error messages share a single consistent shape: ``"<NAME>: <reason>."``. Use the most
@@ -735,13 +728,13 @@ class Function(ExpressionNode):
         """A ``ValueError`` for too few arguments."""
         return self.invalid("requires at least one argument")
 
-    # --- type inference (abstract) ---
+    # type inference (abstract)
 
     @abstractmethod
     def result_type(self) -> BaseDataType:
         """Infer the function's return data type from its operands."""
 
-    # --- node contract ---
+    # node contract
 
     def operands(self) -> list[Operand]:
         return self._operands

@@ -32,7 +32,7 @@ from collections.abc import Callable
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from daitum_model.decoding import LoadContext, LoadError
-from daitum_model.serialisation import Buildable, camel_to_snake
+from daitum_model.serialisation import Buildable, camel_to_snake, snake_to_camel
 
 from daitum_ui._decoders._value import decode_value
 
@@ -224,7 +224,7 @@ def _default_template(cls: type, data: dict[str, Any], ctx: LoadContext) -> Any:
             continue
         if param.default is not inspect.Parameter.empty:
             continue
-        camel = _snake_to_camel(name)
+        camel = snake_to_camel(name)
         if camel in data:
             kwargs[name] = _dv(data[camel], None, None, ctx)
         elif _accepts_none(param.annotation):
@@ -245,8 +245,3 @@ def _accepts_none(annotation: Any) -> bool:
     if get_origin(annotation) in (Union, types.UnionType):
         return type(None) in get_args(annotation)
     return annotation is type(None)
-
-
-def _snake_to_camel(name: str) -> str:
-    parts = name.split("_")
-    return parts[0] + "".join(p.capitalize() for p in parts[1:])

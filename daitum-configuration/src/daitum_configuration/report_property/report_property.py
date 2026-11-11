@@ -35,7 +35,7 @@ class ReportProperty(Buildable):
     The report's contents come from a model transform (:meth:`set_transform_file`): a
     self-contained sub-model, evaluated against a snapshot of the scenario's data, whose
     declared outputs become the report. ``export_format`` selects the file produced — XLSX,
-    CSV, JSON or MSDOS. Attaching a transform requires a V3 model. See
+    CSV, JSON or MSDOS. See
     :class:`~daitum_configuration.ModelTransform` for how the outputs are shaped.
 
     Args:
@@ -77,8 +77,7 @@ class ReportProperty(Buildable):
 
         The transform is a :class:`~daitum_configuration.ModelTransform`, stored
         out-of-band; ``transform_file`` is the key the platform assigns it. Its declared
-        outputs become the report's contents, exported per ``export_format``. Only valid on
-        V3 models.
+        outputs become the report's contents, exported per ``export_format``.
         """
         self.transform_file = transform_file
         return self

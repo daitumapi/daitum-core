@@ -56,10 +56,10 @@ table beneath, arranged with :class:`~daitum_ui.layout.GridLayout`.
 
 .. code-block:: python
 
+    from daitum_ui.elements import FontWeight
     from daitum_ui.layout import FlexDirection
     from daitum_ui.tabular import ViewField
     from daitum_ui.ui_builder import UiBuilder
-    from daitum_ui.form_view import FormVariant
 
     ui = UiBuilder()
 
@@ -73,9 +73,9 @@ table beneath, arranged with :class:`~daitum_ui.layout.GridLayout`.
 
     totals_view = ui.add_form_view()
     totals_view.set_columns(2, "min-content")
-    totals_view.add_label("Budget", 0, 0).set_variant(FormVariant.HEADER)
-    totals_view.add_label("Total Cost", 1, 0).set_variant(FormVariant.HEADER)
-    totals_view.add_label("Total Value", 2, 0).set_variant(FormVariant.HEADER)
+    totals_view.add_text("Budget", 0, 0).set_font_weight(FontWeight.BOLD)
+    totals_view.add_text("Total Cost", 1, 0).set_font_weight(FontWeight.BOLD)
+    totals_view.add_text("Total Value", 2, 0).set_font_weight(FontWeight.BOLD)
 
     totals_view.add_number_input(budget, 0, 1).set_display_format("$#,##0.00")
     totals_view.add_number_input(total_cost, 1, 1).set_display_format(

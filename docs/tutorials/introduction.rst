@@ -10,14 +10,9 @@ with **daitum-core**.
 Overview
 --------
 
-A Daitum model is composed of three parts:
-
-- **Model definition** (``daitum_model``) — tables, fields, and formulas
-- **UI definition** (``daitum_ui``) — screens, navigation, and components
-- **Configuration** (``daitum_configuration``) — algorithms, objectives, and data sources
-
-Together, these three artefacts are packaged into a ZIP of JSON files and uploaded
-to the Daitum platform.
+A Daitum model is composed of three parts — a model definition, a UI definition, and a
+configuration — packaged into a ZIP of JSON files and uploaded to the platform. See
+:doc:`/getting_started/what_is_a_daitum_model` for a full breakdown.
 
 Next Steps
 ----------

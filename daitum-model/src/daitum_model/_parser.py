@@ -95,7 +95,7 @@ class Resolver(Protocol):
         """The table named *identifier*, or ``None`` if it is not a table (a named value)."""
 
 
-# --- function name -> node class -------------------------------------------
+# function name -> node class
 
 
 #: Map a function's *wire* name (what it renders as) to its node class. The wire name is the
@@ -142,7 +142,7 @@ _BINARY_BY_SYMBOL: dict[str, OperatorDef] = {
 _UNARY_OPERAND_PRECEDENCE = POWER_OP.precedence
 
 
-# --- tokeniser --------------------------------------------------------------
+# tokeniser
 
 
 @dataclass(frozen=True)
@@ -208,7 +208,7 @@ def _tokenise(text: str) -> list[_Token]:  # noqa: PLR0912 - a scanner is inhere
     return tokens
 
 
-# --- parser -----------------------------------------------------------------
+# parser
 
 
 class _Parser:
@@ -220,7 +220,7 @@ class _Parser:
         # recoverable from the rendered string (only ``BLANK`` — it always renders ``BLANK()``).
         self._expected_type = expected_type
 
-    # -- token helpers --
+    # token helpers
     def _peek(self) -> _Token | None:
         return self._tokens[self._pos] if self._pos < len(self._tokens) else None
 
@@ -240,7 +240,7 @@ class _Parser:
         tok = self._peek()
         return tok is not None and tok.kind == "sym" and tok.text == sym
 
-    # -- grammar --
+    # grammar
     #
     # A precedence-climbing (Pratt) expression parser. The library's own renderer fully
     # parenthesises every arithmetic/comparison operation — ``(L op R)`` — so a formula produced

@@ -30,6 +30,8 @@ class DataFilterType(Enum):
         Match rows whose value matches a glob pattern.
     REGEX
         Match rows whose value matches a regular expression.
+    OVERLAP
+        Match rows whose start/end period overlaps a time window.
     """
 
     EQUALITY = "equality"
@@ -37,3 +39,4 @@ class DataFilterType(Enum):
     SET = "set"
     WILDCARD = "wildcard"
     REGEX = "regex"
+    OVERLAP = "overlap"

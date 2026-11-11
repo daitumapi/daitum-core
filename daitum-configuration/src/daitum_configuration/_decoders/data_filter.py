@@ -33,6 +33,10 @@ from daitum_configuration.data_source.data_store.data_filter import DataFilter
 from daitum_configuration.data_source.data_store.data_filter_type import DataFilterType
 from daitum_configuration.data_source.data_store.equality_data_filter import EqualityDataFilter
 from daitum_configuration.data_source.data_store.inequality_data_filter import InequalityDataFilter
+from daitum_configuration.data_source.data_store.overlap_data_filter import (
+    OverlapDataFilter,
+    OverlapMode,
+)
 from daitum_configuration.data_source.data_store.regex_data_filter import RegexDataFilter
 from daitum_configuration.data_source.data_store.set_data_filter import SetDataFilter
 from daitum_configuration.data_source.data_store.wildcard_data_filter import WildcardDataFilter
@@ -99,14 +103,31 @@ def _decode_inequality(data: dict[str, Any], ctx: LoadContext) -> InequalityData
     )
 
 
+def _decode_overlap(data: dict[str, Any], ctx: LoadContext) -> OverlapDataFilter:
+    from_source = data.get("fromSource")
+    to_source = data.get("toSource")
+    overlap = OverlapDataFilter(
+        require(data, "startPath", "OverlapDataFilter"),
+        _key(from_source, ctx) if from_source is not None else None,
+        _key(to_source, ctx) if to_source is not None else None,
+        data.get("endPath"),
+        OverlapMode(data.get("mode", OverlapMode.OVERLAP.value)),
+    )
+    # Padding is constructed from a timedelta but serialised as an ISO-8601 string.
+    overlap.pad_before = data.get("padBefore")
+    overlap.pad_after = data.get("padAfter")
+    return overlap
+
+
 def register() -> None:
-    """Register the five data filters under the ``DataFilter`` ``@type`` registry."""
+    """Register the data filters under the ``DataFilter`` ``@type`` registry."""
     mapping = {
         DataFilterType.EQUALITY.value: (EqualityDataFilter, _decode_equality),
         DataFilterType.INEQUALITY.value: (InequalityDataFilter, _decode_inequality),
         DataFilterType.SET.value: (SetDataFilter, _decode_set),
         DataFilterType.WILDCARD.value: (WildcardDataFilter, _decode_wildcard),
         DataFilterType.REGEX.value: (RegexDataFilter, _decode_regex),
+        DataFilterType.OVERLAP.value: (OverlapDataFilter, _decode_overlap),
     }
     for type_value, (cls, decoder) in mapping.items():
         register_type(DataFilter, type_value, cls)

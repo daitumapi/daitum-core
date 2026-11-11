@@ -15,178 +15,20 @@
 """
 Filter component system for creating filterable data views.
 
-This module provides a comprehensive filtering system that allows users to filter
-data in views by applying comparison operators to field values. It supports defining
-reusable filter configurations with customisable display options and default filters.
+Defines reusable filter configurations that filter view data by applying
+comparison operators to field values, with optional default filters pre-applied
+on load. Operators are validated against each field's data type, and invalid
+operator/field combinations raise ValueError.
 
-Main Components
----------------
+Example::
 
-**Filter Operators:**
-    FilterOperator enum defines all supported comparison operators:
-
-    Numeric/Date/Time/DateTime operators:
-        - EQUAL, NOT_EQUAL: Equality comparisons
-        - GREATER_THAN, LESS_THAN: Strict inequality comparisons
-        - GREATER_THAN_OR_EQUAL, LESS_THAN_OR_EQUAL: Inclusive inequality comparisons
-        - BETWEEN: Range queries (inclusive)
-
-    Text operators:
-        - EQUAL, NOT_EQUAL: Exact match comparisons
-        - CONTAINS, NOT_CONTAINS: Substring searches
-        - BEGINS_WITH, ENDS_WITH: Prefix/suffix matching
-
-    Boolean operators:
-        - EQUAL, NOT_EQUAL: Boolean value comparisons
-
-    Object operators:
-        - OBJECT_CONTAINS, OBJECT_NOT_CONTAINS: Membership tests for object references
-
-**Default Filter Classes:**
-    Pre-applied filters that automatically filter data when a view loads:
-
-    - DefaultFilter: Abstract base class for all default filters
-    - SingleValueDefaultFilter: Compares against one value (EQUAL, GREATER_THAN, etc.)
-    - TwoValueDefaultFilter: Compares against two values (BETWEEN ranges)
-    - MultiValueDefaultFilter: Compares against 3+ values (OBJECT_CONTAINS, etc.)
-
-**Filter Configuration:**
-    - FilterField: Defines a single filterable field with display configuration
-    - FilterComponent: Main class for creating reusable filter configurations
-    - FilterableView: Mixin class for views that support filtering
-
-Operator Validation
--------------------
-The module automatically validates that operators are compatible with field types:
-
-- Numeric fields (INTEGER, DECIMAL): Support comparison and range operators
-- Text fields (STRING): Support equality and text-search operators
-- Boolean fields: Support only equality operators
-- Date/Time/DateTime fields: Support comparison and range operators
-- Object fields: Support only membership operators
-
-Invalid operator/field combinations raise ValueError with helpful error messages.
-
-Filter Architecture
--------------------
-Filters are organised in a three-tier structure:
-
-1. **FilterField**: Defines individual filterable fields
-   - Specifies field to filter, display name, and formatting
-   - For object fields, can specify which referenced field to display
-
-2. **FilterComponent**: Groups filter fields and default filters
-   - Defines source table for filter data
-   - Contains list of available filter options (FilterField instances)
-   - Contains list of default filters pre-applied on view load
-   - Reusable across multiple views
-
-3. **FilterableView**: Mixin for views supporting filters
-   - Attaches a FilterComponent to enable filtering in a view
-
-Examples
---------
-Creating a basic filter component::
-
-    # Create filter for a products table
     product_filter = FilterComponent(
         filter_name="product_filter",
-        source_table=products_table
+        source_table=products_table,
     )
-
-    # Add filterable fields
     product_filter.add_filter_option(
         field=products_table.name_field,
-        display_name="Product Name"
-    )
-
-    product_filter.add_filter_option(
-        field=products_table.price_field,
-        display_name="Price",
-        display_format="${value}"
-    )
-
-Adding default filters::
-
-    from daitum_ui.data import IntegerValue, StringValue
-
-    # Single-value filter: Show only active products
-    product_filter.add_default_filter(
-        field=products_table.status_field,
-        operator=FilterOperator.EQUAL,
-        StringValue("active")
-    )
-
-    # Range filter: Show products between $10-$100
-    product_filter.add_default_filter(
-        field=products_table.price_field,
-        operator=FilterOperator.BETWEEN,
-        IntegerValue(10),
-        IntegerValue(100)
-    )
-
-Filtering object fields::
-
-    # Filter by category (object reference)
-    product_filter.add_filter_option(
-        field=products_table.category_field,
-        display_name="Category",
-        display_field=category_table.name_field  # Show category name, not ID
-    )
-
-    # Default filter: Show products in specific categories
-    from daitum_ui.data import ObjectValue
-
-    product_filter.add_default_filter(
-        field=products_table.category_field,
-        operator=FilterOperator.OBJECT_CONTAINS,
-        ObjectValue(row_num=1),
-        ObjectValue(row_num=3),
-        ObjectValue(row_num=7)
-    )
-
-Attaching filter to a view::
-
-    from daitum_ui.view import TabularView
-
-    # Create a filterable view
-    class ProductTableView(TabularView, FilterableView):
-        def __init__(self):
-            TabularView.__init__(self, ...)
-            FilterableView.__init__(self, use_filter=product_filter)
-
-Text search example::
-
-    # Add text search on product descriptions
-    product_filter.add_filter_option(
-        field=products_table.description_field,
-        display_name="Description"
-    )
-
-    # Default filter: Show products containing "organic"
-    product_filter.add_default_filter(
-        field=products_table.description_field,
-        operator=FilterOperator.CONTAINS,
-        StringValue("organic")
-    )
-
-Date range filtering::
-
-    from daitum_ui.data import DateValue
-    from datetime import date
-
-    # Filter orders by date range
-    order_filter.add_filter_option(
-        field=orders_table.order_date_field,
-        display_name="Order Date"
-    )
-
-    # Default: Show orders from last month
-    order_filter.add_default_filter(
-        field=orders_table.order_date_field,
-        operator=FilterOperator.BETWEEN,
-        DateValue(date(2024, 1, 1)),
-        DateValue(date(2024, 1, 31))
+        display_name="Product Name",
     )
 """
 
@@ -355,12 +197,13 @@ def _filter_type_from_field(field: Field) -> _FilterType:  # noqa: PLR0911
     date_types = [DataType.DATE, DataType.DATE_ARRAY]
     time_types = [DataType.TIME, DataType.TIME_ARRAY]
     datetime_types = [DataType.DATETIME, DataType.DATETIME_ARRAY]
+    coordinate_types = [DataType.COORDINATE, DataType.COORDINATE_ARRAY]
 
     if isinstance(dt, ObjectDataType):
         return _FilterType.OBJECT
     if dt in number_types:
         return _FilterType.NUMBER
-    if dt in text_types:
+    if dt in text_types or dt in coordinate_types:
         return _FilterType.TEXT
     if dt in bool_types:
         return _FilterType.BOOLEAN

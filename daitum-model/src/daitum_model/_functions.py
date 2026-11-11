@@ -34,7 +34,15 @@ from daitum_model.data_types import (
     MapDataType,
     ObjectDataType,
 )
-from daitum_model.expression import ANY_MAP, ANY_OBJECT, ANY_OBJECT_ARRAY, Arg, Function, TypeKind
+from daitum_model.expression import (
+    ANY_MAP,
+    ANY_OBJECT,
+    ANY_OBJECT_ARRAY,
+    COORDINATES,
+    Arg,
+    Function,
+    TypeKind,
+)
 
 if TYPE_CHECKING:
     from daitum_model.tables import Table
@@ -59,9 +67,7 @@ _BOOLEANISH = {
 }
 
 
-# ---------------------------------------------------------------------------
 # Accepted type-kind sets (the declarative source of truth for validation + docs)
-# ---------------------------------------------------------------------------
 #
 # These mirror the existing ``_NUMERIC`` / ``_DATES`` / ``_BOOLEANISH`` sets but cover the
 # *structural* kinds (arrays, maps, objects) that single-arg ``validate()`` bodies used to check
@@ -69,9 +75,13 @@ _BOOLEANISH = {
 # ``ANY``, no grouping. The composite kinds (object/map) are :class:`TypeKind` tokens because they
 # are table-parameterised instances, not enum members.
 
-#: Every primitive (non-array) scalar data type.
-ALL_SCALARS: frozenset[DataType | TypeKind] = frozenset(PRIMITIVE_DATA_TYPES)
-#: The seven primitive array data types (no object array).
+#: Every (non-array) scalar data type — the seven primitives plus COORDINATE. COORDINATE is not in
+#: PRIMITIVE_DATA_TYPES (it has no map variant), so it is added here explicitly: the generic-type
+#: functions (IF, CHOOSE, equality, DISTINCT, SIZE, …) accept coordinates, matching the platform.
+ALL_SCALARS: frozenset[DataType | TypeKind] = frozenset(PRIMITIVE_DATA_TYPES) | frozenset(
+    {DataType.COORDINATE}
+)
+#: The primitive array data types (no object array), including COORDINATE_ARRAY.
 PRIMITIVE_ARRAYS: frozenset[DataType | TypeKind] = frozenset(
     {
         DataType.INTEGER_ARRAY,
@@ -81,9 +91,10 @@ PRIMITIVE_ARRAYS: frozenset[DataType | TypeKind] = frozenset(
         DataType.DATE_ARRAY,
         DataType.DATETIME_ARRAY,
         DataType.TIME_ARRAY,
+        DataType.COORDINATE_ARRAY,
     }
 )
-#: Every array data type — the seven primitive arrays plus an object array.
+#: Every array data type — the primitive arrays plus an object array.
 ALL_ARRAYS: frozenset[DataType | TypeKind] = PRIMITIVE_ARRAYS | frozenset({ANY_OBJECT_ARRAY})
 #: Any map kind.
 ALL_MAPS: frozenset[DataType | TypeKind] = frozenset({ANY_MAP})
@@ -250,9 +261,7 @@ class Stdev(_DecimalReducer):
     name = "STDEV"
 
 
-# ---------------------------------------------------------------------------
 # Logical functions
-# ---------------------------------------------------------------------------
 
 
 class _BooleanReducer(_Reducer):
@@ -393,9 +402,7 @@ class Choose(Function):
         return self._operands[1].to_data_type()
 
 
-# ---------------------------------------------------------------------------
 # Maths & string functions
-# ---------------------------------------------------------------------------
 
 _INT_OR_ARRAY = {DataType.INTEGER, DataType.INTEGER_ARRAY}
 _STRINGS = {DataType.STRING, DataType.STRING_ARRAY}
@@ -569,6 +576,105 @@ class Power(Function):
         return base.to_array() if (m.is_array() or e.is_array()) else base
 
 
+class Coordinate(Function):
+    """``COORDINATE`` — (numeric, numeric) -> COORDINATE, array-propagating."""
+
+    name = "COORDINATE"
+    spec = (
+        Arg("latitude", accepts=frozenset(_NUMERIC)),
+        Arg("longitude", accepts=frozenset(_NUMERIC)),
+    )
+
+    def result_type(self) -> BaseDataType:
+        lat = self._operands[0].to_data_type()
+        lon = self._operands[1].to_data_type()
+        if lat.is_array() or lon.is_array():
+            return DataType.COORDINATE_ARRAY
+        return DataType.COORDINATE
+
+
+class _CoordinateComponent(_TypedUnary):
+    """``LATITUDE``/``LONGITUDE`` — COORDINATE(_ARRAY) -> DECIMAL(_ARRAY)."""
+
+    accepts = COORDINATES
+
+    def result_type(self) -> BaseDataType:
+        return self._scalar_or_array(DataType.DECIMAL)
+
+
+class Latitude(_CoordinateComponent):
+    name = "LATITUDE"
+
+
+class Longitude(_CoordinateComponent):
+    name = "LONGITUDE"
+
+
+class _Route(Function):
+    """``ROUTE_DISTANCE``/``ROUTE_DURATION`` — (coordinate, coordinate[, profile]) -> DECIMAL.
+
+    ``from``/``to`` each take a coordinate or coordinate array; the optional ``profile`` takes a
+    string or string array. A single value broadcasts against an array argument, two arrays pair by
+    position, and any array argument makes the result a ``DECIMAL_ARRAY``.
+    """
+
+    spec = (
+        Arg("from_", accepts=COORDINATES),
+        Arg("to", accepts=COORDINATES),
+        Arg("profile", accepts=frozenset(_STRINGS), optional=True),
+    )
+
+    def __init__(self, from_, to, profile=None):
+        args = [from_, to]
+        if profile is not None:
+            args.append(profile)
+        super().__init__(*args)
+
+    def result_type(self) -> BaseDataType:
+        if any(operand.to_data_type().is_array() for operand in self._operands):
+            return DataType.DECIMAL_ARRAY
+        return DataType.DECIMAL
+
+
+class RouteDistance(_Route):
+    name = "ROUTE_DISTANCE"
+
+
+class RouteDuration(_Route):
+    name = "ROUTE_DURATION"
+
+
+class _Path(Function):
+    """``PATH_DISTANCE``/``PATH_DURATION`` — (coordinate array[, profile]) -> DECIMAL.
+
+    ``waypoints`` is a coordinate array (at least two points, enforced at runtime); the optional
+    ``profile`` is a scalar string. The whole list yields one total, so the result is always a
+    scalar ``DECIMAL``.
+    """
+
+    spec = (
+        Arg("waypoints", accepts=frozenset({DataType.COORDINATE_ARRAY})),
+        Arg("profile", accepts=frozenset({DataType.STRING}), optional=True),
+    )
+
+    def __init__(self, waypoints, profile=None):
+        args = [waypoints]
+        if profile is not None:
+            args.append(profile)
+        super().__init__(*args)
+
+    def result_type(self) -> BaseDataType:
+        return DataType.DECIMAL
+
+
+class PathDistance(_Path):
+    name = "PATH_DISTANCE"
+
+
+class PathDuration(_Path):
+    name = "PATH_DURATION"
+
+
 class _LeftRight(Function):
     """``LEFT``/``RIGHT`` — (STRING, INTEGER) -> STRING, array-propagating."""
 
@@ -692,9 +798,7 @@ class TextJoin(Function):
         return DataType.STRING
 
 
-# ---------------------------------------------------------------------------
 # Date / time functions
-# ---------------------------------------------------------------------------
 
 _TIMES = {DataType.TIME, DataType.DATETIME, DataType.TIME_ARRAY, DataType.DATETIME_ARRAY}
 
@@ -935,9 +1039,7 @@ class FromTimezone(_Timezone):
     name = "FROMTIMEZONE"
 
 
-# ---------------------------------------------------------------------------
 # Array / lookup / object / probability functions
-# ---------------------------------------------------------------------------
 
 _BOOLEAN = DataType.BOOLEAN
 

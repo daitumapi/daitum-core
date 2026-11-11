@@ -159,7 +159,13 @@ adds metadata (display name, hidden flag, `post_optimise`, notification flags).
 `ConfigurationBuilder.add_*` methods accept the config directly and handle wrapping internally.
 
 **Filter types for `DataStoreConfig`:** `EqualityDataFilter`, `InequalityDataFilter`,
-`RegexDataFilter`, `SetDataFilter`, `WildcardDataFilter`.
+`OverlapDataFilter`, `RegexDataFilter`, `SetDataFilter`, `WildcardDataFilter`. Pass a list
+(`set_model_filters`, or a list to the `ModelTransformConfig` data-store inputs) to require
+every filter to pass.
+
+**Model transform publish:** `ModelTransformConfig.add_publish(...)` publishes a sub-model
+table's rows to a (keyed or standard) data store after the transform's checks pass, with
+optional `PublishExpansion`s for nested rows and an `owned_scope` filter list.
 
 ### GeneticAlgorithm Operators
 

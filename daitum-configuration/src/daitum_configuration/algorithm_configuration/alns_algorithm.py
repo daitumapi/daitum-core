@@ -164,16 +164,7 @@ class AdaptiveLargeNeighbourhoodSearch(Algorithm):
 
     def _build_parameters(self) -> dict[str, Any]:
         return {
-            "Log info": Algorithm._quant(self.log_info),
-            "Evaluations": Algorithm._quant(self.evaluations),
-            "Maximum evaluations without improvement": Algorithm._quant(
-                self.max_evaluations_without_improvement
-            ),
-            "Maximum time without improvement": Algorithm._quant(self.max_time_without_improvement),
-            "Minimum improvement": Algorithm._quant(self.min_improvement),
-            "Maximum restart count": Algorithm._quant(self.max_restart_count),
-            "PRNG seed": Algorithm._quant(self.prng_seed),
-            "Time limit": Algorithm._quant(self.time_limit),
+            **self._base_parameters(),
             "Candidates per iteration": Algorithm._quant(self.candidates_per_iteration),
             "Segment length": Algorithm._quant(self.segment_length),
             "Decay factor": Algorithm._quant(self.decay_factor),
@@ -198,26 +189,3 @@ class AdaptiveLargeNeighbourhoodSearch(Algorithm):
 
         if not isinstance(self.acceptance_criterion, AcceptanceCriterion):
             raise TypeError("acceptance_criterion must be an instance of AcceptanceCriterion")
-
-    @staticmethod
-    def _validate_int(name: str, value: int | NamedValue, *, min_value: int) -> None:
-        if not isinstance(value, int | NamedValue):
-            raise TypeError(f"{name} must be int or NamedValue")
-        if isinstance(value, int) and value < min_value:
-            raise ValueError(f"{name} must not be less than {min_value}")
-
-    @staticmethod
-    def _validate_float(
-        name: str,
-        value: float | NamedValue,
-        *,
-        min_value: float | None = None,
-        max_value: float | None = None,
-    ) -> None:
-        if not isinstance(value, float | NamedValue):
-            raise TypeError(f"{name} must be float or NamedValue")
-        if isinstance(value, float):
-            if min_value is not None and value < min_value:
-                raise ValueError(f"{name} must not be less than {min_value}")
-            if max_value is not None and value > max_value:
-                raise ValueError(f"{name} must not be greater than {max_value}")

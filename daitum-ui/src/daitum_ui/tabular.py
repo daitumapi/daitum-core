@@ -811,11 +811,9 @@ class TreeView(BaseTableView):
         for index, child in enumerate(children_fields):
             table = self._tables[index]
 
-            # Check field exists
             if not any(table_field.id == child for table_field in table.get_fields()):
                 raise ValueError(f"The field '{child}' does not exist in the table '{table.id}'.")
 
-            # Get and check data type
             children_field_type = table.get_field(child).data_type
             if (
                 not isinstance(children_field_type, ObjectDataType)
@@ -826,7 +824,6 @@ class TreeView(BaseTableView):
                     f"Received: {children_field_type}"
                 )
 
-            # Check reference to correct table
             referral_table = self._tables[index + 1].id
             source_table = children_field_type._source_table.id
             if source_table != referral_table:

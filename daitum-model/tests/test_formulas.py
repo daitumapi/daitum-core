@@ -297,3 +297,152 @@ class TestBaseline:
         assert isinstance(result, Formula)
         assert result.data_type == DataType.BOOLEAN
         assert result.formula_string == 'HASBASELINE("optimised")'
+
+
+class TestCoordinateFormulas:
+    def _fields(self):
+        table = ModelBuilder().add_data_table("T")
+        return (
+            table.add_data_field("Lat", DataType.DECIMAL),
+            table.add_data_field("Lng", DataType.DECIMAL),
+            table.add_data_field("Lats", DataType.DECIMAL_ARRAY),
+        )
+
+    def test_coordinate_returns_coordinate(self):
+        lat, lng, _ = self._fields()
+        result = formulas.COORDINATE(lat, lng)
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.COORDINATE
+        assert result.formula_string == "COORDINATE([Lat], [Lng])"
+
+    def test_coordinate_propagates_array(self):
+        _, lng, lats = self._fields()
+        result = formulas.COORDINATE(lats, lng)
+        assert result.data_type == DataType.COORDINATE_ARRAY
+
+    def test_coordinate_rejects_non_numeric(self):
+        import pytest
+
+        table = ModelBuilder().add_data_table("T")
+        name = table.add_data_field("Name", DataType.STRING)
+        lng = table.add_data_field("Lng", DataType.DECIMAL)
+        with pytest.raises(ValueError):
+            formulas.COORDINATE(name, lng)
+
+    def test_latitude_longitude_return_decimal(self):
+        coord = formulas.COORDINATE(-33.87, 151.21)
+        assert formulas.LATITUDE(coord).data_type == DataType.DECIMAL
+        assert formulas.LONGITUDE(coord).data_type == DataType.DECIMAL
+
+    def test_component_propagates_array(self):
+        _, lng, lats = self._fields()
+        coord = formulas.COORDINATE(lats, lng)
+        assert formulas.LATITUDE(coord).data_type == DataType.DECIMAL_ARRAY
+
+    def test_component_rejects_non_coordinate(self):
+        import pytest
+
+        with pytest.raises(ValueError):
+            formulas.LATITUDE(1.0)
+
+
+class TestRoutingFormulas:
+    def _fields(self):
+        table = ModelBuilder().add_data_table("T")
+        return (
+            table.add_data_field("Loc", DataType.COORDINATE),
+            table.add_data_field("Locs", DataType.COORDINATE_ARRAY),
+            table.add_data_field("Prof", DataType.STRING),
+        )
+
+    def test_route_scalar_returns_decimal(self):
+        loc, _, _ = self._fields()
+        result = formulas.ROUTE_DISTANCE(loc, loc)
+        assert isinstance(result, Formula)
+        assert result.data_type == DataType.DECIMAL
+        assert result.formula_string == "ROUTE_DISTANCE([Loc], [Loc])"
+
+    def test_route_array_argument_returns_array(self):
+        loc, locs, _ = self._fields()
+        assert formulas.ROUTE_DURATION(loc, locs).data_type == DataType.DECIMAL_ARRAY
+
+    def test_route_profile_omitted_is_not_rendered(self):
+        loc, _, _ = self._fields()
+        assert "car" not in formulas.ROUTE_DISTANCE(loc, loc).formula_string
+
+    def test_route_profile_rendered_when_given(self):
+        loc, _, _ = self._fields()
+        assert formulas.ROUTE_DISTANCE(loc, loc, "bike").formula_string == (
+            'ROUTE_DISTANCE([Loc], [Loc], "bike")'
+        )
+
+    def test_route_rejects_non_coordinate(self):
+        import pytest
+
+        loc, _, _ = self._fields()
+        with pytest.raises(ValueError):
+            formulas.ROUTE_DISTANCE(1.0, loc)
+
+    def test_path_returns_scalar_decimal(self):
+        _, locs, _ = self._fields()
+        result = formulas.PATH_DISTANCE(locs)
+        assert result.data_type == DataType.DECIMAL
+        assert result.formula_string == "PATH_DISTANCE([Locs])"
+
+    def test_path_rejects_scalar_coordinate(self):
+        import pytest
+
+        loc, _, _ = self._fields()
+        with pytest.raises(ValueError):
+            formulas.PATH_DURATION(loc)
+
+    def test_path_rejects_array_profile(self):
+        import pytest
+
+        _, locs, _ = self._fields()
+        with pytest.raises(ValueError):
+            formulas.PATH_DISTANCE(locs, locs)
+
+
+class TestCoordinateCollectionSupport:
+    """Coordinates flow through the generic-type collection/logical functions (matching the
+    platform), while arithmetic/reducer functions keep rejecting them."""
+
+    def _coords(self):
+        table = ModelBuilder().add_data_table("T")
+        return (
+            table.add_data_field("Loc", DataType.COORDINATE),
+            table.add_data_field("Locs", DataType.COORDINATE_ARRAY),
+            table.add_data_field("Flags", DataType.BOOLEAN_ARRAY),
+        )
+
+    def test_accepted_collection_functions(self):
+        loc, locs, flags = self._coords()
+        assert formulas.DISTINCT(locs).data_type == DataType.COORDINATE_ARRAY
+        assert formulas.FILTER(locs, flags).data_type == DataType.COORDINATE_ARRAY
+        assert formulas.INDEX(locs, 1).data_type == DataType.COORDINATE
+        assert formulas.SIZE(locs).data_type == DataType.INTEGER
+        assert formulas.CONTAINS(locs, loc).data_type == DataType.BOOLEAN
+        assert formulas.COUNT(locs, loc).data_type == DataType.INTEGER
+        assert formulas.UNION(False, locs, locs).data_type == DataType.COORDINATE_ARRAY
+
+    def test_accepted_logical_and_text(self):
+        loc, locs, _ = self._coords()
+        flag = ModelBuilder().add_data_table("U").add_data_field("F", DataType.BOOLEAN)
+        assert formulas.IF(flag, loc, loc).data_type == DataType.COORDINATE
+        assert formulas.IFBLANK(loc, loc).data_type == DataType.COORDINATE
+        assert formulas.ISBLANK(loc).data_type == DataType.BOOLEAN
+        assert formulas.TEXT(loc).data_type == DataType.STRING
+
+    def test_arithmetic_still_rejects_coordinates(self):
+        import pytest
+
+        loc, locs, _ = self._coords()
+        for build in (
+            lambda: formulas.ABS(loc),
+            lambda: formulas.SUM(locs),
+            lambda: formulas.AVERAGE(locs),
+            lambda: formulas.ROUND(loc),
+        ):
+            with pytest.raises(ValueError):
+                build()

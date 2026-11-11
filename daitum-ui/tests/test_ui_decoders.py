@@ -31,6 +31,15 @@ def _model():
     return model, table
 
 
+def _row_filter(row="row"):
+    """A MatchRowFilterMode so table-bound form views pass the filter_mode build check."""
+    from daitum_ui.data import MatchRowFilterMode
+
+    fm = MatchRowFilterMode()
+    fm.set_filter_row(row)
+    return fm
+
+
 def assert_faithful(original, decoded):
     """A decoded object must be the same concrete type and re-build identically."""
     assert type(decoded) is type(
@@ -105,9 +114,56 @@ class TestViewRoundTrip:
     def test_form_view(self):
         model, table = _model()
         ui = UiBuilder()
-        view = ui.add_form_view(display_name="Form", table=table)
+        view = ui.add_form_view(display_name="Form", table=table, filter_mode=_row_filter())
         view.add_column("100px")
         view.add_text_input(table.get_field("ID"), row=1, column=1)
+        built = view.build()
+        assert "cells" in built["viewDefinition"]
+        assert "formElements" not in built["viewDefinition"]
+        cell = built["viewDefinition"]["cells"][0]
+        assert cell["rowStart"] == 1
+        assert cell["columnStart"] == 1
+        assert cell["element"]["@type"] == "textInput"
+        self._roundtrip(ui, view, model)
+
+    def test_form_view_every_element_type(self):
+        """A form exercising the generic adder and each per-type element adder round-trips."""
+        from daitum_ui.elements import Card, Text
+        from daitum_ui.icons import Icon
+        from daitum_ui.model_event import ModelEvent
+        from daitum_ui.styles import IconConfig
+
+        model, table = _model()
+        ui = UiBuilder()
+        view = ui.add_form_view(display_name="Form", table=table, filter_mode=_row_filter())
+        view.set_columns(2, "200px")
+        flag = ui.add_context_variable("flag", CVType.BOOLEAN, default_value=False)
+        go_event = ModelEvent()
+        go_event.add_switch_view_action("x")
+        view.add_text("Label:", row=1, column=1)
+        view.add_text(table.get_field("ID"), row=1, column=2)
+        view.add_text_input(table.get_field("ID"), row=2, column=1)
+        view.add_text_area(table.get_field("ID"), row=2, column=2)
+        view.add_number_input(table.get_field("Cost"), row=3, column=1)
+        view.add_check_box(table.get_field("Active"), row=3, column=2)
+        view.add_slider(flag.id, row=4, column=1)
+        view.add_icon_check_box(
+            table.get_field("Active"),
+            row=4,
+            column=2,
+            off_icon=IconConfig(Icon.CIRCLE),
+            on_icon=IconConfig(Icon.CIRCLE),
+        )
+        view.add_review_rating(table.get_field("Cost"), row=5, column=1)
+        view.add_colour_picker_input(table.get_field("ID"), row=5, column=2)
+        view.add_icon_picker(table.get_field("ID"), row=6, column=1)
+        view.add_button("Go", go_event, row=6, column=2)
+        cost = table.get_field("Cost")
+        view.add_range_bar(cost, row=7, column=1, max_value=cost)
+        # Generic adder with an excluded-type element (Card) spanning both columns.
+        card = Card()
+        card.add_element(Text("summary"))
+        view.add_form_element(8, 1, card, column_span=2)
         self._roundtrip(ui, view, model)
 
     def test_fixed_value_view(self):
@@ -477,7 +533,7 @@ class TestUiRoundTrip:
         table_view = ui.add_table_view(table, display_name="Jobs")
         table_view.add_field("ID")
         table_view.add_field("Cost")
-        form_view = ui.add_form_view(display_name="Form", table=table)
+        form_view = ui.add_form_view(display_name="Form", table=table, filter_mode=_row_filter())
         group = ui.add_navigation_group("Data")
         group.add_view(table_view)
         ui.add_navigation_item(form_view)
@@ -486,7 +542,7 @@ class TestUiRoundTrip:
     def test_builder_with_modal_filter_menu_variables(self):
         model, table = _model()
         ui = UiBuilder()
-        form_view = ui.add_form_view(display_name="Form", table=table)
+        form_view = ui.add_form_view(display_name="Form", table=table, filter_mode=_row_filter())
         ui.add_modal(form_view, title="Edit", height="500px", width="700px")
         ui.add_context_variable("page_size", CVType.INTEGER, default_value=25)
         flt = ui.add_filter("jobfilter", table)
@@ -608,7 +664,7 @@ class TestTemplateFactoryFragilityGuard:
         table_view = ui.add_table_view(table, display_name="Jobs")
         table_view.add_field("ID")
         tree_view = ui.add_tree_view(table, display_name="Tree")
-        form_view = ui.add_form_view(display_name="Form", table=table)
+        form_view = ui.add_form_view(display_name="Form", table=table, filter_mode=_row_filter())
         fixed_view = ui.add_fixed_value_view(display_name="Fixed")
         nv_view = ui.add_named_value_view(display_name="Stats")
         tabbed_view = ui.add_tabbed_view(display_name="Tabs")
@@ -690,6 +746,56 @@ class TestTemplateFactoryFragilityGuard:
         on_click_model.add_switch_view_action("Jobs")
         editor_event = table_view.fields[0].set_on_click_event(on_click_model).editor_event
 
+        # Representative input elements (one per registered template factory). Bound to fields of
+        # the shared Jobs table: ID=STRING, Cost=DECIMAL, Active=BOOLEAN.
+        from daitum_ui.elements import (
+            ArrayElement,
+            Checkbox,
+            ColorPicker,
+            DateTimePicker,
+            Dropdown,
+            IconCheckbox,
+            IconPicker,
+            NumberInput,
+            ReviewRating,
+            Slider,
+            TextInput,
+        )
+
+        ref_id = table.get_field("ID")
+        ref_cost = table.get_field("Cost")
+        ref_active = table.get_field("Active")
+        table.add_data_field("When", DataType.DATETIME)
+        table.add_object_reference_field("Ref", table)
+        text_input = TextInput(ref_id)
+        number_input = NumberInput(ref_cost)
+        dropdown = Dropdown(table.get_field("Ref"))
+        date_time_picker = DateTimePicker(table.get_field("When"))
+        colour_picker = ColorPicker(ref_id)
+        from daitum_ui.icons import Icon
+
+        icon_picker = IconPicker(ref_id)
+        icon_picker.set_defaults([Icon.CIRCLE, Icon.CIRCLE_CHECK])
+        checkbox = Checkbox(ref_active)
+        slider = Slider(ref_active)
+        from daitum_ui.styles import IconConfig
+
+        icon_checkbox = IconCheckbox(
+            ref_active, off_icon=IconConfig(Icon.CIRCLE), on_icon=IconConfig(Icon.CIRCLE)
+        )
+        review_rating = ReviewRating(ref_cost)
+        table.add_data_field("Tags", DataType.STRING_ARRAY)
+        array_element = ArrayElement(table.get_field("Tags")).set_allow_blanks(True)
+        from daitum_ui.elements import ElementSize, RangeBar
+
+        table.add_data_field("Bands", DataType.DECIMAL_ARRAY)
+        range_bar = (
+            RangeBar(ref_cost, max_value=ref_cost)
+            .set_error_ranges(table.get_field("Bands"))
+            .set_indicator(ref_id)
+            .set_size(ElementSize.LARGE)
+        )
+
         return model, [
             table_view,
             tree_view,
@@ -724,6 +830,18 @@ class TestTemplateFactoryFragilityGuard:
             editor_event,
             default_filter,
             search_config,
+            text_input,
+            number_input,
+            dropdown,
+            date_time_picker,
+            colour_picker,
+            icon_picker,
+            checkbox,
+            slider,
+            icon_checkbox,
+            range_bar,
+            review_rating,
+            array_element,
         ]
 
     def test_every_template_factory_constructs(self):
@@ -822,3 +940,31 @@ class TestNegativeDecoding:
 
         with pytest.raises(LoadError, match="Unsupported UI @type"):
             decode_value({"@type": "no-such-leaf"}, None, None, _ctx())
+
+
+class TestIconEnumRoundTrip:
+    """Icon-valued element attributes decode back to Icon members, not raw strings."""
+
+    def test_icon_element_button_icon_picker(self):
+        from daitum_ui.elements import Button, IconElement, IconPicker
+        from daitum_ui.icons import Icon
+
+        model, table = _model()
+        from daitum_ui._decoders.leaves import LEAF_DECODERS
+
+        ctx = _ctx(model)
+
+        ie = IconElement(icon_source=Icon.CIRCLE)
+        decoded = LEAF_DECODERS[IconElement](ie.build(), ctx)
+        assert decoded.icon_source is Icon.CIRCLE
+        assert decoded.build() == ie.build()
+
+        button = Button("x", icon_source=Icon.CIRCLE_CHECK)
+        decoded_btn = LEAF_DECODERS[Button](button.build(), ctx)
+        assert decoded_btn.icon_source is Icon.CIRCLE_CHECK
+
+        picker = IconPicker(table.get_field("ID"))
+        picker.set_defaults([Icon.CIRCLE, Icon.CIRCLE_CHECK])
+        decoded_picker = LEAF_DECODERS[IconPicker](picker.build(), ctx)
+        assert decoded_picker.defaults == [Icon.CIRCLE, Icon.CIRCLE_CHECK]
+        assert decoded_picker.build() == picker.build()

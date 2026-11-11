@@ -20,50 +20,19 @@ A `RosterView` lays out resource-based scheduling data as a grid: resources
 are columns. Each row is sourced from `source_table`, and cell contents are
 rendered via `Card` templates registered on the view.
 
-A roster is composed of:
-    - A **resource column** identifying each row's resource (e.g. employee name).
-    - One or more **shift columns** holding the per-slot values being rostered.
-    - An optional **summary column** showing per-row aggregates
-      (e.g. total hours).
-
-Classes:
-    - `RosterColumn`: Configuration of a single column within the roster.
-    - `RosterAxis`: Whether a drop write identifies the destination row or
-      column of the roster grid.
-    - `RosterDropWrite`: A single write performed when a card is dropped —
-      the axis it resolves, the identity field written, the field gating
-      the write, and an optional edit override redirecting it to another
-      table.
-    - `RosterTaskDefinition`: Drag-and-drop behaviour for the cards in a
-      shift column — whether cards are draggable, which rows may receive a
-      drop, the writes performed on drop, and the requirement/capability
-      matching used to gate valid drop targets.
-    - `RosterView`: The view itself, owning the resource/shift/summary
-      columns and the shared card templates.
+A roster is composed of a **resource column** identifying each row's resource
+(e.g. employee name), one or more **shift columns** holding the per-slot values
+being rostered, and an optional **summary column** showing per-row aggregates
+(e.g. total hours).
 
 Example:
-    >>> shifts_table = Table("employee_shifts")
-    >>>
-    >>> builder = UiBuilder()
     >>> roster_view = builder.add_roster_view(
     ...     source_table=shifts_table,
     ...     display_name="Weekly Schedule",
     ... )
-    >>> roster_view.set_freeze_headers(True)
-    >>>
     >>> roster_view.set_resource_column(
-    ...     RosterColumn(
-    ...         table_field_reference=Field("employee_name", DataType.STRING),
-    ...         minimum_width="200px",
-    ...     )
+    ...     RosterColumn(table_field_reference=Field("employee_name", DataType.STRING))
     ... )
-    >>> roster_view.set_summary_column(
-    ...     RosterColumn(
-    ...         table_field_reference=Field("total_hours", DataType.DECIMAL),
-    ...         minimum_width="100px",
-    ...     )
-    ... )
-    >>>
     >>> roster_view.add_shift_column(
     ...     table_field_reference=Field("monday_hours", DataType.DECIMAL),
     ...     minimum_width="80px",
@@ -562,7 +531,6 @@ class RosterView(BaseView, FilterableView):
         hidden: bool = False,
     ):
 
-        # Initialise BaseView fields
         BaseView.__init__(self, hidden)
         if display_name is not None:
             self._display_name = display_name

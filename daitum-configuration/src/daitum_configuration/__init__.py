@@ -49,6 +49,7 @@ from .data_source.batched_data_source.data_source_info import DataSourceInfo
 from .data_source.data_store.data_store_config import DataStoreConfig
 from .data_source.data_store.equality_data_filter import EqualityDataFilter
 from .data_source.data_store.inequality_data_filter import InequalityDataFilter
+from .data_source.data_store.overlap_data_filter import OverlapDataFilter, OverlapMode
 from .data_source.data_store.regex_data_filter import RegexDataFilter
 from .data_source.data_store.set_data_filter import SetDataFilter
 from .data_source.data_store.wildcard_data_filter import WildcardDataFilter
@@ -59,6 +60,8 @@ from .data_source.excel_transform.import_option_overrides import ImportOptionOve
 from .data_source.geo_location_config import GeoLocationConfig
 from .data_source.model_transform.model_transform import ModelTransform
 from .data_source.model_transform.model_transform_config import ModelTransformConfig
+from .data_source.model_transform.publish_config import PublishExpansion
+from .data_source.model_transform.publish_target_type import PublishTargetType
 from .data_source.model_transform.validation_severity import ValidationSeverity
 from .data_source.set_features_config import SetFeaturesConfig
 from .data_source.track_changes_config import TrackChangesConfig, TrackChangesMode
@@ -115,10 +118,14 @@ __all__ = [
     "ImportOptionOverrides",
     "ModelTransform",
     "ModelTransformConfig",
+    "PublishExpansion",
+    "PublishTargetType",
     "ValidationSeverity",
     "DataStoreConfig",
     "EqualityDataFilter",
     "InequalityDataFilter",
+    "OverlapDataFilter",
+    "OverlapMode",
     "RegexDataFilter",
     "SetDataFilter",
     "WildcardDataFilter",

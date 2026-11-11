@@ -809,8 +809,7 @@ class ModelBuilder:
 
         for group_name in sorted(declared_groups - captured_groups):
             warnings.warn(
-                f"Tracking group '{group_name}' is not captured by any baseline; "
-                "tagging is inert.",
+                f"Tracking group '{group_name}' is not captured by any baseline; tagging is inert.",
                 stacklevel=2,
             )
 

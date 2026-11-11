@@ -17,7 +17,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-VERSION_PATTERN = re.compile(r'^version\s*=\s*"(\d+\.\d+\.\d+)"', re.MULTILINE)
+from _pipeline_utils import VERSION_PATTERN, get_last_tag, has_changes
 
 SUB_PACKAGES = [
     # (label, package_dir, pyproject_path, changelog_path)
@@ -43,27 +43,6 @@ def read_version(pyproject_path: str) -> str:
 def changelog_heading_pattern(version: str) -> re.Pattern[str]:
     escaped = re.escape(version)
     return re.compile(rf"^## \[{escaped}\]", re.MULTILINE)
-
-
-def get_last_tag() -> str | None:
-    result = subprocess.run(
-        ["git", "tag", "--list", "v*", "--sort=-version:refname"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    tags = [t.strip() for t in result.stdout.splitlines() if t.strip()]
-    return tags[0] if tags else None
-
-
-def has_changes(tag: str, package_dir: str) -> bool:
-    result = subprocess.run(
-        ["git", "diff", "--name-only", tag, "HEAD", "--", package_dir],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return bool(result.stdout.strip())
 
 
 def old_changelog_content(tag: str, changelog_path: str) -> str | None:

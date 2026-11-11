@@ -99,6 +99,14 @@
     "to_data_type": "BOOLEAN",
     "to_string": "CONTAINS([Costs], 1.0)"
   },
+  "COORDINATE": {
+    "to_data_type": "COORDINATE",
+    "to_string": "COORDINATE(-33.87, 151.21)"
+  },
+  "COORDINATE array": {
+    "to_data_type": "COORDINATE_ARRAY",
+    "to_string": "COORDINATE([Costs], 151.21)"
+  },
   "COS": {
     "to_data_type": "DECIMAL",
     "to_string": "COS([Cost])"
@@ -243,6 +251,10 @@
     "to_data_type": "BOOLEAN",
     "to_string": "ISERROR([Cost])"
   },
+  "LATITUDE": {
+    "to_data_type": "DECIMAL",
+    "to_string": "LATITUDE(COORDINATE(-33.87, 151.21))"
+  },
   "LEFT": {
     "to_data_type": "STRING",
     "to_string": "LEFT([Name], 3)"
@@ -254,6 +266,10 @@
   "LOG": {
     "to_data_type": "DECIMAL",
     "to_string": "LOG([Cost])"
+  },
+  "LONGITUDE": {
+    "to_data_type": "DECIMAL",
+    "to_string": "LONGITUDE(COORDINATE(-33.87, 151.21))"
   },
   "LOOKUP operand": {
     "to_data_type": "OBJECT:Sites",
@@ -323,6 +339,14 @@
     "to_data_type": "BOOLEAN",
     "to_string": "OR([Flag], TRUE)"
   },
+  "PATH_DISTANCE": {
+    "to_data_type": "DECIMAL",
+    "to_string": "PATH_DISTANCE([Locs])"
+  },
+  "PATH_DURATION": {
+    "to_data_type": "DECIMAL",
+    "to_string": "PATH_DURATION([Locs], \"car\")"
+  },
   "PLUSDAYS": {
     "to_data_type": "DATE",
     "to_string": "PLUSDAYS([Day], 1)"
@@ -350,6 +374,18 @@
   "ROUND": {
     "to_data_type": "INTEGER",
     "to_string": "ROUND([Cost])"
+  },
+  "ROUTE_DISTANCE": {
+    "to_data_type": "DECIMAL",
+    "to_string": "ROUTE_DISTANCE([Loc], [Loc])"
+  },
+  "ROUTE_DISTANCE broadcast": {
+    "to_data_type": "DECIMAL_ARRAY",
+    "to_string": "ROUTE_DISTANCE([Loc], [Locs])"
+  },
+  "ROUTE_DURATION": {
+    "to_data_type": "DECIMAL",
+    "to_string": "ROUTE_DURATION([Loc], [Loc], \"car\")"
   },
   "ROW": {
     "to_data_type": "INTEGER",

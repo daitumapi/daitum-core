@@ -58,8 +58,6 @@ Example:
 import json
 import os
 import pathlib
-import random
-import string
 from typing import TYPE_CHECKING, Any
 
 from daitum_model import Calculation, Field, Parameter, Table
@@ -68,6 +66,7 @@ if TYPE_CHECKING:
     from daitum_model.model import ModelBuilder
 
 from ._buildable import Buildable
+from ._ids import new_id
 from .base_view import BaseView
 from .card_view import Card, CardView
 from .chart_view import ChartView, CombinationChartView
@@ -1131,7 +1130,7 @@ class UiBuilder(Buildable):
             ...     toggle_label="Chart View",
             ... )
         """
-        context_id: str = "".join(random.choices(string.ascii_letters, k=16))
+        context_id: str = new_id()
         hidden_variable = self.add_context_variable(context_id, CVType.BOOLEAN, default_value=False)
 
         grid = [["-", "toggle"], ["main", "main"]]
@@ -1239,10 +1238,31 @@ class UiBuilder(Buildable):
             >>> # ui_definition is a dict that can be serialised and used to render the UI
         """
         self._sort_views()
+        self._assert_filters_registered()
         built = super().build()
         built["views"] = [view.build() for view in self._views]
-        built["schemaVersion"] = 2
+        built["schemaVersion"] = 4
         return built
+
+    def _assert_filters_registered(self) -> None:
+        """Ensure every view's referenced filter was registered via :meth:`add_filter`.
+
+        A view references a filter by name (``show_filter``/``use_filter``). The platform looks
+        that name up in the UI definition's ``filters`` list, which only contains filters added
+        through :meth:`add_filter`. Passing a hand-built :class:`FilterComponent` straight to a
+        view's ``set_use_filter`` sets the reference without registering it, producing a dangling
+        ``showFilter`` the platform rejects — so catch it here.
+        """
+        registered = {f.filter_name for f in self.filters}
+        for view in self._views:
+            for attr in ("show_filter", "use_filter"):
+                name = getattr(view, attr, None)
+                if name is not None and name not in registered:
+                    raise ValueError(
+                        f"View {view.display_name!r} references filter {name!r} via {attr}, but no "
+                        f"such filter is registered; create it with "
+                        f"ui.add_filter({name!r}, table) and reference it by that name."
+                    )
 
     def write_to_file(self, model_directory: str | os.PathLike[str]) -> None:
         """

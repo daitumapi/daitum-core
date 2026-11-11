@@ -402,7 +402,7 @@ class RangeValidator(Validator):  # pylint: disable=too-many-instance-attributes
 
         if non_array_data_type not in supported_types:
             raise NotImplementedError(
-                f"Range validation is not supported for the data type " f"{non_array_data_type}."
+                f"Range validation is not supported for the data type {non_array_data_type}."
             )
 
         invalid = self._get_invalid(field, is_array, data_type, non_array_data_type)

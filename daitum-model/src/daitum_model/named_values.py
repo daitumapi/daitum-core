@@ -70,7 +70,7 @@ class ValidationValuesContainer:
 @typechecked
 class Calculation(Buildable, Operand):
     """
-    A calculation is one of the three basic objects that make up a V3 Model. It consists of a name,
+    A calculation is one of the three basic objects that make up a model. It consists of a name,
     data_type, and a formula.
 
     Attributes:

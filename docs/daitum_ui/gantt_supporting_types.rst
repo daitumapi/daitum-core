@@ -19,6 +19,10 @@ These are typically passed as arguments to views or task definitions.
     :no-index:
     :show-inheritance:
 
+.. autoclass:: daitum_ui.gantt_view.RangeInputType
+    :no-index:
+    :show-inheritance:
+
 .. autoclass:: daitum_ui.gantt_view.RangeSelectorButton
     :no-index:
     :members:

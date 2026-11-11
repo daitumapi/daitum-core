@@ -1,5 +1,81 @@
 # Changelog
 
+## [4.0.0]
+
+### Added
+- `RangeBar` element (`@type: rangeBar`): a read-only bar from `min` to `max` showing a value
+  against error, warning, success and info ranges, as a fill or a marker. Every property is a
+  model variable: `RangeBar(value, min_value=None, max_value=None)` plus
+  `set_error_ranges`, `set_warning_ranges`, `set_success_ranges`, `set_info_ranges` and
+  `set_indicator`. The value, min and max must be `INTEGER`/`DECIMAL`, ranges
+  `INTEGER_ARRAY`/`DECIMAL_ARRAY`, and the indicator `STRING`. `set_size` accepts
+  `ElementSize.SMALL` or `LARGE` only.
+- `FormView.add_range_bar(value, row, column, min_value=None, max_value=None)`.
+- `IconCheckbox.set_show_background(show=True)`: draws a background behind the icon
+  (`showBackground`, defaults to `false`).
+- `Card.shadow`: an optional drop shadow, taking a new `Shadow` enum (`NONE`, `EXTRA_SMALL`, `SMALL`, `MEDIUM`).
+  Omitted from the output when unset, leaving the platform default.
+- Coordinate fields (`DataType.COORDINATE` / `COORDINATE_ARRAY`) are now filterable, mapping to the
+  text filter type.
+- First-class input elements in `daitum_ui.elements`, on a new `InputElement` base:
+  `TextInput`, `NumberInput`, `Dropdown`, `DateTimePicker`, `ColorPicker`, `IconPicker`. They bind
+  to a data source, validate its data type, and wire a bound field's validation rules into
+  conditional states — and, being ordinary elements, may be placed in any container.
+- `FormView.add_form_element(row, column, element, ...)` — a generic adder that wraps any element
+  in a `FormCell`, plus per-type convenience adders (`add_text`, `add_text_input`,
+  `add_number_input`, `add_drop_down`, `add_date_time`, `add_check_box`, `add_slider`,
+  `add_icon_check_box`, `add_review_rating`, `add_colour_picker_input`, `add_icon_picker`,
+  `add_button`, `add_icon`, `add_model_editor_link`, `add_list`).
+- `Text` elements can bind a `Field`/`Parameter`/`Calculation` as a read-only data source
+  (replacing the former `FormLabel`).
+- `Element.add_property_field_mapping` now validates the property against a per-element allowlist
+  (`Element.PROPERTY_TYPES`) and checks the bound value's data type, raising a `ValueError` that
+  lists the supported properties. It also now returns the element for chaining. A
+  `TemplateBindingKey` value skips the type check (resolved later in a list template).
+  Fixed-set properties (enums, icon-subset/id and `STRING_ARRAY` fields) are not mappable for now —
+  an arbitrary bound value can't be guaranteed valid; see the TODO on `Element.PROPERTY_TYPES`.
+- `InputElement.set_list_validation` now takes a `Field`/`Parameter`/`Calculation` and requires it
+  to resolve to an **array** of the allowed values (a scalar reference is rejected). `Dropdown` no
+  longer reports or accepts list validation, matching the platform.
+- **Breaking:** `IconCheckbox` (and `FormView.add_icon_check_box`) now require both `off_icon` and
+  `on_icon` — the frontend needs an icon for each state.
+- `Dropdown` derives its `object_reference_display_field` from the bound object's referenced-table
+  key when not given, and raises if none can be determined (the frontend needs a label per choice).
+- A table-bound `FormView` now raises at `build()` if it has no `filter_mode` (nothing selects the
+  row). Named-values-only forms are unaffected.
+- **Breaking:** icons are now passed as `Icon` enum members, not strings. `IconElement.icon_source`,
+  `Button(icon_source=...)`, `IconPicker.set_defaults`, `FormView.add_icon`, and the `Modal`
+  button helpers (`add_save_button`/`add_cancel_button`/…) all take `Icon`. Build output is
+  unchanged (the enum serialises to the same id string).
+- `UiBuilder.build()` now raises if a view references a filter (`show_filter`/`use_filter`) that
+  was not registered via `add_filter`, instead of emitting a dangling `showFilter` the platform
+  rejects. Pass a filter from `ui.add_filter(name, table)` and reference it by that name.
+- `RangeInputType` enum (`DATETIME`, `DATE`) and `GanttView.set_range_input_type(input_type)` —
+  choose whether the Gantt range selector's start and end inputs accept a date and time or a
+  date only (emitted as `rangeInputType`; defaults to `DATETIME`).
+- `ArrayElement` (`@type` `array`) — shows and edits an ARRAY-typed field, named value, or
+  context variable's values (editability comes from its element states), laid out per
+  `ArrayLayout` (`BADGE`, `LIST`, `COLUMN`). `set_allow_duplicates` and `set_allow_blanks`
+  permit repeated and blank (null) values; both default to `False`. `displayFormat`,
+  `placeholder`, `allowDuplicates` and `allowBlanks` may be mapped per row via
+  `add_property_field_mapping`; `size` may not, so the element is the same size on every row. 
+  For an OBJECT_ARRAY, `object_reference_display_field` defaults to the referenced table's key. 
+  Added with the `FormView.add_array` adder.
+- Add `FIT_WIDTH` for `ElementSize`
+
+### Changed
+- **Breaking:** form views serialise `cells` — each a `FormCell` wrapping an element with its grid
+  placement (`rowStart`, `columnStart`, `rowSpan`, `columnSpan`, `horizontalAlignment`) — instead
+  of `formElements`.
+- **Breaking:** `Checkbox`, `Slider`, `IconCheckbox`, and `ReviewRating` now extend `InputElement`
+  and serialise the canonical `dataSource` with `onCheck`/`onUncheck`, dropping the legacy
+  `*DataSourceId`, `actionType`, and `onClickKey` fields.
+
+### Removed
+- **Breaking:** `FormElement` and all `Form*` subclasses, and the `FormSize`, `FormVariant`,
+  `FormResize`, and `FormIconSet` enums (use `ElementSize`, `FontWeight`, `TextInputResize`, and
+  `IconSet`). `FormView.add_label` is removed — use `add_text`.
+
 ## [3.3.1]
 
 ### Fixed

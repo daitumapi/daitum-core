@@ -92,6 +92,22 @@ def function_cases() -> list[Case]:
         Case("DATE", lambda fx: formulas.DATE(2026, 1, 1)),
         Case("DATETIME", lambda fx: formulas.DATETIME(2026, 1, 1, 0, 0, 0)),
         Case("TIME", lambda fx: formulas.TIME(1, 2, 3)),
+        # --- coordinate ---
+        Case("COORDINATE", lambda fx: formulas.COORDINATE(-33.87, 151.21)),
+        Case("COORDINATE array", lambda fx: formulas.COORDINATE(f(fx)["Costs"], 151.21)),
+        Case("LATITUDE", lambda fx: formulas.LATITUDE(formulas.COORDINATE(-33.87, 151.21))),
+        Case("LONGITUDE", lambda fx: formulas.LONGITUDE(formulas.COORDINATE(-33.87, 151.21))),
+        Case("ROUTE_DISTANCE", lambda fx: formulas.ROUTE_DISTANCE(f(fx)["Loc"], f(fx)["Loc"])),
+        Case(
+            "ROUTE_DISTANCE broadcast",
+            lambda fx: formulas.ROUTE_DISTANCE(f(fx)["Loc"], f(fx)["Locs"]),
+        ),
+        Case(
+            "ROUTE_DURATION",
+            lambda fx: formulas.ROUTE_DURATION(f(fx)["Loc"], f(fx)["Loc"], "car"),
+        ),
+        Case("PATH_DISTANCE", lambda fx: formulas.PATH_DISTANCE(f(fx)["Locs"])),
+        Case("PATH_DURATION", lambda fx: formulas.PATH_DURATION(f(fx)["Locs"], "car")),
         Case("DAY", lambda fx: formulas.DAY(f(fx)["Day"])),
         Case("MONTH", lambda fx: formulas.MONTH(f(fx)["Day"])),
         Case("YEAR", lambda fx: formulas.YEAR(f(fx)["Day"])),

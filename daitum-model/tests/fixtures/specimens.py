@@ -41,6 +41,8 @@ FIELD_SPECIMENS: list[Specimen] = [
     Specimen("date_arr", lambda fx: fx.fields["Days"]),
     Specimen("datetime_arr", lambda fx: fx.fields["Stamps"]),
     Specimen("time_arr", lambda fx: fx.fields["Clocks"]),
+    Specimen("coord", lambda fx: fx.fields["Loc"]),
+    Specimen("coord_arr", lambda fx: fx.fields["Locs"]),
     Specimen("object", lambda fx: fx.fields["Site"]),
     Specimen("object_arr", lambda fx: fx.fields["SiteList"]),
     Specimen("map", lambda fx: fx.fields["CostMap"]),

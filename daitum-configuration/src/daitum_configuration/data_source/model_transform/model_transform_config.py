@@ -41,6 +41,13 @@ from daitum_configuration.data_source.model_transform.model_transform_input impo
     DynamicValuesInput,
     ModelTransformInput,
 )
+from daitum_configuration.data_source.model_transform.publish_config import (
+    PublishConfig,
+    PublishExpansion,
+)
+from daitum_configuration.data_source.model_transform.publish_target_type import (
+    PublishTargetType,
+)
 from daitum_configuration.data_source.model_transform.validation_severity import ValidationSeverity
 from daitum_configuration.no_data_policy import NoDataPolicy
 
@@ -105,6 +112,7 @@ class ModelTransformConfig(DataSourceConfig):
         self.failure_named_value: str | None = None
         self.log_table: str | None = None
         self.log_table_columns: _LogTableColumns | None = None
+        self.publish: list[PublishConfig] | None = None
 
         super().__init__(track_changes_supported=True)
 
@@ -126,10 +134,13 @@ class ModelTransformConfig(DataSourceConfig):
         self,
         data_store_key: str,
         tables: dict[str, str],
-        model_filter: DataFilter | None = None,
+        model_filter: DataFilter | list[DataFilter] | None = None,
         direct_data_pull: bool = False,
     ) -> "ModelTransformConfig":
-        """Register a data-store input feeding the secondary model."""
+        """Register a data-store input feeding the secondary model.
+
+        ``model_filter`` may be a list of filters, in which case a row must pass every one.
+        """
         self.inputs.append(DataStoreInput(data_store_key, tables, model_filter, direct_data_pull))
         return self
 
@@ -137,10 +148,13 @@ class ModelTransformConfig(DataSourceConfig):
         self,
         data_store_key: str,
         tables: dict[str, str],
-        model_filter: DataFilter | None = None,
+        model_filter: DataFilter | list[DataFilter] | None = None,
         direct_data_pull: bool = False,
     ) -> "ModelTransformConfig":
-        """Register a data-store-interface input feeding the secondary model."""
+        """Register a data-store-interface input feeding the secondary model.
+
+        ``model_filter`` may be a list of filters, in which case a row must pass every one.
+        """
         self.inputs.append(
             DataStoreInterfaceInput(data_store_key, tables, model_filter, direct_data_pull)
         )
@@ -250,6 +264,68 @@ class ModelTransformConfig(DataSourceConfig):
                 f"failure_named_value must be BOOLEAN, got {named_value.to_data_type()}"
             )
         self.failure_named_value = named_value.id
+        return self
+
+    def add_publish(  # noqa: PLR0913
+        self,
+        data_store_key: str,
+        source_table: Table,
+        *,
+        target_type: PublishTargetType = PublishTargetType.DATA_STORE,
+        field_mapping: dict[str, Field] | None = None,
+        expand: dict[str, PublishExpansion] | None = None,
+        owned_scope: list[DataFilter] | None = None,
+        owns_entire_store: bool = False,
+        write_on_failure_outputs: list[Table | Parameter | Calculation] | None = None,
+        max_lock_wait_seconds: int | None = None,
+        allow_empty_publish: bool = False,
+    ) -> "ModelTransformConfig":
+        """Publish the rows of a sub-model table to a data store once the checks pass.
+
+        Every target store's lease is held from before the inputs are read until the publish
+        commits, so inputs reading the target see live data. If :meth:`set_failure_named_value`
+        blocks the transform, nothing is published and only ``write_on_failure_outputs`` are
+        written back. To a keyed store, a publish clears the whole owned scope then writes its
+        rows; to a standard store it is an ordinary update and owned scopes don't apply. May be
+        called more than once to publish to several stores.
+
+        Args:
+            data_store_key: The target store path, or an interface mapping key when
+                ``target_type`` is ``DATA_STORE_INTERFACE``.
+            source_table: The sub-model table whose rows become the store's root rows.
+            target_type: How ``data_store_key`` names the store.
+            field_mapping: Store field name to the ``source_table`` field supplying it.
+                ``None`` publishes every field under its own id.
+            expand: Object reference fields to publish as nested rows, keyed by store field.
+            owned_scope: Keyed stores only. Filters (all must pass) describing the records this
+                model owns, bound from model named values. Only equality/set filters on key
+                fields and overlap filters on the start/end fields are allowed. Describe what
+                the model owns (e.g. its services and horizon), never the rows it publishes.
+            owns_entire_store: Keyed stores only. Own every record in the store instead of a
+                scope. A keyed target needs exactly one of this or a non-empty ``owned_scope``.
+            write_on_failure_outputs: Transform outputs (parent tables or named values) still
+                written back when the failure named value blocks the publish.
+            max_lock_wait_seconds: How long to wait for another publish to the same store;
+                ``None`` uses the platform default (600).
+            allow_empty_publish: Keyed stores only. Allow publishing no rows, which clears the
+                whole owned scope.
+        """
+        if self.publish is None:
+            self.publish = []
+        self.publish.append(
+            PublishConfig(
+                data_store_key,
+                source_table,
+                target_type=target_type,
+                field_mapping=field_mapping,
+                expand=expand,
+                owned_scope=owned_scope,
+                owns_entire_store=owns_entire_store,
+                write_on_failure_outputs=write_on_failure_outputs,
+                max_lock_wait_seconds=max_lock_wait_seconds,
+                allow_empty_publish=allow_empty_publish,
+            )
+        )
         return self
 
     @property

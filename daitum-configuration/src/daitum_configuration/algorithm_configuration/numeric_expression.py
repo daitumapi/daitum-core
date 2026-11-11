@@ -80,49 +80,8 @@ class NumericExpression:
     def __rtruediv__(self, other: int | float | str | NumericExpression) -> NumericExpression:
         return NumericExpression._from_expr(f"({NumericExpression(other).expr} / {self.expr})")
 
-    def to_string(self) -> str:
-        """Return the underlying expression string."""
-        return self.expr
-
-    def is_float(self) -> bool:
-        """Return True if the expression is a float literal."""
-        try:
-            _ = float(self.expr)
-            return "." in self.expr or "e" in self.expr.lower()
-        except (ValueError, TypeError):
-            return False
-
-    def is_integer(self) -> bool:
-        """Return True if the expression is an integer literal."""
-        try:
-            int_val = int(self.expr)
-            return str(int_val) == self.expr
-        except (ValueError, TypeError):
-            return False
-
-    def is_expression(self) -> bool:
-        """Return True if the expression contains a variable rather than a numeric literal."""
-        if isinstance(self.expr, str):
-            return not self.is_integer() and not self.is_float()
-        return False
-
     @classmethod
     def _from_expr(cls, expr: str) -> NumericExpression:
         obj = cls.__new__(cls)
         obj.expr = expr
         return obj
-
-    @classmethod
-    def from_str(cls, expr: str) -> NumericExpression:
-        """Construct from a numeric or ``NUM_VARIABLES`` string."""
-        return cls(expr)
-
-    @classmethod
-    def from_number(cls, num: int | float) -> NumericExpression:
-        """Construct from an int or float literal."""
-        return cls(num)
-
-    @classmethod
-    def variable(cls, name: str) -> NumericExpression:
-        """Construct from a variable name. Currently only ``NUM_VARIABLES`` is supported."""
-        return cls(name)

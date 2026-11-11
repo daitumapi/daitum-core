@@ -170,14 +170,16 @@ def _is_valid_aggregation(
                 DataType.DECIMAL_ARRAY,
             ]
         case AggregationMethod.MIN | AggregationMethod.MAX:
-            result = data_type in PRIMITIVE_DATA_TYPES
+            result = data_type in PRIMITIVE_DATA_TYPES or data_type == DataType.COORDINATE
         case AggregationMethod.AVERAGE:
             result = data_type in [DataType.INTEGER, DataType.DECIMAL]
         case AggregationMethod.AND | AggregationMethod.OR:
             result = data_type == DataType.BOOLEAN
         case AggregationMethod.ARRAY:
-            result = data_type in PRIMITIVE_DATA_TYPES or (
-                isinstance(data_type, ObjectDataType) and not data_type.is_array()
+            result = (
+                data_type in PRIMITIVE_DATA_TYPES
+                or data_type == DataType.COORDINATE
+                or (isinstance(data_type, ObjectDataType) and not data_type.is_array())
             )
         case AggregationMethod.INTERSECTION | AggregationMethod.UNION:
             result = not isinstance(data_type, MapDataType)
@@ -207,8 +209,7 @@ def _get_aggregated_data_type(
 
     if not _is_valid_aggregation(data_type, aggregation_method):
         raise ValueError(
-            f"Aggregation method {aggregation_method.name} is not valid for data type "
-            f"{data_type}"
+            f"Aggregation method {aggregation_method.name} is not valid for data type {data_type}"
         )
     match aggregation_method:
         case AggregationMethod.COUNT:
@@ -370,9 +371,7 @@ class DerivedTable(Table):
         base_ids = {
             fid for fid in existing_ids if "__invalid__" not in fid and "__message__" not in fid
         }
-        for (
-            source_field
-        ) in self._source_table.field_definitions.values():  # pylint: disable=protected-access
+        for source_field in self._source_table.field_definitions.values():  # pylint: disable=protected-access
             fid = source_field.id
             if fid in existing_ids:
                 continue

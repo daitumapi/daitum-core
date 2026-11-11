@@ -111,8 +111,7 @@ class _ValidationListBuilder:
     def _resolve_group(self, table: Table) -> str:
         if not table.validation_group:
             raise ValueError(
-                f"Table {table.id} must have a validation group; "
-                f"call set_validation_group() on it."
+                f"Table {table.id} must have a validation group; call set_validation_group() on it."
             )
         return table.validation_group
 

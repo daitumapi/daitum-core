@@ -50,10 +50,12 @@ def decode_value(  # noqa: PLR0911
 
     if isinstance(template, Enum):
         return type(template)(value)
-    if _is_enum_type(elem_type):
+    if _is_enum_type(elem_type) and not isinstance(value, list):
         return elem_type(value)  # type: ignore[misc]
 
     if isinstance(value, list):
+        # For an enum-typed list attribute (e.g. list[Icon]) ``elem_type`` is the member type and
+        # applies per item; the template may be None so it can't reveal the inner type.
         inner = template[0] if isinstance(template, list) and template else None
         return [decode_value(item, inner, elem_type, ctx) for item in value]
 

@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.5.0]
+- New `COORDINATE` and `COORDINATE_ARRAY` data types for geographic (latitude/longitude) fields.
+  Declare them like any other field type (`table.add_data_field("Loc", DataType.COORDINATE)`);
+  seed data in the space-separated text form `"<lat> <lng>"` (comma separates array elements),
+  which converts to `{"latitude": ..., "longitude": ...}`. Coordinates may be grouped with the
+  `ARRAY`, `MIN` and `MAX` aggregations.
+- New formula functions in `daitum_model.formulas`: `COORDINATE(latitude, longitude)` builds a
+  coordinate from two numeric arguments (array-propagating), and `LATITUDE(coordinate)` /
+  `LONGITUDE(coordinate)` extract the decimal components.
+- New routing formula functions: `ROUTE_DISTANCE(from, to[, profile])` and
+  `ROUTE_DURATION(from, to[, profile])` compute road-network distance (metres) and travel time
+  (seconds) between coordinates — a single value broadcasts against an array argument and any array
+  argument makes the result an array; `PATH_DISTANCE(waypoints[, profile])` and
+  `PATH_DURATION(waypoints[, profile])` total a coordinate-array path. The optional `profile`
+  defaults to `"car"` and is omitted from the formula when not supplied.
+- Coordinates now flow through the generic-type collection and logical formula functions (`IF`,
+  `IFBLANK`, `IFERROR`, `CHOOSE`, `ISBLANK`, `ISERROR`, `ARRAY`, `CONTAINS`, `COUNT`,
+  `COUNTBLANKS`, `COUNTDUPLICATES`, `FINDDUPLICATES`, `DISTINCT`, `FILTER`, `INDEX`, `MATCH`,
+  `UNION`, `INTERSECTION`, `SIZE`, `ROWS`, `NEXT`, `PREV`, `TEXT`, `LOOKUPARRAY`), equality
+  (`=`/`<>`) and concatenation (`&`). Arithmetic, ordered comparison and reducers still reject
+  coordinates.
+
 ## [2.4.0]
 - Validation list tables are built from the model: `ModelBuilder.set_validation_table()` scans
   the model's tables for validated fields, aggregates their errors into a `ValidationList` union

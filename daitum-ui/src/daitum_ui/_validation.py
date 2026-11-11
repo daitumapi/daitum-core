@@ -51,7 +51,6 @@ def _add_validation_formatting(
     if isinstance(view_value, ViewField) and isinstance(
         validation_value, ValidationFieldsContainer
     ):
-
         view_value.add_conditional_formatting_rule(
             validation_value.invalid_field.id,
             ColumnStyle(

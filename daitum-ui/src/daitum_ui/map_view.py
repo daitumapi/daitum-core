@@ -15,67 +15,20 @@
 """
 Map view components for the UI Generator framework.
 
-This module provides geospatial visualisation capabilities through the MapView class,
-enabling the display of location-based data on interactive maps. Map views support
-both individual location markers and connected route visualisations with rich
-customisation options.
-
-Map views transform geographic coordinate data into interactive visual representations,
-allowing users to explore spatial relationships, track movement patterns, and analyse
-location-based information intuitively.
-
-Classes:
-    - MapType: Enum defining LOCATION and ROUTE map types
-    - MarkerInteraction: Configuration for marker hover and click behaviour
-    - MapConfig: Base configuration class for map views
-    - LocationConfig: Configuration specific to LOCATION map type
-    - RouteConfig: Configuration specific to ROUTE map type
-    - PlaybackConfig: Configuration for route playback animation
-    - MapView: Complete map view with geographic visualisation
+Displays location-based data on interactive maps via the MapView class, supporting
+both individual location markers (LOCATION) and connected route visualisations
+(ROUTE), with marker interaction and route playback configuration.
 
 Example:
-    >>> # Define the data source for store locations
-    >>> stores_table = Table("store_locations")
-    >>> lat_field = Field("latitude", DataType.DECIMAL)
-    >>> lng_field = Field("longitude", DataType.DECIMAL)
-    >>> name_field = Field("store_name", DataType.STRING)
-    >>>
-    >>> # Create a location map view
     >>> builder = UiBuilder()
     >>> map_view = builder.add_location_view(
-    ...     table=stores_table,
-    ...     latitude=lat_field,
-    ...     longitude=lng_field,
+    ...     table=Table("store_locations"),
+    ...     latitude=Field("latitude", DataType.DECIMAL),
+    ...     longitude=Field("longitude", DataType.DECIMAL),
     ...     display_name="Store Locations"
     ... )
-    >>>
-    >>> # Customise the map
-    >>> map_view.set_name(name_field)
-    >>> map_view.set_colour(Field("region_color", DataType.STRING))
+    >>> map_view.set_name(Field("store_name", DataType.STRING))
     >>> map_view.set_editable(True)
-    >>>
-    >>> # Add marker interaction
-    >>> from daitum_ui.elements import Card
-    >>> info_card = Card(...)
-    >>> map_view.set_marker_behaviour(info_card)
-    >>>
-    >>> # Example: Create a route map for deliveries
-    >>> routes_table = Table("delivery_routes")
-    >>> route_lat = Field("waypoint_lat", DataType.DECIMAL_ARRAY)
-    >>> route_lng = Field("waypoint_lng", DataType.DECIMAL_ARRAY)
-    >>>
-    >>> route_view = builder.add_route_view(
-    ...     table=routes_table,
-    ...     latitude=route_lat,
-    ...     longitude=route_lng,
-    ...     display_name="Delivery Routes"
-    ... )
-    >>>
-    >>> # Configure route-specific features
-    >>> route_view.set_date_time(Field("timestamps", DataType.DATETIME_ARRAY))
-    >>> route_view.set_collapse_markers(True)
-    >>> route_view.set_start_location_icon(Field("start_icon", DataType.STRING))
-    >>> route_view.set_end_location_icon(Field("end_icon", DataType.STRING))
 """
 
 from abc import ABC
@@ -111,7 +64,7 @@ class MapType(Enum):
 
 @dataclass
 @typechecked
-class MarkerInteraction(ABC, Buildable):
+class MarkerInteraction(Buildable):
     """
     Defines the interaction behaviour for map markers.
 
@@ -581,7 +534,7 @@ class MapView(BaseView, FilterableView):
     def _check_field(self, field: Field, data_type: DataType):
         if field not in self._table.get_fields():
             raise ValueError(
-                f"ERROR - Field {field.id} is not present in the table " f"{self._table.id}."
+                f"ERROR - Field {field.id} is not present in the table {self._table.id}."
             )
 
         if field.to_data_type() != data_type:
@@ -593,7 +546,7 @@ class MapView(BaseView, FilterableView):
     def _check_field_data_types(self, field: Field, *data_types: DataType):
         if field not in self._table.get_fields():
             raise ValueError(
-                f"ERROR - Field {field.id} is not present in the table " f"{self._table.id}."
+                f"ERROR - Field {field.id} is not present in the table {self._table.id}."
             )
 
         if field.to_data_type() not in data_types:

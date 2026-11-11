@@ -123,6 +123,48 @@ def named_value_cycle() -> ModelBuilder:
     return model
 
 
+def cross_domain_table_calc_cycle() -> ModelBuilder:
+    """A field on a derived table reads a calc that aggregates that same table.
+
+    The loop runs field -> calculation -> table: ``In Range`` reads ``FIRST_MINUTE``, which is
+    a MIN over a FILTER of the table the field lives on. Every edge crosses the
+    table/calculation boundary, so only the combined build-order graph closes the cycle.
+    """
+    model = ModelBuilder()
+    intervals = model.add_data_table("Intervals")
+    intervals.set_key_column("K")
+    intervals.add_data_field("K", DataType.STRING)
+    intervals.add_data_field("Minute", DataType.DECIMAL)
+    intervals.add_data_field("Has Session", DataType.BOOLEAN)
+
+    resolved = model.add_derived_table("DemandCurveIntervals", intervals)
+    resolved.add_source_fields()
+
+    first_minute = model.add_calculation(
+        "DEMAND_CURVE_FIRST_MINUTE",
+        formulas.MIN(formulas.FILTER(resolved, resolved["Has Session"])["Minute"]),
+    )
+    resolved.add_calculated_field("In Range", first_minute)
+    return model
+
+
+def non_cyclic_calc_aggregating_other_table() -> ModelBuilder:
+    """Control: a field reads a calc that aggregates a *different* table — no cycle."""
+    model = ModelBuilder()
+    source = model.add_data_table("Source")
+    source.set_key_column("K")
+    source.add_data_field("K", DataType.STRING)
+    source.add_data_field("Minute", DataType.DECIMAL)
+
+    other = model.add_data_table("Other")
+    other.set_key_column("OK")
+    other.add_data_field("OK", DataType.STRING)
+
+    first_minute = model.add_calculation("FIRST_MINUTE", formulas.MIN(source["Minute"]))
+    other.add_calculated_field("Label", first_minute)
+    return model
+
+
 def calculated_field_missing_reference() -> ModelBuilder:
     """A calculated field references a field later removed from its table."""
     model = ModelBuilder()

@@ -52,6 +52,28 @@ one shift column per slot being rostered:
             minimum_width="120px",
         )
 
+Freeze the header row/column and add a summary column of per-row aggregates:
+
+.. code-block:: python
+
+    roster_view = builder.add_roster_view(
+        source_table=shifts_table, display_name="Weekly Schedule"
+    )
+    roster_view.set_freeze_headers(True)
+
+    roster_view.set_resource_column(
+        RosterColumn(
+            table_field_reference=Field("employee_name", DataType.STRING),
+            minimum_width="200px",
+        )
+    )
+    roster_view.set_summary_column(
+        RosterColumn(
+            table_field_reference=Field("total_hours", DataType.DECIMAL),
+            minimum_width="100px",
+        )
+    )
+
 Card templates and per-column bindings
 --------------------------------------
 

@@ -26,6 +26,10 @@ from daitum_model import DataType, MapDataType, ModelBuilder, ObjectDataType
 from daitum_model.fields import ComboField, DataField, Field
 from daitum_model.tables import DataTable, Table
 
+_COORDINATE_PARTS = 2
+_MAX_LATITUDE = 90
+_MAX_LONGITUDE = 180
+
 
 def prepare_data(model: ModelBuilder, input_path: str, output_path: str):
     """
@@ -44,7 +48,6 @@ def prepare_data(model: ModelBuilder, input_path: str, output_path: str):
     data_tables = [table for table in model.get_tables() if isinstance(table, DataTable)]
     table_data = {}
     for table in data_tables:
-
         folder = "model-data" if table.model_level else "scenarios/Initial"
         output_filename = f"{output_path}/{folder}/{table.id}.csv"
         input_filename = f"{input_path}/{table.id}.csv"
@@ -150,4 +153,22 @@ def _convert_primitive(data_type: DataType, raw_value: str):  # noqa PLR0911
             datetime_value.minute,
             0,
         ]
+    if data_type == DataType.COORDINATE:
+        return _parse_coordinate(raw_value)
     raise ValueError(f"Invalid data type: {data_type}")
+
+
+def _parse_coordinate(raw_value: str) -> dict[str, float]:
+    """Parse a space-separated ``"<lat> <lng>"`` coordinate into a latitude/longitude dict.
+
+    Mirrors the platform's ``Coordinate.parse`` range checks (latitude ±90, longitude ±180).
+    The comma is reserved as the array element separator, so a single coordinate must use the
+    space form only.
+    """
+    parts = raw_value.split()
+    if len(parts) != _COORDINATE_PARTS:
+        raise ValueError(f"Invalid coordinate: {raw_value!r} (expected '<lat> <lng>')")
+    latitude, longitude = float(parts[0]), float(parts[1])
+    if abs(latitude) > _MAX_LATITUDE or abs(longitude) > _MAX_LONGITUDE:
+        raise ValueError(f"Coordinate out of range: {latitude} {longitude}")
+    return {"latitude": latitude, "longitude": longitude}

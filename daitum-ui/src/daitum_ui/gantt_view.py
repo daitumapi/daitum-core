@@ -192,6 +192,21 @@ class RangeSelectorButtonType(Enum):
     ALL = "ALL"
 
 
+class RangeInputType(Enum):
+    """
+    Defines the input type used by the range selector's start and end inputs.
+
+    Attributes:
+        DATETIME:
+            The range inputs accept both a date and a time.
+        DATE:
+            The range inputs accept a date only.
+    """
+
+    DATETIME = "DATETIME"
+    DATE = "DATE"
+
+
 @typechecked
 def _validate_field(field_obj: Field, *datatype: DataType):
     """
@@ -790,6 +805,8 @@ class GanttView(BaseView, FilterableView):
         with_navigator: Whether the navigator is enabled.
         tooltip_disabled: Whether tooltips are disabled.
         tooltip_boundary: Boundary constraint for tooltip positioning.
+        range_input_type: Input type of the range selector's start and end inputs.
+            Defaults to ``RangeInputType.DATETIME``.
     """
 
     def __init__(
@@ -808,7 +825,6 @@ class GanttView(BaseView, FilterableView):
             display_name: Optional name displayed for this view in the UI.
             hidden: Whether the view should be hidden by default.
         """
-        # Initialise BaseView
         BaseView.__init__(self, hidden)
         if display_name is not None:
             self._display_name = display_name
@@ -836,6 +852,7 @@ class GanttView(BaseView, FilterableView):
         self.with_navigator: bool = False
         self.tooltip_disabled: bool = False
         self.tooltip_boundary: TooltipBoundary | None = None
+        self.range_input_type: RangeInputType = RangeInputType.DATETIME
 
     def set_use_filter(self, use_filter: FilterComponent) -> "GanttView":
         """Attaches a filter component to this Gantt view."""
@@ -983,6 +1000,20 @@ class GanttView(BaseView, FilterableView):
                 to display in the tooltip (e.g., start date, end date, custom fields).
         """
         self.tooltip_properties_mapping[key] = property_list
+
+    def set_range_input_type(self, input_type: RangeInputType) -> "GanttView":
+        """
+        Set the input type of the range selector's start and end inputs.
+
+        By default the range inputs accept both a date and a time
+        (``RangeInputType.DATETIME``).
+
+        Args:
+            input_type: The input type to use, e.g. ``RangeInputType.DATE`` to allow
+                only a date to be entered.
+        """
+        self.range_input_type = input_type
+        return self
 
 
 @typechecked

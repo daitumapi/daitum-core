@@ -3,7 +3,7 @@ Reports
 
 This tutorial covers how to define **reports** — the exportable outputs a scenario produces
 for end users. You will learn what a report is, how to back one with a model transform so it
-computes its own contents in V3 formulas, how those outputs map to sheets and columns, and how
+computes its own contents in model formulas, how those outputs map to sheets and columns, and how
 the report is exported as XLSX, CSV or JSON.
 
 Overview
@@ -21,10 +21,8 @@ model *configuration*, alongside the algorithm, decision variables, and data sou
 A report's contents come from a **model transform** — a self-contained sub-model, attached
 with :meth:`~daitum_configuration.ReportProperty.set_transform_file`. The sub-model is
 evaluated against a snapshot of the scenario's data and its declared outputs become the
-report. Because the report's calculations are V3 formulas, they are checked by the model
+report. Because the report's calculations are model formulas, they are checked by the model
 parser at upload and live in a plain-text file you can diff, rather than in a spreadsheet.
-
-A transform-backed report requires a **V3 model**.
 
 A minimal report
 ----------------

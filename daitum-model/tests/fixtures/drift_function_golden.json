@@ -21,6 +21,14 @@
     "to_data_type": "DECIMAL_ARRAY",
     "to_string": "ABS(Jobs[Cost])"
   },
+  "ABS(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "ABS(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "ABS(date)": {
     "exc": "ValueError",
     "ok": false
@@ -7094,6 +7102,14 @@
     "exc": "ValueError",
     "ok": false
   },
+  "BITMASK(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "BITMASK(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "BITMASK(date)": {
     "exc": "ValueError",
     "ok": false
@@ -7212,6 +7228,14 @@
     "ok": false
   },
   "BITMASKSTRING(col_dec_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "BITMASKSTRING(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "BITMASKSTRING(coord_arr)": {
     "exc": "ValueError",
     "ok": false
   },
@@ -8666,6 +8690,14 @@
     "to_data_type": "INTEGER_ARRAY",
     "to_string": "CEILING(Jobs[Cost])"
   },
+  "CEILING(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "CEILING(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "CEILING(date)": {
     "exc": "ValueError",
     "ok": false
@@ -8787,6 +8819,14 @@
     "ok": false
   },
   "CHAR(col_dec_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "CHAR(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "CHAR(coord_arr)": {
     "exc": "ValueError",
     "ok": false
   },
@@ -8941,6 +8981,16 @@
     "ok": true,
     "to_data_type": "DECIMAL_ARRAY",
     "to_string": "Jobs[Cost]"
+  },
+  "CONST(coord)": {
+    "ok": true,
+    "to_data_type": "COORDINATE",
+    "to_string": "[Loc]"
+  },
+  "CONST(coord_arr)": {
+    "ok": true,
+    "to_data_type": "COORDINATE_ARRAY",
+    "to_string": "[Locs]"
   },
   "CONST(date)": {
     "ok": true,
@@ -10399,6 +10449,14 @@
     "to_data_type": "DECIMAL_ARRAY",
     "to_string": "COS(Jobs[Cost])"
   },
+  "COS(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "COS(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "COS(date)": {
     "exc": "ValueError",
     "ok": false
@@ -11834,6 +11892,15 @@
     "to_data_type": "INTEGER",
     "to_string": "COUNTBLANKS(Jobs[Cost])"
   },
+  "COUNTBLANKS(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "COUNTBLANKS(coord_arr)": {
+    "ok": true,
+    "to_data_type": "INTEGER",
+    "to_string": "COUNTBLANKS([Locs])"
+  },
   "COUNTBLANKS(date)": {
     "exc": "ValueError",
     "ok": false
@@ -11982,6 +12049,14 @@
     "ok": false
   },
   "DAY(col_dec_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "DAY(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "DAY(coord_arr)": {
     "exc": "ValueError",
     "ok": false
   },
@@ -13411,6 +13486,15 @@
     "to_data_type": "DECIMAL_ARRAY",
     "to_string": "DISTINCT(Jobs[Cost])"
   },
+  "DISTINCT(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "DISTINCT(coord_arr)": {
+    "ok": true,
+    "to_data_type": "COORDINATE_ARRAY",
+    "to_string": "DISTINCT([Locs])"
+  },
   "DISTINCT(date)": {
     "exc": "ValueError",
     "ok": false
@@ -14833,6 +14917,14 @@
     "ok": false
   },
   "EOMONTH(col_dec_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "EOMONTH(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "EOMONTH(coord_arr)": {
     "exc": "ValueError",
     "ok": false
   },
@@ -16274,6 +16366,14 @@
     "ok": true,
     "to_data_type": "DECIMAL_ARRAY",
     "to_string": "EXP(Jobs[Cost])"
+  },
+  "EXP(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "EXP(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
   },
   "EXP(date)": {
     "exc": "ValueError",
@@ -17728,6 +17828,14 @@
     "ok": true,
     "to_data_type": "INTEGER_ARRAY",
     "to_string": "FLOOR(Jobs[Cost])"
+  },
+  "FLOOR(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "FLOOR(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
   },
   "FLOOR(date)": {
     "exc": "ValueError",
@@ -20459,6 +20567,14 @@
     "exc": "ValueError",
     "ok": false
   },
+  "HOUR(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "HOUR(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "HOUR(date)": {
     "exc": "ValueError",
     "ok": false
@@ -21968,6 +22084,14 @@
     "to_data_type": "INTEGER_ARRAY",
     "to_string": "INTEGER(Jobs[Cost])"
   },
+  "INTEGER(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "INTEGER(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "INTEGER(date)": {
     "exc": "ValueError",
     "ok": false
@@ -22105,6 +22229,16 @@
     "ok": true,
     "to_data_type": "BOOLEAN",
     "to_string": "ISBLANK(Jobs[Cost])"
+  },
+  "ISBLANK(coord)": {
+    "ok": true,
+    "to_data_type": "BOOLEAN",
+    "to_string": "ISBLANK([Loc])"
+  },
+  "ISBLANK(coord_arr)": {
+    "ok": true,
+    "to_data_type": "BOOLEAN",
+    "to_string": "ISBLANK([Locs])"
   },
   "ISBLANK(date)": {
     "ok": true,
@@ -22255,6 +22389,16 @@
     "ok": true,
     "to_data_type": "BOOLEAN_ARRAY",
     "to_string": "ISERROR(Jobs[Cost])"
+  },
+  "ISERROR(coord)": {
+    "ok": true,
+    "to_data_type": "BOOLEAN",
+    "to_string": "ISERROR([Loc])"
+  },
+  "ISERROR(coord_arr)": {
+    "ok": true,
+    "to_data_type": "BOOLEAN_ARRAY",
+    "to_string": "ISERROR([Locs])"
   },
   "ISERROR(date)": {
     "ok": true,
@@ -23708,6 +23852,14 @@
     "to_data_type": "INTEGER_ARRAY",
     "to_string": "LEN(Jobs[Cost])"
   },
+  "LEN(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "LEN(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "LEN(date)": {
     "exc": "ValueError",
     "ok": false
@@ -23839,6 +23991,14 @@
     "ok": true,
     "to_data_type": "DECIMAL_ARRAY",
     "to_string": "LOG(Jobs[Cost])"
+  },
+  "LOG(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "LOG(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
   },
   "LOG(date)": {
     "exc": "ValueError",
@@ -23993,6 +24153,14 @@
     "ok": false
   },
   "LOWER(col_dec_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "LOWER(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "LOWER(coord_arr)": {
     "exc": "ValueError",
     "ok": false
   },
@@ -29666,6 +29834,14 @@
     "exc": "ValueError",
     "ok": false
   },
+  "MINUTE(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "MINUTE(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "MINUTE(date)": {
     "exc": "ValueError",
     "ok": false
@@ -31102,6 +31278,14 @@
     "exc": "ValueError",
     "ok": false
   },
+  "MONTH(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "MONTH(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "MONTH(date)": {
     "ok": true,
     "to_data_type": "INTEGER",
@@ -32531,6 +32715,16 @@
     "to_data_type": "DECIMAL_ARRAY",
     "to_string": "NEXT(Jobs[Cost])"
   },
+  "NEXT(coord)": {
+    "ok": true,
+    "to_data_type": "COORDINATE",
+    "to_string": "NEXT([Loc])"
+  },
+  "NEXT(coord_arr)": {
+    "ok": true,
+    "to_data_type": "COORDINATE_ARRAY",
+    "to_string": "NEXT([Locs])"
+  },
   "NEXT(date)": {
     "ok": true,
     "to_data_type": "DATE",
@@ -32689,6 +32883,14 @@
     "ok": true,
     "to_data_type": "BOOLEAN_ARRAY",
     "to_string": "NOT(Jobs[Cost])"
+  },
+  "NOT(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "NOT(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
   },
   "NOT(date)": {
     "exc": "ValueError",
@@ -38139,6 +38341,16 @@
     "to_data_type": "DECIMAL_ARRAY",
     "to_string": "PREV(Jobs[Cost])"
   },
+  "PREV(coord)": {
+    "ok": true,
+    "to_data_type": "COORDINATE",
+    "to_string": "PREV([Loc])"
+  },
+  "PREV(coord_arr)": {
+    "ok": true,
+    "to_data_type": "COORDINATE_ARRAY",
+    "to_string": "PREV([Locs])"
+  },
   "PREV(date)": {
     "ok": true,
     "to_data_type": "DATE",
@@ -39601,6 +39813,14 @@
     "to_data_type": "INTEGER_ARRAY",
     "to_string": "ROUND(Jobs[Cost])"
   },
+  "ROUND(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "ROUND(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "ROUND(date)": {
     "exc": "ValueError",
     "ok": false
@@ -39747,6 +39967,14 @@
     "ok": false
   },
   "SECOND(col_dec_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "SECOND(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "SECOND(coord_arr)": {
     "exc": "ValueError",
     "ok": false
   },
@@ -41176,6 +41404,14 @@
     "to_data_type": "DECIMAL_ARRAY",
     "to_string": "SIN(Jobs[Cost])"
   },
+  "SIN(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "SIN(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "SIN(date)": {
     "exc": "ValueError",
     "ok": false
@@ -41304,6 +41540,15 @@
     "ok": true,
     "to_data_type": "INTEGER",
     "to_string": "SIZE(Jobs[Cost])"
+  },
+  "SIZE(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "SIZE(coord_arr)": {
+    "ok": true,
+    "to_data_type": "INTEGER",
+    "to_string": "SIZE([Locs])"
   },
   "SIZE(date)": {
     "exc": "ValueError",
@@ -44257,6 +44502,16 @@
     "to_data_type": "STRING_ARRAY",
     "to_string": "TEXT(Jobs[Cost])"
   },
+  "TEXT(coord)": {
+    "ok": true,
+    "to_data_type": "STRING",
+    "to_string": "TEXT([Loc])"
+  },
+  "TEXT(coord_arr)": {
+    "ok": true,
+    "to_data_type": "STRING_ARRAY",
+    "to_string": "TEXT([Locs])"
+  },
   "TEXT(date)": {
     "ok": true,
     "to_data_type": "STRING",
@@ -45735,6 +45990,14 @@
     "exc": "ValueError",
     "ok": false
   },
+  "TRIM(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "TRIM(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "TRIM(date)": {
     "exc": "ValueError",
     "ok": false
@@ -45868,6 +46131,14 @@
     "exc": "ValueError",
     "ok": false
   },
+  "UPPER(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "UPPER(coord_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
   "UPPER(date)": {
     "exc": "ValueError",
     "ok": false
@@ -45989,6 +46260,14 @@
     "ok": false
   },
   "VALUES(col_dec_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "VALUES(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "VALUES(coord_arr)": {
     "exc": "ValueError",
     "ok": false
   },
@@ -46115,6 +46394,14 @@
     "ok": false
   },
   "WEEKDAY(col_dec_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "WEEKDAY(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "WEEKDAY(coord_arr)": {
     "exc": "ValueError",
     "ok": false
   },
@@ -46253,6 +46540,14 @@
     "ok": false
   },
   "YEAR(col_dec_arr)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "YEAR(coord)": {
+    "exc": "ValueError",
+    "ok": false
+  },
+  "YEAR(coord_arr)": {
     "exc": "ValueError",
     "ok": false
   },

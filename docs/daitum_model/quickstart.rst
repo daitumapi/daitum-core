@@ -6,22 +6,12 @@ This guide walks through building a small ``daitum-model`` model end-to-end.
 Installation
 ------------
 
-``daitum-model`` is published on PyPI:
-
 .. code-block:: bash
 
     pip install daitum-model
 
-To pin a specific version:
-
-.. code-block:: bash
-
-    pip install daitum-model==1.0.0
-
-It is also bundled in the ``daitum-core`` meta-package alongside ``daitum-ui``
-and ``daitum-configuration`` — see the top-level :doc:`/getting_started/quickstart`.
-
-Source: `github.com/daitumapi/daitum-core <https://github.com/daitumapi/daitum-core>`_.
+For version pinning and the bundled ``daitum-core`` meta-package, see
+:doc:`/getting_started/installation`.
 
 A minimal model
 ---------------

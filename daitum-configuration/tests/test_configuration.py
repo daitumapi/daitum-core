@@ -9,6 +9,7 @@ The suite is split into:
 """
 
 import json
+from datetime import timedelta
 
 import pytest
 from daitum_model import DataType, ModelBuilder
@@ -42,9 +43,12 @@ from daitum_configuration import (
     NumericExpression,
     OutputDataMapping,
     OutputMatrix,
+    OverlapDataFilter,
+    OverlapMode,
     OverlayConfig,
     ParameterMapping,
     Priority,
+    PublishExpansion,
     RecombinatorType,
     RegexDataFilter,
     ReportData,
@@ -369,6 +373,133 @@ class TestDataSourceSnapshots:
         assert [i["sourceType"] for i in out["inputs"]] == ["DYNAMIC_VALUES", "DIRECT_UPLOAD"]
         assert out["inputs"][0]["timezoneKey"] == "TZ"
         assert out["inputs"][1]["tableMapping"] == {"src": "tgt"}
+
+    def test_model_transform_input_filter_list(self):
+        model = ModelBuilder()
+        start = model.add_parameter("FROM", DataType.STRING, "")
+        cfg = ModelTransformConfig("k", "f").add_datastore_input(
+            "store", {"T": "S"}, [OverlapDataFilter(["start"], start, None)]
+        )
+        out = cfg.build()["inputs"][0]
+        assert "modelFilter" not in out
+        assert out["modelFilters"][0]["@type"] == "overlap"
+
+
+class TestModelTransformPublish:
+    @pytest.fixture
+    def sub(self) -> dict:
+        sub = ModelBuilder()
+        sites = sub.add_data_table("Sites")
+        site_code = sites.add_data_field("Code", DataType.STRING)
+        sites.set_key_column("Code")
+        shifts = sub.add_data_table("Shifts")
+        employee = shifts.add_data_field("Employee", DataType.STRING)
+        site = shifts.add_data_field("Site", sites.to_data_type().from_array())
+        return {
+            "shifts": shifts,
+            "employee": employee,
+            "site": site,
+            "site_code": site_code,
+        }
+
+    @pytest.fixture
+    def host(self) -> dict:
+        host = ModelBuilder()
+        return {
+            "service": host.add_parameter("SERVICE", DataType.STRING, "S1"),
+            "start": host.add_parameter("FROM", DataType.STRING, ""),
+            "blocked": host.add_parameter("BLOCKED", DataType.BOOLEAN, False),
+        }
+
+    def test_publish_snapshot(self, sub, host):
+        cfg = ModelTransformConfig("k", "f").add_publish(
+            "Org/store",
+            sub["shifts"],
+            field_mapping={"employeeId": sub["employee"]},
+            expand={"site": PublishExpansion(sub["site"], {"code": sub["site_code"]})},
+            owned_scope=[
+                EqualityDataFilter(["serviceId"], host["service"]),
+                OverlapDataFilter(
+                    ["start"],
+                    host["start"],
+                    None,
+                    ["end"],
+                    pad_before=timedelta(hours=12),
+                    pad_after=timedelta(days=1, minutes=30),
+                ),
+            ],
+            write_on_failure_outputs=[host["blocked"]],
+            max_lock_wait_seconds=60,
+        )
+        assert cfg.build()["publish"] == [
+            {
+                "targetType": "DATA_STORE",
+                "dataStoreKey": "Org/store",
+                "sourceTable": "Shifts",
+                "fieldMapping": {"employeeId": "Employee"},
+                "expand": {"site": {"sourceField": "Site", "fieldMapping": {"code": "Code"}}},
+                "ownedScope": [
+                    {"@type": "equality", "path": ["serviceId"], "sourceKey": "!!!SERVICE"},
+                    {
+                        "@type": "overlap",
+                        "startPath": ["start"],
+                        "endPath": ["end"],
+                        "mode": "OVERLAP",
+                        "fromSource": "!!!FROM",
+                        "padBefore": "PT12H",
+                        "padAfter": "P1DT30M",
+                    },
+                ],
+                "ownsEntireStore": False,
+                "writeOnFailureOutputs": ["BLOCKED"],
+                "maxLockWaitSeconds": 60,
+                "allowEmptyPublish": False,
+            }
+        ]
+
+    def test_publish_absent_by_default(self):
+        assert "publish" not in ModelTransformConfig("k", "f").build()
+
+    def test_publish_rejects_scope_and_entire_store(self, sub, host):
+        with pytest.raises(ValueError, match="only one"):
+            ModelTransformConfig("k", "f").add_publish(
+                "s",
+                sub["shifts"],
+                owned_scope=[EqualityDataFilter(["serviceId"], host["service"])],
+                owns_entire_store=True,
+            )
+
+    def test_publish_rejects_unsupported_scope_filters(self, sub, host):
+        with pytest.raises(ValueError, match="single top-level field"):
+            ModelTransformConfig("k", "f").add_publish(
+                "s", sub["shifts"], owned_scope=[EqualityDataFilter(["a", "b"], host["service"])]
+            )
+        with pytest.raises(ValueError, match="equality, set and overlap"):
+            ModelTransformConfig("k", "f").add_publish(
+                "s", sub["shifts"], owned_scope=[RegexDataFilter(["a"], host["service"])]
+            )
+
+    def test_publish_rejects_fields_of_other_tables(self, sub):
+        with pytest.raises(ValueError, match="must belong to table"):
+            ModelTransformConfig("k", "f").add_publish(
+                "s", sub["shifts"], field_mapping={"code": sub["site_code"]}
+            )
+        with pytest.raises(ValueError, match="must belong to table"):
+            PublishExpansion(sub["site"], {"employee": sub["employee"]})
+
+    def test_expansion_requires_reference_field(self, sub):
+        with pytest.raises(ValueError, match="object reference"):
+            PublishExpansion(sub["employee"])
+
+    def test_overlap_padding_requires_overlap_mode(self, host):
+        with pytest.raises(ValueError, match="OVERLAP mode"):
+            OverlapDataFilter(
+                ["start"],
+                host["start"],
+                None,
+                mode=OverlapMode.START_WITHIN,
+                pad_before=timedelta(hours=1),
+            )
 
 
 # ----------------------------------------------------------------------------------------

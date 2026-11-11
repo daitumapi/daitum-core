@@ -12,8 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from abc import ABC
-
 from daitum_model import Calculation, Field, Parameter
 from typeguard import typechecked
 
@@ -22,27 +20,8 @@ from daitum_ui.context_variable import ContextVariable
 
 
 @typechecked
-class LinkDestination(ABC, Buildable):
-    """
-    Abstract base class for all navigation link destinations.
-
-    A ``LinkDestination`` describes where a hyperlink or navigation action should
-    direct the user. Concrete subclasses specialise this for specific destination
-    types (e.g. the model editor).
-
-    Attributes:
-        open_new_tab (bool):
-            If ``True``, the destination is opened in a new browser tab rather than
-            navigating within the current tab. Defaults to ``False``.
-    """
-
-    def __init__(self, open_new_tab: bool = False):
-        self.open_new_tab = open_new_tab
-
-
-@typechecked
 @json_type_info("modelEditor")
-class ModelEditorLinkDestination(LinkDestination):
+class ModelEditorLinkDestination(Buildable):
     """
     A link destination that navigates to the Daitum model editor.
 
@@ -60,8 +39,8 @@ class ModelEditorLinkDestination(LinkDestination):
             from the provided ``Field``, ``Parameter``, ``Calculation``, or
             ``ContextVariable`` at build time. ``None`` if not specified.
         open_new_tab (bool):
-            Inherited from :class:`LinkDestination`. Opens the editor in a new
-            browser tab when ``True``.
+            Opens the editor in a new browser tab when ``True``. Defaults to
+            ``False``.
     """
 
     def __init__(
@@ -70,7 +49,7 @@ class ModelEditorLinkDestination(LinkDestination):
         scenario_id: Field | Parameter | Calculation | ContextVariable | None = None,
         open_new_tab: bool = False,
     ):
-        super().__init__(open_new_tab)
+        self.open_new_tab = open_new_tab
 
         from daitum_ui.elements import get_model_variable
 

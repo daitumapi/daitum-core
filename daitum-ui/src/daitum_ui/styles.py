@@ -15,256 +15,21 @@
 """
 Styling system for UI components in the UI Generator.
 
-This module provides a comprehensive styling framework for controlling the visual
-presentation and interactive behaviour of UI elements. It includes style classes,
-alignment options, editor configurations, and conditional formatting rules.
+Provides style classes, alignment options, editor configurations, and conditional
+formatting rules for controlling the appearance and interactive behaviour of UI
+elements. Styles follow an inheritance hierarchy (BaseStyle -> CellStyle ->
+ColumnStyle), each level adding more specialised attributes.
 
-Main Components
----------------
-
-**Alignment Enums:**
-    - HorizontalAlignment: LEFT, CENTER, RIGHT, START, END
-    - VerticalAlignment: TOP, MIDDLE, BOTTOM
-
-**Style Classes:**
-    Hierarchical styling system for UI components:
-
-    - BaseStyle: Foundation styling (fonts, colours, alignment, borders)
-    - CellStyle: Extends BaseStyle with cell-specific features (formatting, filtering)
-    - ColumnStyle: Extends CellStyle with column features (frozen, editors, header styles)
-
-**Editor Classes:**
-    Custom input editors for specialised data types:
-
-    - Editor: Abstract base class for all editors
-    - PercentageEditor: For percentage value input
-    - MonthEditor: For month selection
-    - IconEditor: For icon selection/display
-    - IconCheckboxEditor: Toggle between two icons (checkbox behaviour)
-
-**Editor Types:**
-    EditorType enum defines available editor types: PERCENTAGE, MONTH, ICON, ICON_CHECKBOX
-
-**Conditional Formatting:**
-    - ConditionalFormattingType: BOOLEAN, AFTER_TODAY, BEFORE_TODAY
-    - ConditionalFormattingRule: Applies styles based on column value conditions
-
-**Additional Components:**
-    - IconConfig: Icon configuration with source and colour
-    - Title: Title element with styling and positioning
-    - Position: Title positioning (ABOVE_CONTENT, BELOW_CONTENT)
-
-Style Hierarchy
----------------
-Styles follow an inheritance hierarchy allowing progressive refinement::
-
-    BaseStyle
-    └── CellStyle
-        └── ColumnStyle
-
-Each level adds more specialised attributes:
-- BaseStyle: Universal styling (fonts, colours, alignment, borders)
-- CellStyle: Cell-specific (display formatting, field mapping, filtering)
-- ColumnStyle: Column-specific (frozen state, editors, header/read-only overrides)
-
-Alignment System
-----------------
-Two-dimensional alignment control:
-
-**Horizontal alignment:**
-
-- LEFT/CENTER/RIGHT: Absolute positioning
-- START/END: Layout-direction-aware (supports RTL languages)
-    Note: START/END not supported in BaseStyle; use LEFT/RIGHT instead
-
-**Vertical alignment:**
-
-- TOP: Align to top edge
-- MIDDLE: Centre vertically
-- BOTTOM: Align to bottom edge
-
-Editor System
--------------
-Editors control how users interact with data in cells:
-
-- **PercentageEditor**: Specialised input for percentage values (0-100%)
-- **MonthEditor**: Month picker for month-based data
-- **IconEditor**: Icon selector from available icon set
-- **IconCheckboxEditor**: Binary toggle using custom on/off icons
-
-Each editor can be assigned to a column via ColumnStyle.editor.
-
-Conditional Formatting
-----------------------
-Apply styles dynamically based on data conditions:
-
-**Condition Types:**
-
-- BOOLEAN: Apply style if condition column is True
-- AFTER_TODAY: Apply if date is after current date
-- BEFORE_TODAY: Apply if date is before current date
-
-**Rule Evaluation:**
-
-- Rules evaluated in order of definition
-- stop_if_true prevents subsequent rule evaluation
-- Multiple rules can apply unless stopped
-
-Examples
---------
-Creating basic styles::
-
-    from daitum_ui.styles import BaseStyle, HorizontalAlignment
-
-    # Basic text styling
-    header_style = BaseStyle(
-        font_family="Arial",
-        font_size=16,
-        font_weight="bold",
-        font_color="#333333",
-        background_color="#f0f0f0",
-        horizontal_alignment=HorizontalAlignment.CENTER
-    )
-
-Creating cell styles with formatting::
-
-    from daitum_ui.styles import CellStyle
-
-    # Currency cell with custom formatting
-    price_cell_style = CellStyle(
-        display_format="${value}",
-        font_color="#2e7d32",
-        horizontal_alignment=HorizontalAlignment.RIGHT,
-        can_filter=True
-    )
-
-    # Date cell with formatting
-    date_cell_style = CellStyle(
-        display_format="yyyy-MM-dd",
-        horizontal_alignment=HorizontalAlignment.CENTER
-    )
-
-Creating column styles with editors::
-
-    from daitum_ui.styles import ColumnStyle, PercentageEditor, MonthEditor
-
-    # Percentage column with specialised editor
-    completion_column = ColumnStyle(
-        editor=PercentageEditor(),
-        display_format="{value}%",
-        frozen=False,
-        can_filter=True
-    )
-
-    # Month column with month picker
-    month_column = ColumnStyle(
-        editor=MonthEditor(),
-        frozen=True
-    )
-
-Using icon editors::
-
-    from daitum_ui.styles import IconCheckboxEditor, IconConfig
-    from daitum_ui.icons import Icon
-
-    # Checkbox column with custom icons
-    status_column = ColumnStyle(
-        editor=IconCheckboxEditor(
-            on_icon=IconConfig(source=Icon.CHECK_CIRCLE, color="#4caf50"),
-            off_icon=IconConfig(source=Icon.CANCEL, color="#f44336")
-        )
-    )
-
-Conditional formatting examples::
-
-    from daitum_ui.styles import (
-        ConditionalFormattingRule,
-        ConditionalFormattingType,
-        ColumnStyle
-    )
-
-    # Highlight overdue items (date before today)
-    overdue_rule = ConditionalFormattingRule(
-        condition_column="due_date",
-        override_styles=ColumnStyle(
-            background_color="#ffebee",
-            font_color="#c62828"
-        ),
-        type=ConditionalFormattingType.BEFORE_TODAY,
-        stop_if_true=True
-    )
-
-    # Highlight completed items (boolean condition)
-    completed_rule = ConditionalFormattingRule(
-        condition_column="is_completed",
-        override_styles=ColumnStyle(
-            background_color="#e8f5e9",
-            strikethrough=True
-        ),
-        type=ConditionalFormattingType.BOOLEAN,
-        stop_if_true=False
-    )
-
-Creating headers with custom styles::
-
-    # Column with distinct header style
-    column_with_header = ColumnStyle(
-        font_size=12,
-        font_color="#333333",
-        header_style=CellStyle(
-            font_size=14,
-            font_weight="bold",
-            background_color="#1976d2",
-            font_color="#ffffff",
-            horizontal_alignment=HorizontalAlignment.CENTER
-        )
-    )
-
-Frozen columns::
-
-    # Frozen ID column that stays visible during scrolling
-    id_column = ColumnStyle(
-        frozen=True,
-        font_weight="bold",
-        width=80,
-        can_filter=False
-    )
-
-Read-only column styling::
-
-    # Column with distinct read-only appearance
-    calculated_column = ColumnStyle(
-        font_color="#666666",
-        read_only_style=CellStyle(
-            background_color="#fafafa",
-            italic=True
-        )
-    )
-
-Title styling::
-
-    from daitum_ui.styles import Title, Position
-
-    # Title above content
-    view_title = Title(
-        value="Sales Dashboard",
-        style=BaseStyle(
-            font_size=24,
-            font_weight="bold",
-            font_color="#1a237e"
-        ),
-        position=Position.ABOVE_CONTENT
-    )
-
-Border styling::
-
-    # Cell with custom borders
-    bordered_cell = CellStyle(
-        border_top="2px solid #e0e0e0",
-        border_bottom="2px solid #e0e0e0",
-        border_left="1px solid #f5f5f5",
-        border_right="1px solid #f5f5f5"
-    )
+Example:
+    >>> from daitum_ui.styles import BaseStyle, HorizontalAlignment
+    >>> header_style = BaseStyle(
+    ...     font_family="Arial",
+    ...     font_size=16,
+    ...     font_weight="bold",
+    ...     font_color="#333333",
+    ...     background_color="#f0f0f0",
+    ...     horizontal_alignment=HorizontalAlignment.CENTER,
+    ... )
 """
 
 from __future__ import annotations
@@ -505,8 +270,6 @@ class Editor(ABC, Buildable):
     This class acts as a marker and common base to enable polymorphic
     handling of different editor types.
     """
-
-    # Subclasses should implement a property or class attribute `editor_type`
 
 
 @json_type_info("percentage")

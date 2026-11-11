@@ -36,7 +36,7 @@ from typing import Any
 from daitum_model.decoding import LoadContext, LoadError, register_type
 
 from daitum_ui._composite_view import CompositeView, ViewConfig
-from daitum_ui._data import DataValidationRule, DefaultValueReference, EditOverride
+from daitum_ui._data import DataValidationRule, DefaultValueReference, EditOverride, ModelVariable
 from daitum_ui._decoders._stubs import resolve_field, resolve_table
 from daitum_ui._decoders._template import (
     MapOf,
@@ -51,15 +51,35 @@ from daitum_ui.card_view import CardView
 from daitum_ui.chart_view import ChartView, CombinationChartView
 from daitum_ui.charts import ChartSeries, ChartType, CombinationChartComponent
 from daitum_ui.data import Condition, FilterMode
-from daitum_ui.elements import Card
+from daitum_ui.elements import (
+    ArrayElement,
+    Button,
+    Card,
+    Checkbox,
+    ColorPicker,
+    DateTimePicker,
+    Dropdown,
+    Element,
+    IconCheckbox,
+    IconElement,
+    IconPicker,
+    InputElement,
+    NumberInput,
+    RangeBar,
+    ReviewRating,
+    Slider,
+    Text,
+    TextInput,
+)
 from daitum_ui.fixed_value_view import Cell, FixedValueView
-from daitum_ui.form_view import FormElement, FormView, _FormColumn
+from daitum_ui.form_view import FormCell, FormView, _FormColumn
 from daitum_ui.gantt_view import (
     CategoryGanttTaskDefinition,
     CategoryGanttView,
     TreeGridGanttTaskDefinition,
     TreeGridGanttView,
 )
+from daitum_ui.icons import Icon
 from daitum_ui.layout import FlexView, GridLayout, GridView
 from daitum_ui.map_view import MapType, MapView
 from daitum_ui.model_event import EditorEvent, ModelEvent
@@ -71,7 +91,13 @@ from daitum_ui.roster_view import (
     RosterTaskDefinition,
     RosterView,
 )
-from daitum_ui.styles import AxisLabelStyle, ColumnStyle, ConditionalFormattingRule, Title
+from daitum_ui.styles import (
+    AxisLabelStyle,
+    ColumnStyle,
+    ConditionalFormattingRule,
+    IconConfig,
+    Title,
+)
 from daitum_ui.tabbed_view import TabbedView, TabDefinition
 from daitum_ui.tabular import BaseTableView, ContextMenuEvent, TableView, TreeView, ViewField
 
@@ -122,7 +148,7 @@ def _apply_envelope(view: BaseView, data: dict[str, Any], ctx: LoadContext) -> N
     )
 
 
-# --- Template factories: resolve required constructor args from the built viewDefinition ---
+# Template factories: resolve required constructor args from the built viewDefinition
 
 
 def _table_view_template(cls: type):
@@ -135,6 +161,38 @@ def _table_view_template(cls: type):
 def _form_view_template(data: dict[str, Any], ctx: LoadContext) -> FormView:
     table = None if data.get("table") is None else resolve_table(data["table"], ctx)
     return FormView(table=table)
+
+
+def _input_element_template(cls: type[InputElement]):
+    """Template factory for an input element: reconstruct its bound ``dataSource`` as a typed
+    ``ModelVariable`` and construct the element with it (remaining attributes are restored by the
+    template walk). Input elements take a required ``data_source`` ctor arg that is not a plain
+    build key, so the default signature-walk template cannot build them."""
+
+    def factory(data: dict[str, Any], ctx: LoadContext) -> InputElement:
+        model_variable = decode_value(data["dataSource"], None, ModelVariable, ctx)
+        return cls(model_variable)
+
+    return factory
+
+
+def _dropdown_template(data: dict[str, Any], ctx: LoadContext) -> Dropdown:
+    # A placeholder display field satisfies the constructor's requirement; the walk overwrites it
+    # with the built objectReferenceDisplayField.
+    model_variable = decode_value(data["dataSource"], None, ModelVariable, ctx)
+    return Dropdown(model_variable, object_reference_display_field="")
+
+
+def _icon_checkbox_template(data: dict[str, Any], ctx: LoadContext) -> IconCheckbox:
+    # Placeholder icons satisfy the constructor; the walk overwrites on_icon/off_icon.
+    model_variable = decode_value(data["dataSource"], None, ModelVariable, ctx)
+    placeholder = IconConfig(source=Icon.CIRCLE)
+    return IconCheckbox(model_variable, off_icon=placeholder, on_icon=placeholder)
+
+
+def _range_bar_template(data: dict[str, Any], ctx: LoadContext) -> RangeBar:
+    model_variable = decode_value(data["value"], None, ModelVariable, ctx)
+    return RangeBar(model_variable)
 
 
 def _composite_view_template(_data: dict[str, Any], _ctx: LoadContext) -> CompositeView:
@@ -306,10 +364,51 @@ def register() -> None:
         FormView,
         factory=_form_view_template,
         elements={
-            "form_elements": FormElement,
+            "cells": FormCell,
             "form_columns": _FormColumn,
             "filter_mode": FilterMode,
         },
+    )
+    register_elements(FormCell, {"element": Element})
+    # Text exposes an optional data_source whose built value is a resolved ModelVariable; without
+    # this the decoder would mis-read the ModelVariable dict as a Field (first Buildable in the
+    # ctor hint union).
+    register_elements(Text, {"data_source": ModelVariable})
+    # Icon-valued attributes build to an id string; register the Icon enum so they decode back to
+    # Icon members rather than raw strings (the template default is None, so the walk can't infer).
+    register_elements(IconElement, {"icon_source": Icon})
+    register_elements(Button, {"icon_source": Icon})
+    register_elements(IconPicker, {"defaults": Icon})
+    for input_cls in (
+        TextInput,
+        NumberInput,
+        DateTimePicker,
+        ColorPicker,
+        IconPicker,
+        Checkbox,
+        Slider,
+        ReviewRating,
+        ArrayElement,
+    ):
+        register_template(input_cls, factory=_input_element_template(input_cls))
+    # Dropdown and IconCheckbox have required ctor args beyond data_source (a derivable display
+    # field / two icons) that the generic factory can't supply from a ModelVariable; the template
+    # walk overwrites these placeholders from the built data.
+    register_template(Dropdown, factory=_dropdown_template)
+    register_template(IconCheckbox, factory=_icon_checkbox_template)
+    range_bar_variables = (
+        "min",
+        "max",
+        "error_ranges",
+        "warning_ranges",
+        "success_ranges",
+        "info_ranges",
+        "indicator",
+    )
+    register_template(
+        RangeBar,
+        factory=_range_bar_template,
+        elements=dict.fromkeys(range_bar_variables, ModelVariable),
     )
     register_template(
         FixedValueView,

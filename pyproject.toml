@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "daitum-core"
-version = "4.7.1"
+version = "5.0.0"
 description = "Meta-package installing daitum-model, daitum-ui, and daitum-configuration"
 readme = "README.md"
 license = "Apache-2.0"
@@ -18,9 +18,9 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
 ]
 dependencies = [
-    "daitum-model==2.4.0",
-    "daitum-ui==3.3.1",
-    "daitum-configuration==2.5.1",
+    "daitum-model==2.5.0",
+    "daitum-ui==4.0.0",
+    "daitum-configuration==2.6.0",
 ]
 
 [project.urls]
@@ -30,17 +30,9 @@ Repository = "https://github.com/daitumapi/daitum-core"
 
 [project.optional-dependencies]
 dev = [
-    "black==26.5.1",
     "ruff==0.16.0",
     "mypy==2.3.0",
     "pytest==9.1.1",
-]
-# Keep in sync with docs/requirements.txt (the canonical source used by
-# pipelines/docs.sh and .readthedocs.yaml).
-docs = [
-    "sphinx==9.1.0",
-    "sphinx-autodoc-typehints==3.13.0",
-    "sphinx-rtd-theme==3.1.0",
 ]
 
 [tool.setuptools]
@@ -85,30 +77,12 @@ known-first-party = ["src", "daitum"]
 combine-as-imports = true
 
 # -----------------------------
-# Black (formatting)
-# -----------------------------
-[tool.black]
-line-length = 100
-target-version = ['py310']
-include = '\.pyi?$'
-exclude = '''
-/(
-    .git
-  | venv
-  | .venv
-  | model-files
-  | dist
-  | __pycache__
-  | .mypy_cache
-  | .idea
-)/
-'''
-
-# -----------------------------
 # Per-file ignores
 # -----------------------------
 [tool.ruff.lint.per-file-ignores]
 "**/*.py" = ["PLC0415"]  # typing-only import warnings
+"**/formulas.py" = ["N802"]  # uppercase formula names are intentional (mirror Excel naming)
+"**/formula.py" = ["N802"]  # uppercase CONST name is intentional
 
 # -----------------------------
 # Mypy config

@@ -41,6 +41,21 @@ if TYPE_CHECKING:
     from daitum_model.named_values import Parameter
 
 
+#: Node-id prefixes for the combined build-order graph, keeping the table and calculation
+#: namespaces disjoint so a table and a calculation that share a name can't be conflated.
+TABLE_PREFIX = "table:"
+CALC_PREFIX = "calculation:"
+
+
+def describe_node(node: str) -> str:
+    """Render a combined build-order node (``table:X`` / ``calculation:Y``) for a message."""
+    if node.startswith(TABLE_PREFIX):
+        return f"table '{node[len(TABLE_PREFIX) :]}'"
+    if node.startswith(CALC_PREFIX):
+        return f"calculation '{node[len(CALC_PREFIX) :]}'"
+    return node
+
+
 def detect_cycles(edges: dict[str, set[str]]) -> list[list[str]]:
     """Return the groups of nodes that participate in a dependency cycle.
 
@@ -188,6 +203,43 @@ class ModelGraph:
 
         return cls(tables, fields_by_table, named_values, table_edges, named_value_edges)
 
+    @property
+    def build_order_edges(self) -> dict[str, set[str]]:
+        """One combined build-order graph over *both* tables and calculations.
+
+        The platform orders tables and calculations in a single topological sort, so a cycle
+        can alternate between them — e.g. a calculated field on table T reads a calculation C,
+        and C aggregates T. Neither the table-only nor the calc-only graph can see that loop.
+        This graph is the union of both, with each node prefixed (``table:`` / ``calculation:``)
+        so the namespaces stay disjoint, plus the two cross-domain edge classes the per-domain
+        graphs drop: a field reading a calculation (``table -> calculation``) and a calculation
+        reading a table/field (``calculation -> table``). Parameters are constants, no edges.
+        """
+        edges: dict[str, set[str]] = {}
+
+        for table_id, fields in self.fields_by_table.items():
+            deps = {TABLE_PREFIX + dep for dep in self.table_edges.get(table_id, set())}
+            for field in fields.values():
+                if isinstance(field, (CalculatedField, ComboField)):
+                    deps.update(
+                        CALC_PREFIX + leaf.id
+                        for leaf in field.dependencies()
+                        if isinstance(leaf, Calculation)
+                    )
+            edges[TABLE_PREFIX + table_id] = deps
+
+        for calc_id, named_value in self.named_values.items():
+            if not isinstance(named_value, Calculation):
+                continue
+            deps = {CALC_PREFIX + dep for dep in self.named_value_edges.get(calc_id, set())}
+            deps.update(
+                TABLE_PREFIX + tid
+                for tid in ModelGraph._referenced_table_ids(named_value.dependencies())
+            )
+            edges[CALC_PREFIX + calc_id] = deps
+
+        return edges
+
     @staticmethod
     def _build_table_edges(model: ModelBuilder) -> dict[str, set[str]]:
         """Table id to the ids of tables it must be built after.
@@ -226,7 +278,10 @@ class ModelGraph:
         """The ids of tables a set of formula reference leaves reads from.
 
         A ``Field`` leaf contributes its owning table; a ``Table`` leaf contributes itself.
-        ``Calculation`` / ``Parameter`` leaves are model-level and contribute no table edge.
+        ``Calculation`` / ``Parameter`` leaves are model-level and contribute no table edge
+        here — the table<->calculation link is carried by :attr:`build_order_edges` instead,
+        which keeps the calc as a distinct node so a field -> calc -> table cycle stays a real
+        multi-node cycle rather than collapsing to an (ignored) table self-edge.
         """
         table_ids: set[str] = set()
         for leaf in leaves:
@@ -283,12 +338,3 @@ class ModelGraph:
     def available_fields(self, table_id: str) -> list[str]:
         """Sorted field ids on ``table_id`` (empty if the table is unknown)."""
         return sorted(self.fields_by_table.get(table_id, {}))
-
-    @staticmethod
-    def formula_dependencies(obj: CalculatedField | ComboField | Calculation) -> set[Operand]:
-        """The identity-keyed reference leaves an object's formula uses.
-
-        A thin wrapper over the existing ``dependencies()`` primitive, kept here so rules
-        have a single, well-named entry point.
-        """
-        return obj.dependencies()

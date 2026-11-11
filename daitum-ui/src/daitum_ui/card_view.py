@@ -15,34 +15,20 @@
 """
 Card-based view components for the UI Generator framework.
 
-This module provides the CardView class, which enables displaying data in a
-visually appealing card-style layout. Card views are ideal for presenting
-structured information in a grid of individual cards, each representing a
-single data record or item.
-
-Classes:
-    - CardView: View for displaying data in a card-based layout
+Provides the :class:`CardView` class for displaying data in a card-style
+layout, where each card renders a single data record from a source table.
 
 Example:
-    >>> # Define the data source
-    >>> products_table = Table("products")
-    >>>
-    >>> # Create a card template
     >>> product_card = Card(
     ...     title_field=Field("product_name", DataType.STRING),
     ...     subtitle_field=Field("category", DataType.STRING),
-    ...     image_field=Field("image_url", DataType.STRING),
-    ...     description_field=Field("description", DataType.STRING)
     ... )
-    >>>
-    >>> # Create and register the card view
     >>> builder = UiBuilder()
     >>> card_view = builder.add_card_view(
     ...     card_template=product_card,
     ...     table=products_table,
-    ...     display_name="Product Catalog"
+    ...     display_name="Product Catalog",
     ... )
-    >>>
 """
 
 from daitum_model import Table

@@ -58,16 +58,7 @@ class CMAESAlgorithm(Algorithm):
 
     def _build_parameters(self) -> dict[str, Any]:
         return {
-            "Log info": Algorithm._quant(self.log_info),
-            "Evaluations": Algorithm._quant(self.evaluations),
-            "Maximum evaluations without improvement": Algorithm._quant(
-                self.max_evaluations_without_improvement
-            ),
-            "Maximum time without improvement": Algorithm._quant(self.max_time_without_improvement),
-            "Minimum improvement": Algorithm._quant(self.min_improvement),
-            "Maximum restart count": Algorithm._quant(self.max_restart_count),
-            "PRNG seed": Algorithm._quant(self.prng_seed),
-            "Time limit": Algorithm._quant(self.time_limit),
+            **self._base_parameters(),
             "Population size": Algorithm._quant(self.population_size),
             "Consistency check": Algorithm._quant(self.consistency_check),
             "CC": Algorithm._quant(self.cc),

@@ -56,6 +56,7 @@ function.
    formulas/CHOOSE
    formulas/CONST
    formulas/CONTAINS
+   formulas/COORDINATE
    formulas/COS
    formulas/COUNT
    formulas/COUNTBLANKS
@@ -87,9 +88,11 @@ function.
    formulas/INTERSECTION
    formulas/ISBLANK
    formulas/ISERROR
+   formulas/LATITUDE
    formulas/LEFT
    formulas/LEN
    formulas/LOG
+   formulas/LONGITUDE
    formulas/LOOKUP
    formulas/LOOKUPARRAY
    formulas/LOWER
@@ -106,6 +109,8 @@ function.
    formulas/NORMINV
    formulas/NOT
    formulas/OR
+   formulas/PATH_DISTANCE
+   formulas/PATH_DURATION
    formulas/PLUSDAYS
    formulas/PLUSMINUTES
    formulas/POWER
@@ -113,6 +118,8 @@ function.
    formulas/RANK
    formulas/RIGHT
    formulas/ROUND
+   formulas/ROUTE_DISTANCE
+   formulas/ROUTE_DURATION
    formulas/ROW
    formulas/ROWS
    formulas/ROWVECTOR

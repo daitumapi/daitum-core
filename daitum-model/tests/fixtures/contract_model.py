@@ -73,6 +73,11 @@ def build_fixture() -> Fixture:
     for fid, dt in array_types.items():
         fields[fid] = table.add_data_field(fid, dt)
 
+    # Coordinate scalar + array. COORDINATE is deliberately excluded from PRIMITIVE_DATA_TYPES
+    # (it has no map variant), so it is added explicitly rather than via the loops above.
+    fields["Loc"] = table.add_data_field("Loc", DataType.COORDINATE)
+    fields["Locs"] = table.add_data_field("Locs", DataType.COORDINATE_ARRAY)
+
     # Object reference (single + array) and a map field per primitive value type. A map per
     # primitive type lets the corpus/probe see every ``<T>_MAP`` kind, so map-consuming functions
     # (VALUES/GET/TOMAP) are exercised across all value types rather than DECIMAL alone.

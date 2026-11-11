@@ -15,38 +15,12 @@
 """
 Chart view components for the UI Generator framework.
 
-This module provides chart visualisation capabilities through the ChartView and
-CombinationChartView classes. Charts are powerful tools for visualising data trends,
-comparisons, distributions, and relationships in an intuitive graphical format.
-
-Chart views transform tabular data into visual representations including bar charts,
-line charts, pie charts, scatter plots, and more. They support multiple data series,
-customisable styling, interactive tooltips, and flexible axis configurations.
-
-The CombinationChartView extends ChartView to support:
-    - Mixed chart types in a single visualisation (e.g., line + bar)
-    - Multiple chart components with independent configurations
-    - Complex multi-dimensional data presentations
-
-Classes:
-    - ChartView: Standard chart view supporting various chart types
-    - CombinationChartView: Advanced chart view for mixed chart type visualisations
+Provides chart visualisation through the ``ChartView`` and ``CombinationChartView``
+classes, covering bar, line, pie and scatter charts with multiple data series,
+axis configuration and styling. ``CombinationChartView`` adds mixed chart types
+(e.g. line + bar) within a single view via chart components.
 
 Example:
-    >>> # Define the data source
-    >>> sales_table = Table("monthly_sales")
-    >>>
-    >>> # Create chart series
-    >>> primary_series = ChartSeries(
-    ...     source_field=Field("month", DataType.STRING),
-    ...     name="Month"
-    ... )
-    >>> secondary_series = ChartSeries(
-    ...     source_field=Field("revenue", DataType.DECIMAL),
-    ...     name="Revenue"
-    ... )
-    >>>
-    >>> # Create and register a bar chart
     >>> builder = UiBuilder()
     >>> chart_view = builder.add_chart_view(
     ...     primary_series=primary_series,
@@ -54,18 +28,7 @@ Example:
     ...     table=sales_table,
     ...     display_name="Sales Dashboard"
     ... )
-    >>>
-    >>> # Configure chart properties
     >>> chart_view.set_chart_title("Monthly Revenue")
-    >>> chart_view.set_secondary_series(secondary_series)
-    >>> chart_view.xaxis_label = "Month"
-    >>> chart_view.yaxis_label = "Revenue ($)"
-    >>> chart_view.orientation = ChartViewOrientation.VERTICAL
-    >>>
-    >>> # Add additional data series for comparison
-    >>> chart_view.add_data_series(
-    ...     source_field=Field("target_revenue", DataType.DECIMAL),
-    ... )
 """
 
 from daitum_model import Field, Table
@@ -142,7 +105,6 @@ class ChartView(BaseView, FilterableView):
         Raises:
             ValueError: If any series references a field not present in *table*.
         """
-        # Initialise BaseView fields
         BaseView.__init__(self, hidden)
         if display_name is not None:
             self._display_name = display_name

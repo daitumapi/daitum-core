@@ -10,7 +10,7 @@ A report's contents come from a **model transform**
 (:meth:`~daitum_configuration.ReportProperty.set_transform_file`): a self-contained sub-model,
 evaluated against a snapshot of the scenario's data, whose declared outputs become the report.
 :class:`~daitum_configuration.ReportExportFormat` selects the file produced — ``XLSX``,
-``CSV``, ``JSON`` or ``MSDOS``. A transform-backed report requires a V3 model.
+``CSV``, ``JSON`` or ``MSDOS``.
 
 Attaching a transform
 ---------------------

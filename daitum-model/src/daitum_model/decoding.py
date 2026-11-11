@@ -170,7 +170,7 @@ class Decoder(Protocol[T_co]):
     def decode(self, data: dict[str, Any], ctx: LoadContext) -> T_co: ...
 
 
-# --- Registries -----------------------------------------------------------------------
+# Registries
 
 #: For ``@type``-discriminated hierarchies: base class -> {discriminator value -> concrete}.
 TYPE_REGISTRY: dict[type, dict[str, type]] = {}
@@ -198,7 +198,7 @@ def generic(cls: type) -> Callable[[type], type]:
     return lambda c: c
 
 
-# --- Type resolution ------------------------------------------------------------------
+# Type resolution
 
 
 def resolved_field_types(cls: type) -> dict[str, Any]:
@@ -237,7 +237,7 @@ def _is_optional(annotation: Any) -> tuple[bool, Any]:
     return False, annotation
 
 
-# --- Coercion -------------------------------------------------------------------------
+# Coercion
 
 
 def coerce(value: Any, annotation: Any, ctx: LoadContext) -> Any:  # noqa: PLR0911
@@ -310,7 +310,7 @@ def _coerce_union(value: Any, members: tuple[Any, ...], ctx: LoadContext) -> Any
     return value
 
 
-# --- The generic walk -----------------------------------------------------------------
+# The generic walk
 
 
 def decode_fields(cls: type, data: dict[str, Any], ctx: LoadContext) -> Any:

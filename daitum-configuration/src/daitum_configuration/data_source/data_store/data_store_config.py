@@ -29,7 +29,8 @@ class DataStoreConfig(DataSourceConfig):
     Data source that reads rows from a stored dataset.
 
     Apply a :class:`~daitum_configuration.data_source.data_store.data_filter.DataFilter`
-    via :meth:`set_model_filter` to restrict which rows are imported.
+    via :meth:`set_model_filter`, or several via :meth:`set_model_filters`, to restrict which
+    rows are imported.
 
     Args:
         data_store_key: Key of the data store to read from.
@@ -46,6 +47,7 @@ class DataStoreConfig(DataSourceConfig):
         self.using_interface: bool = False
         self.direct_data_pull: bool = False
         self.model_filter: DataFilter | None = None
+        self.model_filters: list[DataFilter] | None = None
         self.tables = tables
         self.no_data_policy: NoDataPolicy = NoDataPolicy.ALLOW
         super().__init__(track_changes_supported=True)
@@ -53,6 +55,13 @@ class DataStoreConfig(DataSourceConfig):
     def set_model_filter(self, model_filter: DataFilter) -> "DataStoreConfig":
         """Apply a row-level :class:`DataFilter` to narrow the rows pulled in."""
         self.model_filter = model_filter
+        self.model_filters = None
+        return self
+
+    def set_model_filters(self, model_filters: list[DataFilter]) -> "DataStoreConfig":
+        """Apply several row-level :class:`DataFilter` objects; a row must pass every one."""
+        self.model_filters = model_filters
+        self.model_filter = None
         return self
 
     def set_debug_file(self, debug_file: bool) -> "DataStoreConfig":

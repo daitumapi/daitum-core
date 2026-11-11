@@ -11,12 +11,11 @@ Rules:
 Exit code 1 if any required version bump is missing.
 """
 
-import re
 import subprocess
 import sys
 from pathlib import Path
 
-VERSION_PATTERN = re.compile(r'^version\s*=\s*"(\d+\.\d+\.\d+)"', re.MULTILINE)
+from _pipeline_utils import VERSION_PATTERN, get_last_tag, has_changes
 
 PACKAGES = [
     ("daitum-model", "daitum-model", "daitum-model/pyproject.toml"),
@@ -30,27 +29,6 @@ def parse_version(text: str) -> tuple[int, ...]:
     if not m:
         raise ValueError("No version found")
     return tuple(int(x) for x in m.group(1).split("."))
-
-
-def get_last_tag() -> str | None:
-    result = subprocess.run(
-        ["git", "tag", "--list", "v*", "--sort=-version:refname"],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    tags = [t.strip() for t in result.stdout.splitlines() if t.strip()]
-    return tags[0] if tags else None
-
-
-def has_changes(tag: str, package_dir: str) -> bool:
-    result = subprocess.run(
-        ["git", "diff", "--name-only", tag, "HEAD", "--", package_dir],
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    return bool(result.stdout.strip())
 
 
 def read_old_version(tag: str, pyproject_path: str) -> tuple[int, ...] | None:

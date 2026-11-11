@@ -21,7 +21,7 @@ from typeguard import typechecked
 
 from ._buildable import Buildable, json_type_info
 from ._data import ModelVariable
-from ._link_destination import LinkDestination
+from ._link_destination import ModelEditorLinkDestination
 
 
 @typechecked
@@ -683,10 +683,8 @@ class NavigateArgs(EventArgs):
     Arguments for navigating to a link destination.
 
     Attributes:
-        destination (LinkDestination):
-            The target destination to navigate to. Concrete subclasses of
-            :class:`LinkDestination` specify the destination type (e.g.
-            :class:`ModelEditorLinkDestination` for the model editor).
+        destination (ModelEditorLinkDestination):
+            The target destination to navigate to (e.g. the model editor).
     """
 
-    destination: LinkDestination
+    destination: ModelEditorLinkDestination

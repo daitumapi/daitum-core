@@ -102,6 +102,12 @@ class DataType(Enum):
     TIME_ARRAY = "TIME_ARRAY"
     """Array of `TIME` data type."""
 
+    COORDINATE = "COORDINATE"
+    """Geographic coordinate (latitude/longitude) data type."""
+
+    COORDINATE_ARRAY = "COORDINATE_ARRAY"
+    """Array of `COORDINATE` data type."""
+
     NULL = "NULL"
     """ Used to identify BLANK() formulae. **Should never be used** explicitly in models """
 

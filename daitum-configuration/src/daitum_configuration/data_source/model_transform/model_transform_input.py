@@ -65,12 +65,14 @@ class _DataStoreLikeInput(ModelTransformInput):
         self,
         data_store_key: str,
         tables: dict[str, str],
-        model_filter: DataFilter | None,
+        model_filter: DataFilter | list[DataFilter] | None,
         direct_data_pull: bool,
     ):
         self.data_store_key = data_store_key
         self.direct_data_pull = direct_data_pull
-        self.model_filter = model_filter
+        # A single filter keeps the legacy ``modelFilter`` key; a list emits ``modelFilters``.
+        self.model_filter = model_filter if isinstance(model_filter, DataFilter) else None
+        self.model_filters = model_filter if isinstance(model_filter, list) else None
         self.table_mapping = tables
 
 

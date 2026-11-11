@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.6.0]
+
+### Added
+- `ModelTransformConfig.add_publish(data_store_key, source_table, ...)` — publish the rows of a
+  transform sub-model table to a data store once the transform's checks pass (emitted as a
+  `publish` list; absent unless called). Supports keyed stores (`owned_scope` or
+  `owns_entire_store`, `allow_empty_publish`) and standard stores, `PublishTargetType` for
+  targeting a store path or a data store interface mapping key, `field_mapping`,
+  `write_on_failure_outputs` and `max_lock_wait_seconds`. Call it more than once to publish to
+  several stores. Field mappings, expansions and owned-scope filters are checked as the
+  platform checks them on upload.
+- `PublishExpansion(source_field, field_mapping, expand)` — publish an object reference field as
+  the referenced row(s), nested to any depth.
+- `OverlapDataFilter` and `OverlapMode` — the `overlap` filter, matching rows whose start/end
+  period overlaps (or starts within) a window bound from model named values, with optional
+  `timedelta` padding emitted as ISO-8601 durations.
+- Filter lists: `DataStoreConfig.set_model_filters(...)`, and the `model_filter` argument of
+  `ModelTransformConfig.add_datastore_input` / `add_datastore_interface_input` now also accepts
+  a list. A list is emitted as `modelFilters` (a row must pass every filter); a single filter
+  still emits the legacy `modelFilter`.
+
+All of the above round-trip through `read_from_file`.
+
+### Changed
+- Additional data type validation to `ModelTransform.add_data_source_table` and `ModelTransform.add_data_source_named_value`.
+
 ## [2.5.1]
 
 ### Changed
@@ -19,8 +45,8 @@
 ### Added
 - `ReportProperty.set_transform_file(transform_file)` — back a report with a model transform,
   referenced by its storage key (emitted as `transformFile`). The transform's declared outputs
-  become the report's contents, exported per the report's `export_format`. Requires a V3 model;
-  round-trips through `read_from_file`.
+  become the report's contents, exported per the report's `export_format`.
+  Round-trips through `read_from_file`.
 - Role-specific `ModelTransform` output methods, phrased in each role's own terms:
   - Report role: `add_report_sheet(name, source, columns)` and
     `add_report_named_value(name, source)`. `name` is a plain string (sheet / file name, or

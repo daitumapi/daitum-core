@@ -11,8 +11,8 @@ Run checks locally:
 ./pipelines/lint.sh
 
 # Or individually:
+ruff format --check daitum-model/src daitum-ui/src daitum-configuration/src
 ruff check daitum-model/src daitum-ui/src daitum-configuration/src
-black --check daitum-model/src daitum-ui/src daitum-configuration/src
 mypy --explicit-package-bases daitum-model/src daitum-ui/src daitum-configuration/src
 ```
 
@@ -93,7 +93,7 @@ def build_joined_table(
 
 ### Line Length
 
-Maximum 100 characters per line (enforced by Black and Ruff).
+Maximum 100 characters per line (enforced by `ruff format` and `ruff check`).
 
 ### Docstrings
 
@@ -193,7 +193,7 @@ error_msg = f"The field {field_name} is invalid"
 Before committing code:
 
 - [ ] All Ruff checks pass (`ruff check daitum-model/src daitum-ui/src daitum-configuration/src`)
-- [ ] Code is formatted with Black
+- [ ] Code is formatted with `ruff format`
 - [ ] Type checking passes (`mypy --explicit-package-bases ...`)
 - [ ] Classes/enums/types imported directly (`from x import ClassName`)
 - [ ] Nested formulas extracted into helpers

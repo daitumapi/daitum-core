@@ -36,13 +36,13 @@ Classes:
     - BaseView: Abstract base class for all view definitions.
 """
 
-import random
-import string
 from abc import ABC
 from dataclasses import dataclass, field
 
 from daitum_model import Calculation, Field, Parameter
 from typeguard import typechecked
+
+from daitum_ui._ids import new_id
 
 from ._buildable import Buildable
 from ._data import ModelPermissionsCondition, ModelVariableCondition
@@ -102,7 +102,7 @@ class BaseView(ABC, Buildable):
         hidden: bool = False,
         navigation_item: bool = False,
     ):
-        self._id: str = "".join(random.choices(string.ascii_letters, k=16))
+        self._id: str = new_id()
         self._display_name: str = ""
         self._hidden = hidden
         self._hidden_conditions: list[Condition] | None = None

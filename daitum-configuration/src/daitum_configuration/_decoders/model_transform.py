@@ -42,6 +42,13 @@ from daitum_configuration.data_source.model_transform.model_transform_input impo
     ModelTransformInput,
     _DataStoreLikeInput,
 )
+from daitum_configuration.data_source.model_transform.publish_config import (
+    PublishConfig,
+    PublishExpansion,
+)
+from daitum_configuration.data_source.model_transform.publish_target_type import (
+    PublishTargetType,
+)
 from daitum_configuration.data_source.model_transform.validation_severity import ValidationSeverity
 
 #: DataInputSourceType value -> concrete input class.
@@ -80,6 +87,12 @@ def decode_model_transform_input(data: dict[str, Any], ctx: LoadContext) -> Mode
         store.model_filter = (
             decode_into(DataFilter, model_filter, ctx) if model_filter is not None else None
         )
+        model_filters = data.get("modelFilters")
+        store.model_filters = (
+            [decode_into(DataFilter, f, ctx) for f in model_filters]
+            if model_filters is not None
+            else None
+        )
         store.table_mapping = require(data, "tableMapping", owner)
         return store
     upload = DirectUploadInput.__new__(DirectUploadInput)
@@ -93,6 +106,49 @@ def decode_model_transform_input(data: dict[str, Any], ctx: LoadContext) -> Mode
     return upload
 
 
+def _decode_expansions(
+    data: dict[str, Any] | None, ctx: LoadContext
+) -> dict[str, PublishExpansion] | None:
+    if data is None:
+        return None
+    return {name: decode_into(PublishExpansion, value, ctx) for name, value in data.items()}
+
+
+def decode_publish_expansion(data: dict[str, Any], ctx: LoadContext) -> PublishExpansion:
+    """Decode a :class:`PublishExpansion`, recursing into its nested expansions.
+
+    The constructor takes sub-model :class:`~daitum_model.Field` objects but only their ids are
+    serialised, so the attributes are restored directly.
+    """
+    expansion = PublishExpansion.__new__(PublishExpansion)
+    expansion.source_field = require(data, "sourceField", "PublishExpansion")
+    expansion.field_mapping = data.get("fieldMapping")
+    expansion.expand = _decode_expansions(data.get("expand"), ctx)
+    return expansion
+
+
+def decode_publish_config(data: dict[str, Any], ctx: LoadContext) -> PublishConfig:
+    """Decode a :class:`PublishConfig`, restoring its attributes directly.
+
+    As with :func:`decode_publish_expansion`, sub-model objects are serialised as ids only.
+    Absent keys take the platform defaults.
+    """
+    publish = PublishConfig.__new__(PublishConfig)
+    publish.target_type = PublishTargetType(
+        data.get("targetType", PublishTargetType.DATA_STORE.value)
+    )
+    publish.data_store_key = require(data, "dataStoreKey", "PublishConfig")
+    publish.source_table = require(data, "sourceTable", "PublishConfig")
+    publish.field_mapping = data.get("fieldMapping")
+    publish.expand = _decode_expansions(data.get("expand"), ctx)
+    publish.owned_scope = [decode_into(DataFilter, f, ctx) for f in data.get("ownedScope", [])]
+    publish.owns_entire_store = data.get("ownsEntireStore", False)
+    publish.write_on_failure_outputs = data.get("writeOnFailureOutputs", [])
+    publish.max_lock_wait_seconds = data.get("maxLockWaitSeconds")
+    publish.allow_empty_publish = data.get("allowEmptyPublish", False)
+    return publish
+
+
 def decode_model_transform(data: dict[str, Any], _ctx: LoadContext) -> ModelTransform:
     """Decode a :class:`ModelTransform`, recursively decoding its embedded sub-model.
 
@@ -103,16 +159,16 @@ def decode_model_transform(data: dict[str, Any], _ctx: LoadContext) -> ModelTran
         ModelBuilder, require(data, "modelDefinition", "ModelTransform"), LoadContext()
     )
     transform = ModelTransform(sub_model)
-    transform._parameter_outputs = require(
-        data, "parameterOutputs", "ModelTransform"
-    )  # noqa: SLF001
+    transform._parameter_outputs = require(data, "parameterOutputs", "ModelTransform")  # noqa: SLF001
     transform._table_outputs = require(data, "tableOutputs", "ModelTransform")  # noqa: SLF001
     return transform
 
 
 def register() -> None:
-    """Register the model-transform input dispatcher and the ModelTransform decoder."""
+    """Register the model-transform input dispatcher and the transform and publish decoders."""
     register_decoder(ModelTransformInput, decode_model_transform_input)
     for concrete in _INPUT_TYPES.values():
         register_decoder(concrete, decode_model_transform_input)
     register_decoder(ModelTransform, decode_model_transform)
+    register_decoder(PublishExpansion, decode_publish_expansion)
+    register_decoder(PublishConfig, decode_publish_config)

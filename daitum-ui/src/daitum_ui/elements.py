@@ -15,221 +15,69 @@
 """
 UI element definitions for the UI Generator system.
 
-This module provides the core building blocks for constructing user interfaces,
-including base classes, containers, and interactive elements. All elements support
-state management, data binding, and event handling.
+The building blocks for constructing user interfaces: base classes, layout
+containers, and interactive/display/input elements. Elements support state
+management, data binding, and event handling, and compose into views. The
+classes and enums below document their own options.
 
-Main Components
----------------
+Example::
 
-**Configuration Enums:**
-    Visual and behavioural configuration options for UI elements:
-
-    - ElementSize: Predefined size options (EXTRA_SMALL to THREE_EXTRA_LARGE)
-    - ActionType: Element behaviour (VALUE for data updates, EVENTS for triggers)
-    - TextVariant: Text presentation styles (SPAN for inline, PARAGRAPH for block)
-    - FontWeight: Text thickness (REGULAR, SEMI_BOLD, BOLD)
-    - BadgeVariant: Badge visual styles (DEFAULT, UPDATED)
-    - ContainerType: Layout models (FLEX, GRID)
-    - LayoutStyle: Card layout modes (LIST, GRID)
-    - GridOrder: Grid element arrangement (ROW, COLUMN)
-    - RowSpacing: Vertical spacing options (NONE, TIGHT, RELAXED)
-    - AlignContent: Alignment options (CENTER, SPACE_BETWEEN)
-    - LayoutDirection: List layout direction (ROW, COLUMN)
-    - OverflowStrategy: Overflow handling for list containers (CLIP, SCROLL, SUMMARISE)
-
-**Base Classes:**
-    Foundation classes providing common functionality:
-
-    - BaseElement: Abstract base with state management (disabled, required, hidden, etc.)
-    - Element: Base for all UI elements with property mapping and sizing
-    - ElementContainer: Base for elements that contain child elements
-
-**Container Elements:**
-    Layout components for grouping and organising UI elements:
-
-    - Container: Flexible layout container with flex/grid display modes
-    - Card: Rich container with customisable layout, styling, and interaction
-    - Badge: Compact label for status or metadata display
-    - OverflowElement: Replacement element shown for overflowing items in a ListElement
-
-**Interactive Elements:**
-    User input and interaction components:
-
-    - Button: Clickable button with text, icons, and event handling
-    - Checkbox: Standard checkbox with check/uncheck events
-    - IconCheckbox: Checkbox using custom icons for on/off states
-    - Slider: Toggle slider for boolean values or event triggers
-    - ReviewRating: Star rating or similar review component
-
-**Display Elements:**
-    Components for presenting information:
-
-    - Text: Text display with styling, variants, and tooltips
-    - IconElement: Icon display with click handling and tooltips
-    - ListElement: Renders all rows of a table using a reusable element template
-
-**Link Elements:**
-    Navigation components:
-
-    - ModelEditorLink: Hyperlink that opens the Daitum model editor
-
-**Helper Functions:**
-    - get_boolean_variable(): Converts Field/Parameter/Calculation/bool to ModelVariable
-    - get_model_variable(): Converts model objects to ModelVariable descriptors
-
-Element Hierarchy
------------------
-All UI elements inherit from BaseElement or Element::
-
-    BaseElement (ABC)
-    └── Element
-        ├── ElementContainer
-        │   ├── Container
-        │   ├── Card
-        │   ├── Badge
-        │   └── OverflowElement
-        ├── Button
-        ├── Checkbox
-        ├── IconElement
-        ├── IconCheckbox
-        ├── ListElement
-        ├── ModelEditorLink
-        ├── ReviewRating
-        ├── Slider
-        └── Text
-
-State Management
-----------------
-Elements support dynamic state configuration through BaseElement methods:
-
-- add_conditional_disabled(): Make element non-interactive
-- add_conditional_required(): Mark as required for form validation
-- add_conditional_read_only(): Prevent editing
-- add_conditional_error/warning/success/info(): Visual feedback states
-- add_conditional_hidden(): Hide element (optionally reserving space)
-
-Each state can be bound to a Field, Parameter, Calculation, or boolean value.
-
-Data Binding
-------------
-Elements can bind to data sources using:
-
-- Field: Direct table field reference
-- Parameter: Named parameter value
-- Calculation: Computed value
-- ContextVariable: Runtime context variable
-- TemplateBindingKey: Template-based dynamic binding
-
-Event Handling
---------------
-Interactive elements support ModelEvent binding for user actions:
-
-- on_click: Button and icon click events
-- on_check/on_uncheck: Checkbox state changes
-- toggle_on/toggle_off: Slider state changes
-
-Elements can operate in two action modes:
-
-- ActionType.VALUE: Updates bound data source
-- ActionType.EVENTS: Triggers events without updating values
-
-Examples
---------
-Creating a text element::
-
-    # Static text
+    # Static text, and dynamic text bound to a field
     label = Text(value="Hello World", font_weight=FontWeight.BOLD)
-
-    # Dynamic text bound to a field
     user_name = Text(value=user_table.name_field, color="#333333")
-
-Creating an interactive button::
-
-    save_button = Button(
-        text_value="Save",
-        background_color="#007bff",
-        on_click=save_event
-    )
-
-Creating a checkbox with state management::
-
-    agree_checkbox = Checkbox(data_source=agreement_field)
-    agree_checkbox.add_conditional_required(True)
-    agree_checkbox.add_conditional_disabled(is_locked_field)
-
-Creating a card container::
-
-    user_card = Card(
-        layout_style=LayoutStyle.GRID,
-        row_spacing=RowSpacing.RELAXED,
-        border_radius="8px"
-    )
-    user_card.add_element(Text(value="Name:"))
-    user_card.add_element(Text(value=user_table.name_field))
-
-Creating elements with events::
-
-    # Checkbox that triggers events instead of updating values
-    notify_checkbox = Checkbox(data_source=notification_field)
-    notify_checkbox.set_on_event(enable_notifications_event)
-    notify_checkbox.set_off_event(disable_notifications_event)
-
-Creating a list element::
-
-    # Render every row of employees_table using a card template.
-    # TemplateBindingKey declares a placeholder inside the template;
-    # add_template_field_mapping connects each placeholder to a real field.
-    name_key = TemplateBindingKey("name")
-    role_key = TemplateBindingKey("role")
-
-    template_card = Card(layout_style=LayoutStyle.LIST)
-    template_card.add_element(Text(value=name_key, font_weight=FontWeight.BOLD))
-    template_card.add_element(Text(value=role_key))
-
-    employee_list = ListElement(
-        data_source=employees_table,
-        template=template_card,
-        layout_direction=LayoutDirection.COLUMN,
-    )
-    employee_list.add_template_field_mapping(name_key, name_field)
-    employee_list.add_template_field_mapping(role_key, role_field)
-
-Creating a list element with a summarise overflow::
-
-    overflow = OverflowElement()
-    overflow.add_element(Text(value="More items..."))
-
-    employee_list = ListElement(
-        data_source=employees_table,
-        template=template_card,
-        overflow_strategy=OverflowStrategy.SUMMARISE,
-        overflow_element=overflow,  # Required when strategy is SUMMARISE
-    )
 """
 
 from abc import ABC
 from dataclasses import dataclass, field
 from enum import Enum
+from typing import ClassVar, cast
 
-from daitum_model import Calculation, DataType, Field, ObjectDataType, Parameter, Table
+from daitum_model import (
+    Baseline,
+    Calculation,
+    DataType,
+    Field,
+    ObjectDataType,
+    Parameter,
+    Severity,
+    Table,
+)
 from daitum_model.named_values import NamedValue
 from typeguard import typechecked
 
 from daitum_ui._buildable import Buildable, json_type_info
 from daitum_ui._data import (
+    DataValidationRule,
+    DefaultValueReference,
     ModelPermissionsCondition,
     ModelVariable,
     ModelVariableCondition,
     ModelVariableType,
 )
 from daitum_ui.context_variable import ContextVariable
-from daitum_ui.data import Condition, ConstantCondition
+from daitum_ui.data import (
+    Condition,
+    ConstantCondition,
+    DataValidationType,
+    DecimalValue,
+    DefaultValueBehaviour,
+    DefaultValueType,
+    IntegerValue,
+    StringValue,
+    ValidationFlag,
+    Value,
+)
+from daitum_ui.icons import Icon
 from daitum_ui.model_event import ModelEvent
 from daitum_ui.styles import HorizontalAlignment, IconConfig
 from daitum_ui.template_binding_key import TemplateBindingKey
 
 from ._link_destination import ModelEditorLinkDestination
+
+#: What an input element may bind to. A ``Field``/``Parameter``/``Calculation``/``ContextVariable``
+#: is resolved and (where typed) validated; an already-resolved ``ModelVariable`` is passed through
+#: verbatim (used by form adders for context-variable references and by the decoder).
+DataSource = Field | Parameter | Calculation | ContextVariable | ModelVariable
 
 
 class ElementSize(Enum):
@@ -244,22 +92,7 @@ class ElementSize(Enum):
     EXTRA_LARGE = "EXTRA_LARGE"
     TWO_EXTRA_LARGE = "TWO_EXTRA_LARGE"
     THREE_EXTRA_LARGE = "THREE_EXTRA_LARGE"
-
-
-class ActionType(Enum):
-    """
-    Defines how an element should behave when interacted with.
-
-    Attributes:
-        VALUE:
-            Element updates a value.
-        EVENTS:
-            Element triggers associated events instead of—or in addition to—
-            updating a value.
-    """
-
-    VALUE = "VALUE"
-    EVENTS = "EVENTS"
+    FIT_WIDTH = "FIT_WIDTH"
 
 
 class TextVariant(Enum):
@@ -400,6 +233,83 @@ class OverflowStrategy(Enum):
     SUMMARISE = "SUMMARISE"
 
 
+class DateTimeMode(Enum):
+    """
+    The portion of a date/time value a :class:`DateTimePicker` edits.
+
+    Attributes:
+        DATE: Edits a calendar date only.
+        TIME: Edits a time of day only.
+        DATE_TIME: Edits a combined date and time.
+    """
+
+    DATE = "DATE"
+    TIME = "TIME"
+    DATE_TIME = "DATE_TIME"
+
+
+class TextInputResize(Enum):
+    """
+    Controls how a multiline :class:`TextInput` may be resized by the user.
+
+    Attributes:
+        NONE: Not resizable.
+        BOTH: Resizable horizontally and vertically.
+        HORIZONTAL: Resizable horizontally only.
+        VERTICAL: Resizable vertically only.
+    """
+
+    NONE = "NONE"
+    BOTH = "BOTH"
+    HORIZONTAL = "HORIZONTAL"
+    VERTICAL = "VERTICAL"
+
+
+class IconSet(Enum):
+    """
+    Catalogue of icons exposed by :class:`IconPicker`.
+
+    Values match the platform ``IconPicker.IconSet`` enum.
+    """
+
+    ALL = "ALL"
+    DAITUM = "DAITUM"
+    FONT_AWESOME = "FONT_AWESOME"
+    FA_PRO = "FA_PRO"
+
+
+class ArrayLayout(Enum):
+    """
+    How an :class:`ArrayElement` lays out its values.
+
+    Attributes:
+        BADGE: One badge per value, with a "+N" badge for the values that do not fit.
+        LIST: The values comma-separated on one line.
+        COLUMN: One fixed-width slot per value.
+    """
+
+    BADGE = "BADGE"
+    LIST = "LIST"
+    COLUMN = "COLUMN"
+
+
+class Shadow(Enum):
+    """
+    Drop shadow applied to a :class:`Card`.
+
+    Attributes:
+        NONE: No shadow.
+        EXTRA_SMALL: Extra-small shadow.
+        SMALL: Small shadow.
+        MEDIUM: Medium shadow.
+    """
+
+    NONE = "NONE"
+    EXTRA_SMALL = "EXTRA_SMALL"
+    SMALL = "SMALL"
+    MEDIUM = "MEDIUM"
+
+
 @dataclass
 @typechecked
 class ElementStates(Buildable):
@@ -441,7 +351,7 @@ def get_boolean_variable(variable: Field | Parameter | Calculation | bool):
     if isinstance(variable, Field):
         if variable.data_type != DataType.BOOLEAN:
             raise ValueError(
-                f"Field {variable.id} is not a boolean field, cannot convert to " f"ModelVariable."
+                f"Field {variable.id} is not a boolean field, cannot convert to ModelVariable."
             )
         return ModelVariable(ModelVariableType.FIELD, variable.id)
 
@@ -786,23 +696,70 @@ class Element(BaseElement):
             Optional hint for how large the UI element should appear.
     """
 
+    #: The properties of this element whose value may be driven per-row by a field/named value,
+    #: mapped to the data type that value must resolve to. Keys are the camelCase property names;
+    #: this is both the allowlist and the type spec. Empty on the base (nothing mappable);
+    #: subclasses override. ``TextInput``/``DateTimePicker`` compute it from instance state via
+    #: :meth:`_property_types`.
+    #:
+    #: TODO: the platform also allows mapping fixed-set properties (enums such as fontWeight,
+    #: variant, layoutStyle, display; icon-subset/id fields such as iconSet, defaults, iconSource;
+    #: and STRING_ARRAY fields such as swatchColors). They are excluded for now because an
+    #: arbitrary bound value can't be guaranteed to be a valid member of the fixed set; add them
+    #: back once we validate the bound value against the allowed set.
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {}
+
     def __init__(self, hidden: bool | None = None, size: ElementSize | None = None):
         super().__init__()
         self.hidden = hidden
         self.size = size
+        self.tooltip: str | None = None
         self.property_field_mapping: dict[str, str] = {}
+
+    def _property_types(self) -> dict[str, DataType]:
+        """The mappable properties for *this* element. Overridden where the set depends on
+        instance state (e.g. a multiline :class:`TextInput`, a :class:`DateTimePicker` mode)."""
+        return type(self).PROPERTY_TYPES
 
     def add_property_field_mapping(
         self, property_name: str, value: Field | Parameter | Calculation | TemplateBindingKey
-    ) -> None:
+    ) -> "Element":
         """
-        Adds a mapping from a UI property to a model field.
+        Drive a supported property of this element from a field, parameter, or calculation.
+
+        Only a fixed set of properties can be mapped per element, each expecting a specific data
+        type (see :attr:`PROPERTY_TYPES`). A :class:`TemplateBindingKey` (a list-template
+        placeholder) is accepted without a type check, since its value is resolved later.
 
         Args:
-            property_name (str): The UI element property key.
-            value (Field | Parameter | Calculation | TemplateBindingKey): The model/data name.
+            property_name: The camelCase property to drive (e.g. ``"backgroundColor"``).
+            value: The field, named value, calculation, or template placeholder supplying it.
+
+        Raises:
+            ValueError: If the property is not mappable on this element, or the value's data type
+                does not match the property's expected type.
         """
+        supported = self._property_types()
+        if property_name not in supported:
+            if not supported:
+                raise ValueError(
+                    f"{type(self).__name__} has no mappable properties; "
+                    f"cannot map {property_name!r}."
+                )
+            raise ValueError(
+                f"Unsupported property {property_name!r} for {type(self).__name__}. "
+                f"Supported properties are: {', '.join(sorted(supported))}."
+            )
+        if not isinstance(value, TemplateBindingKey):
+            expected = supported[property_name]
+            actual = value.to_data_type()
+            if actual != expected:
+                raise ValueError(
+                    f"Property {property_name!r} on {type(self).__name__} expects a "
+                    f"{expected.value} value, but {value.id} is {actual}."
+                )
         self.property_field_mapping[property_name] = value.to_string()
+        return self
 
 
 @dataclass
@@ -834,6 +791,249 @@ class ElementContainer(Element):
         self.elements.append(element)
 
 
+@typechecked
+class InputElement(Element):
+    """
+    Base class for editable elements that bind to and write a model value.
+
+    An ``InputElement`` resolves its ``data_source`` (a ``Field``, ``Parameter``,
+    ``Calculation``, or ``ContextVariable``) to a :class:`ModelVariable`, validates that the
+    source's data type is one the element supports, and automatically wires any validation
+    rules attached to the bound field or named value into conditional error/warning/info states
+    (with a tooltip pointing at the validation message).
+
+    Because inputs are first-class :class:`Element`\\s, they may be placed anywhere an element is
+    accepted — inside form cells, cards, containers, or list templates.
+
+    Attributes:
+        supported_data_types (frozenset[DataType]):
+            The data types this element may bind to. Enforced in ``__init__`` for
+            ``Field``/``Parameter``/``Calculation`` sources; context variables are not type
+            checked. Subclasses override this.
+        data_source (ModelVariable | None):
+            The resolved model variable backing the element's value.
+        object_field_reference (str | None):
+            For an OBJECT-typed data source, the field of the referenced table to edit.
+        default_value_reference (DefaultValueReference | None):
+            A field/named-value/baseline the element can reset its value to.
+        data_validation_rule (DataValidationRule | None):
+            A list or range validation rule applied to user input.
+        on_change (ModelEvent | None):
+            An editor event run when the user changes the value, instead of the element writing
+            its own bound value.
+    """
+
+    supported_data_types: frozenset[DataType] = frozenset()
+
+    def __init__(
+        self,
+        data_source: DataSource,
+        *,
+        object_field_reference: str | None = None,
+    ):
+        super().__init__()
+        # An already-resolved ModelVariable (e.g. a context-variable reference built by a form
+        # adder) is passed through verbatim: it carries no static type, so there is nothing to
+        # type-check or wire validation states for. Likewise, when an object_field_reference is
+        # given the bound value is an OBJECT and the edited field's type lives on the referenced
+        # table — not statically visible here — so the supported-type check is skipped.
+        if isinstance(data_source, ModelVariable):
+            self.data_source: ModelVariable | None = data_source
+        else:
+            if object_field_reference is None:
+                self._assert_supported(data_source)
+            self.data_source = get_model_variable(data_source)
+        self.object_field_reference = object_field_reference
+        self.default_value_reference: DefaultValueReference | None = None
+        self.data_validation_rule: DataValidationRule | None = None
+        self.on_change: ModelEvent | None = None
+        self.display_format: str | None = None
+        if not isinstance(data_source, ModelVariable):
+            self._wire_validation_states(data_source)
+
+    def supports_list_validation(self) -> bool:
+        """Whether :meth:`set_list_validation` applies to this element. Overridden per subclass."""
+        return False
+
+    def _assert_supported(
+        self, data_source: Field | Parameter | Calculation | ContextVariable
+    ) -> None:
+        """Assert the bound source's data type is one this element supports.
+
+        Context variables carry no static type and are not checked. Subclasses binding to
+        OBJECT values (e.g. :class:`Dropdown`) override this rather than using
+        ``supported_data_types`` (there is no ``DataType.OBJECT`` member — object values are
+        :class:`ObjectDataType` instances).
+        """
+        if not self.supported_data_types:
+            return
+        if not isinstance(data_source, Field | Parameter | Calculation):
+            return
+        data_type = data_source.to_data_type()
+        if data_type not in self.supported_data_types:
+            raise ValueError(
+                f"{type(self).__name__} does not support data type {data_type}; "
+                f"supported: {sorted(t.value for t in self.supported_data_types)}"
+            )
+
+    def _wire_validation_states(
+        self, data_source: Field | Parameter | Calculation | ContextVariable
+    ) -> None:
+        """Wire a bound field's/named value's validation rules into conditional states + tooltip.
+
+        Lifted from the former ``FormView._set_element_states`` so the behaviour travels with the
+        element regardless of where it is used.
+        """
+        if isinstance(data_source, NamedValue):
+            validation_values = data_source.get_validation_values()
+            if validation_values and isinstance(validation_values, list):
+                for validation_value in validation_values:
+                    self.tooltip = f"${{{validation_value.message_value.to_string()}}}"
+                    if validation_value.severity == Severity.INFO:
+                        self.add_conditional_info(validation_value.invalid_value)
+                    if validation_value.severity == Severity.WARNING:
+                        self.add_conditional_warning(validation_value.invalid_value)
+                    if validation_value.severity in (Severity.CRITICAL, Severity.ERROR):
+                        self.add_conditional_error(validation_value.invalid_value)
+        elif isinstance(data_source, Field):
+            validation_fields = data_source.get_validation_fields()
+            if validation_fields and isinstance(validation_fields, list):
+                for validation_field in validation_fields:
+                    self.tooltip = f"${{{validation_field.message_field.to_string()}}}"
+                    if validation_field.severity == Severity.INFO:
+                        self.add_conditional_info(validation_field.invalid_field)
+                    if validation_field.severity == Severity.WARNING:
+                        self.add_conditional_warning(validation_field.invalid_field)
+                    if validation_field.severity in (Severity.CRITICAL, Severity.ERROR):
+                        self.add_conditional_error(validation_field.invalid_field)
+
+    def set_default_value_reference(
+        self,
+        value: Field | Parameter | Calculation,
+        behaviour: DefaultValueBehaviour = DefaultValueBehaviour.DEFAULT,
+    ) -> "InputElement":
+        """
+        Set a reference value this element can reset to.
+
+        Args:
+            value: The default value source. A ``Field`` sets reference type FIELD; a
+                ``Parameter``/``Calculation`` sets NAMED_VALUE.
+            behaviour: Controls the behaviour of the default value override.
+        """
+        value_type = (
+            DefaultValueType.FIELD if isinstance(value, Field) else DefaultValueType.NAMED_VALUE
+        )
+        self.default_value_reference = DefaultValueReference(value_type, value.id, behaviour)
+        return self
+
+    def set_baseline_reset(
+        self,
+        baseline: Baseline | str,
+        behaviour: DefaultValueBehaviour = DefaultValueBehaviour.DEFAULT,
+    ) -> "InputElement":
+        """
+        Show a reset icon that reverts this element to its value at a baseline.
+
+        Args:
+            baseline: The baseline to revert to, or its name.
+            behaviour: Controls the reset behaviour.
+        """
+        baseline_name = baseline.name if isinstance(baseline, Baseline) else baseline
+        self.default_value_reference = DefaultValueReference(
+            DefaultValueType.BASELINE, baseline_name, behaviour
+        )
+        return self
+
+    def set_list_validation(
+        self, reference_field: Field | Parameter | Calculation
+    ) -> "InputElement":
+        """
+        Restrict input to the values held in a referenced array.
+
+        Args:
+            reference_field: A field, parameter, or calculation whose value is an **array** of the
+                allowed values (e.g. a ``STRING_ARRAY`` column). A scalar reference is rejected.
+
+        Raises:
+            ValueError: If this element does not support list validation, or ``reference_field``
+                does not resolve to an array value.
+        """
+        if not self.supports_list_validation():
+            raise ValueError(f"`set_list_validation` is not supported for {type(self).__name__}")
+        if not reference_field.to_data_type().is_array():
+            raise ValueError(
+                f"`set_list_validation` requires an array reference holding the allowed values; "
+                f"{reference_field.id} is {reference_field.to_data_type()}."
+            )
+        self.data_validation_rule = DataValidationRule(
+            type=DataValidationType.LIST,
+            reference_field=reference_field.id,
+        )
+        return self
+
+    def set_range_validation(
+        self,
+        min_value: str | Value | None = None,
+        max_value: str | Value | None = None,
+        flag: ValidationFlag = ValidationFlag.INCLUSIVE,
+    ) -> "InputElement":
+        """
+        Limit input to a numeric/temporal range.
+
+        Args:
+            min_value: Minimum. A ``Value`` is a literal bound; a ``str`` names a field/named value.
+            max_value: Maximum. A ``Value`` is a literal bound; a ``str`` names a field/named value.
+            flag: Whether the bounds are inclusive or exclusive.
+
+        Raises:
+            ValueError: If this element does not support range validation, or neither bound given.
+        """
+        if not isinstance(self, NumberInput | DateTimePicker):
+            raise ValueError(f"`set_range_validation` is not supported for {type(self).__name__}")
+        if min_value is None and max_value is None:
+            raise ValueError("`set_range_validation` requires `min_value` or `max_value`")
+
+        rule = DataValidationRule(type=DataValidationType.RANGE, flag=flag)
+        if min_value is not None:
+            if isinstance(min_value, Value):
+                rule.min_value = min_value
+            else:
+                rule.min_value_column = min_value
+        if max_value is not None:
+            if isinstance(max_value, Value):
+                rule.max_value = max_value
+            else:
+                rule.max_value_column = max_value
+
+        self.data_validation_rule = rule
+        return self
+
+    def set_reference_field(self, field: str) -> "InputElement":
+        """Sets the referenced-table field to edit for an OBJECT-type data source."""
+        self.object_field_reference = field
+        return self
+
+    def set_display_format(self, display_format: str) -> "InputElement":
+        """Sets the display format string for this element."""
+        self.display_format = display_format
+        return self
+
+    def set_on_change_event(self, event: ModelEvent) -> "InputElement":
+        """
+        Run an editor event when the user changes this element's value.
+
+        When set, the element no longer writes its own bound value on change; the event runs
+        instead, receiving the picked value as its ``editorValue`` context entry.
+
+        Raises:
+            ValueError: If an on-change event has already been set.
+        """
+        if self.on_change is not None:
+            raise ValueError("ERROR - on-change event has already been set")
+        self.on_change = event
+        return self
+
+
 @dataclass
 @typechecked
 @json_type_info("container")
@@ -851,6 +1051,12 @@ class Container(ElementContainer):
             Determines how child elements are aligned horizontally within the container.
     """
 
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "gap": DataType.STRING,
+        "horizontalAlignment": DataType.STRING,
+        "verticalAlignment": DataType.STRING,
+    }
+
     display: ContainerType = ContainerType.FLEX
     gap: str | None = None
     horizontal_alignment: HorizontalAlignment | None = None
@@ -865,6 +1071,16 @@ class Card(ElementContainer):
     or a grid layout. Cards may have customisable styling, spacing, and
     interaction behaviour.
     """
+
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "backgroundColor": DataType.STRING,
+        "borderColor": DataType.STRING,
+        "hoverBackgroundColor": DataType.STRING,
+        "hoverBorderColor": DataType.STRING,
+        "leftAccent": DataType.STRING,
+        "rightAccent": DataType.STRING,
+        "rowCount": DataType.INTEGER,
+    }
 
     # Layout configuration
     layout_style: LayoutStyle | None = None
@@ -890,6 +1106,7 @@ class Card(ElementContainer):
     hover_border_color: str | None = None
     column_background_color: str | None = None
     padding: str | None = None
+    shadow: Shadow | None = None
 
     # Footer
     footer: Element | None = None
@@ -912,6 +1129,11 @@ class Badge(ElementContainer):
         minimum_width:
             Minimum width for the badge, expressed in CSS-compatible units.
     """
+
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "backgroundColor": DataType.STRING,
+        "minimumWidth": DataType.STRING,
+    }
 
     variant: BadgeVariant | None = None
     background_color: str | None = None
@@ -975,12 +1197,18 @@ class Button(Element):
             The action to perform when the button is clicked.
     """
 
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "size": DataType.STRING,
+        "textColor": DataType.STRING,
+        "backgroundColor": DataType.STRING,
+    }
+
     def __init__(
         self,
         text_value: str | Parameter | Calculation | Field | TemplateBindingKey | None = None,
         on_click: ModelEvent | None = None,
         on_click_key: TemplateBindingKey | None = None,
-        icon_source: str | None = None,
+        icon_source: Icon | None = None,
     ):
         super().__init__()
 
@@ -1049,68 +1277,37 @@ def get_model_variable(
 
 @typechecked
 @json_type_info("checkbox")
-class Checkbox(Element):
+class Checkbox(InputElement):
     """
-    A standard checkbox UI element.
+    A standard checkbox bound to a boolean value.
 
     Attributes:
         on_check:
             Event triggered when the checkbox transitions to the checked state.
         on_uncheck:
             Event triggered when the checkbox transitions to the unchecked state.
-        checkbox_data_source_id:
+        data_source:
             Model variable that stores the current value of the checkbox.
-        on_click_key:
-            Optional interaction key used for analytics or routing click events.
-        action_type:
-            Determines the checkbox's behaviour when interacted with, such as updating a value
-            or emitting a custom event.
     """
 
-    def __init__(self, data_source: Field | Parameter | Calculation | ContextVariable):
-        super().__init__()
+    supported_data_types = frozenset({DataType.BOOLEAN})
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {"size": DataType.STRING}
 
-        self.checkbox_data_source_id = get_model_variable(data_source)
-
+    def __init__(
+        self, data_source: Field | Parameter | Calculation | ContextVariable | ModelVariable
+    ):
+        super().__init__(data_source)
         self.on_check: ModelEvent | None = None
         self.on_uncheck: ModelEvent | None = None
 
-        self.action_type = ActionType.VALUE
-
-        self.on_click_key: TemplateBindingKey | None = None
-
     def set_on_event(self, event: ModelEvent) -> "Checkbox":
-        """
-        Assigns an event to be fired when the checkbox transitions into the "check" state.
-
-        Parameters:
-            event (ModelEvent):
-                The event to trigger when the checkbox becomes checked.
-
-        Notes:
-            Setting an on-event automatically changes the action_type
-            to ActionType.EVENTS, indicating the checkbox now emits events rather
-            than updating a value.
-        """
+        """Assigns the event fired when the checkbox transitions into the checked state."""
         self.on_check = event
-        self.action_type = ActionType.EVENTS
         return self
 
     def set_off_event(self, event: ModelEvent) -> "Checkbox":
-        """
-        Assigns an event to be fired when the checkbox transitions into the "uncheck" state.
-
-        Parameters:
-            event (ModelEvent):
-                The event to trigger when the checkbox becomes unchecked.
-
-        Notes:
-            Setting an off-event automatically changes the action_type
-            to ActionType.EVENTS, indicating the checkbox now emits events rather
-            than updating a value.
-        """
+        """Assigns the event fired when the checkbox transitions into the unchecked state."""
         self.on_uncheck = event
-        self.action_type = ActionType.EVENTS
         return self
 
 
@@ -1133,119 +1330,105 @@ class IconElement(Element):
             Optional tooltip displayed when the user hovers over the icon.
     """
 
-    def __post_init__(self):
-        super().__init__()
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "color": DataType.STRING,
+        "size": DataType.STRING,
+        "tooltip": DataType.STRING,
+    }
 
-    icon_source: str | None = None
+    icon_source: Icon | None = None
     color: str | None = None
     on_click: ModelEvent | None = None
     tooltip: str | None = None
 
+    def __post_init__(self):
+        # Capture the dataclass-assigned tooltip before Element.__init__ resets it to None.
+        tooltip = self.tooltip
+        super().__init__()
+        self.tooltip = tooltip
+
 
 @typechecked
 @json_type_info("iconCheckbox")
-class IconCheckbox(Element):
+class IconCheckbox(InputElement):
     """
-    A checkbox UI element that uses icons to represent checked and unchecked states.
+    A checkbox that uses icons to represent its checked and unchecked states.
 
     Attributes:
         on_check:
             Event triggered when the checkbox transitions to the checked state.
         on_uncheck:
             Event triggered when the checkbox transitions to the unchecked state.
-        icon_checkbox_data_source_id:
+        data_source:
             Model variable storing the current checkbox value.
-        on_click_key:
-            Optional key used to route click-based interactions such as analytics.
-        action_type:
-            Specifies how the checkbox should behave when interacted with,
-            such as updating a value or emitting an event.
         off_icon:
             Icon displayed when the checkbox is unchecked.
         on_icon:
             Icon displayed when the checkbox is checked.
+        show_background:
+            Whether a background is drawn behind the icon. Defaults to ``False``.
     """
+
+    supported_data_types = frozenset({DataType.BOOLEAN})
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {"size": DataType.STRING}
 
     def __init__(
         self,
-        data_source: Field | Parameter | Calculation | ContextVariable,
-        off_icon: IconConfig | None = None,
-        on_icon: IconConfig | None = None,
+        data_source: Field | Parameter | Calculation | ContextVariable | ModelVariable,
+        off_icon: IconConfig,
+        on_icon: IconConfig,
     ):
-        super().__init__()
-
-        self.icon_checkbox_data_source_id = get_model_variable(data_source)
-
+        super().__init__(data_source)
         self.on_check: ModelEvent | None = None
         self.on_uncheck: ModelEvent | None = None
-
-        self.action_type = ActionType.VALUE
-
-        self.on_click_key: TemplateBindingKey | None = None
-
+        self.show_background: bool = False
         self.off_icon = off_icon
         self.on_icon = on_icon
 
     def set_on_event(self, event: ModelEvent) -> "IconCheckbox":
-        """
-        Assigns an event to be fired when the icon checkbox transitions into the "on" state.
-
-        Parameters:
-            event (ModelEvent):
-                The event to trigger when the icon checkbox turns on.
-
-        Notes:
-            Setting an on-event automatically changes the action_type
-            to ActionType.EVENTS, indicating the checkbox now emits events rather
-            than updating a value.
-        """
+        """Assigns the event fired when the icon checkbox transitions into the on state."""
         self.on_check = event
-        self.action_type = ActionType.EVENTS
         return self
 
     def set_off_event(self, event: ModelEvent) -> "IconCheckbox":
-        """
-        Assigns an event to be fired when the icon checkbox transitions into the "off" state.
-
-        Parameters:
-            event (ModelEvent):
-                The event to trigger when the icon checkbox turns off.
-
-        Notes:
-            Setting an off-event automatically changes the action_type
-            to ActionType.EVENTS, indicating the checkbox now emits events rather
-            than updating a value.
-        """
+        """Assigns the event fired when the icon checkbox transitions into the off state."""
         self.on_uncheck = event
-        self.action_type = ActionType.EVENTS
+        return self
+
+    def set_show_background(self, show: bool = True) -> "IconCheckbox":
+        """Sets whether a background is drawn behind the icon."""
+        self.show_background = show
         return self
 
 
 @typechecked
 @json_type_info("reviewRating")
-class ReviewRating(Element):
+class ReviewRating(InputElement):
     """
-    A UI element representing a review rating component, consisting of filled and empty icons.
-    It supports binding to a model variable and tracking rating state.
+    A review rating component (filled and empty icons) bound to a numeric value.
 
     Attributes:
         fill_icon:
             Icon configuration used to display the "filled" (selected) rating value.
         empty_icon:
             Icon configuration used to display the "empty" (unselected) rating value.
-        review_rating_data_source_id:
+        data_source:
             Model variable storing the current rating value (e.g., 1–5 stars).
         fill_color:
             Optional colour override for the filled icons.
     """
 
+    supported_data_types = frozenset({DataType.INTEGER, DataType.DECIMAL})
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "fillColor": DataType.STRING,
+        "size": DataType.STRING,
+    }
+
     def __init__(
         self,
-        data_source: Field | Parameter | Calculation | ContextVariable,
+        data_source: DataSource,
     ):
-        super().__init__()
-
-        self.review_rating_data_source_id = get_model_variable(data_source)
+        super().__init__(data_source)
         self.fill_icon: IconConfig | None = None
         self.empty_icon: IconConfig | None = None
         self.fill_color: str | None = None
@@ -1268,69 +1451,37 @@ class ReviewRating(Element):
 
 @typechecked
 @json_type_info("slider")
-class Slider(Element):
+class Slider(InputElement):
     """
-    A slider UI element used for selecting values or triggering events.
+    A slider (toggle switch) bound to a boolean value.
 
     Attributes:
-        toggle_on:
-            Event triggered when the slider moves into an "on" state.
-        toggle_off:
-            Event triggered when the slider moves into an "off" state.
-        slider_data_source_id:
+        on_check:
+            Event triggered when the slider moves into the on state.
+        on_uncheck:
+            Event triggered when the slider moves into the off state.
+        data_source:
             Reference to a model variable that stores the slider's current value.
-        on_click_key:
-            An optional interaction key used to associate click behaviour
-            (e.g., analytics or event routing).
-        action_type:
-            Determines whether the slider updates a value or emits events
-            when interacted with.
     """
 
-    def __init__(self, data_source: Field | Parameter | Calculation | ContextVariable):
-        super().__init__()
+    supported_data_types = frozenset({DataType.BOOLEAN})
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {"size": DataType.STRING}
 
-        self.slider_data_source_id = get_model_variable(data_source)
-
-        self.toggle_on: ModelEvent | None = None
-        self.toggle_off: ModelEvent | None = None
-
-        self.action_type = ActionType.VALUE
-
-        self.on_click_key: TemplateBindingKey | None = None
+    def __init__(
+        self, data_source: Field | Parameter | Calculation | ContextVariable | ModelVariable
+    ):
+        super().__init__(data_source)
+        self.on_check: ModelEvent | None = None
+        self.on_uncheck: ModelEvent | None = None
 
     def set_on_event(self, event: ModelEvent) -> "Slider":
-        """
-        Assigns an event to be fired when the slider transitions into the "on" state.
-
-        Parameters:
-            event (ModelEvent):
-                The event to trigger when the slider switches from off to on.
-
-        Notes:
-            Setting an on-event automatically changes the slider's action_type
-            to ActionType.EVENTS, indicating the slider now emits events rather
-            than updating a value.
-        """
-        self.toggle_on = event
-        self.action_type = ActionType.EVENTS
+        """Assigns the event fired when the slider transitions into the on state."""
+        self.on_check = event
         return self
 
     def set_off_event(self, event: ModelEvent) -> "Slider":
-        """
-        Assigns an event to be fired when the slider transitions into the "off" state.
-
-        Parameters:
-            event (ModelEvent):
-                The event to trigger when the slider switches from on to off.
-
-        Notes:
-            Setting an off-event automatically changes the slider's action_type
-            to ActionType.EVENTS, indicating the slider now emits events rather
-            than updating a value.
-        """
-        self.toggle_off = event
-        self.action_type = ActionType.EVENTS
+        """Assigns the event fired when the slider transitions into the off state."""
+        self.on_uncheck = event
         return self
 
 
@@ -1359,25 +1510,44 @@ class Text(Element):
             truncated); enable via :meth:`set_wrap`.
     """
 
-    def __init__(
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "color": DataType.STRING,
+        "size": DataType.STRING,
+        "showTooltip": DataType.BOOLEAN,
+        "wrap": DataType.BOOLEAN,
+        "noWrap": DataType.BOOLEAN,
+    }
+
+    def __init__(  # noqa: PLR0913
         self,
-        value: str | Parameter | Calculation | Field | TemplateBindingKey,
+        value: str | Parameter | Calculation | Field | TemplateBindingKey | None = None,
         color: str | None = None,
         font_weight: FontWeight | None = None,
         variant: TextVariant | None = None,
         show_tool_tip: bool = False,
+        *,
+        data_source: Field | Parameter | Calculation | ContextVariable | None = None,
     ):
         super().__init__()
 
         if isinstance(value, str):
-            self.value = value
-        elif value:
+            self.value: str | None = value
+        elif value is not None:
             self.value = f"${{{value.to_string()}}}"
+        else:
+            self.value = None
         self.color = color
         self.font_weight = font_weight
         self.variant = variant
         self.show_tool_tip = show_tool_tip
         self.wrap = False
+        self.data_source = get_model_variable(data_source) if data_source is not None else None
+        self.object_field_reference: str | None = None
+
+    def set_reference_field(self, field: str) -> "Text":
+        """Sets the referenced-table field to display for an OBJECT-type data source."""
+        self.object_field_reference = field
+        return self
 
     def set_color(self, color: str) -> "Text":
         """Sets the CSS colour for this text element."""
@@ -1451,6 +1621,16 @@ class ListElement(Element):
             Horizontal spacing between columns.
 
     """
+
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "layoutDirection": DataType.STRING,
+        "wrap": DataType.BOOLEAN,
+        "overflowStrategy": DataType.STRING,
+        "height": DataType.STRING,
+        "width": DataType.STRING,
+        "rowGap": DataType.STRING,
+        "columnGap": DataType.STRING,
+    }
 
     def __init__(
         self,
@@ -1585,3 +1765,493 @@ class ModelEditorLink(Element):
             self.text_value = f"${{{text_value.to_string()}}}"
 
         self.destination = ModelEditorLinkDestination(model_id, scenario_id, open_new_tab)
+
+
+@typechecked
+@json_type_info("textInput")
+class TextInput(InputElement):
+    """
+    A text input bound to a ``STRING`` value.
+
+    Renders as a single-line field by default. Supplying ``rows`` (and optionally ``resize``)
+    turns it into a multiline text area.
+
+    Attributes:
+        default_value (StringValue | None): Text pre-filled when the bound value is absent.
+        rows (int | None): Visible row count; set to make the input a multiline text area.
+        resize (TextInputResize | None): User-resizability direction for the text area.
+    """
+
+    supported_data_types = frozenset({DataType.STRING})
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {"size": DataType.STRING}
+
+    def __init__(
+        self,
+        data_source: DataSource,
+        default_value: StringValue | None = None,
+        rows: int | None = None,
+        resize: TextInputResize | None = None,
+    ):
+        super().__init__(data_source)
+        self.default_value = default_value
+        self.rows = rows
+        self.resize = resize
+
+    def _property_types(self) -> dict[str, DataType]:
+        # rows/resize only apply to a multiline (rows-set) text area.
+        if self.rows is None:
+            return self.PROPERTY_TYPES
+        return {**self.PROPERTY_TYPES, "rows": DataType.INTEGER, "resize": DataType.STRING}
+
+
+@typechecked
+@json_type_info("numberInput")
+class NumberInput(InputElement):
+    """
+    A numeric input bound to an ``INTEGER`` or ``DECIMAL`` value.
+
+    Supports list and range validation.
+
+    Attributes:
+        default_value (IntegerValue | DecimalValue | None): Numeric default pre-filled when the
+            bound value is absent.
+    """
+
+    supported_data_types = frozenset({DataType.INTEGER, DataType.DECIMAL})
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "size": DataType.STRING,
+        "displayFormat": DataType.STRING,
+    }
+
+    def __init__(
+        self,
+        data_source: DataSource,
+        default_value: IntegerValue | DecimalValue | None = None,
+    ):
+        super().__init__(data_source)
+        self.default_value = default_value
+
+    def supports_list_validation(self) -> bool:
+        return True
+
+
+@typechecked
+@json_type_info("dropdown")
+class Dropdown(InputElement):
+    """
+    A dropdown (select) bound to an ``OBJECT`` value.
+
+    Displays a list of object references from the bound table. The display label defaults to the
+    referenced table's key column; override with :meth:`set_display_field`. Supports list
+    validation to restrict available choices.
+
+    Attributes:
+        choices (ModelVariable | None): Optional model variable supplying an alternative choice
+            list.
+        searchable (bool): If ``True``, includes a search box within the dropdown.
+        nullable (bool): If ``True``, allows the value to be cleared to null.
+        object_reference_display_field (str | None): Field to display for each object choice.
+    """
+
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "size": DataType.STRING,
+        "isSearchable": DataType.BOOLEAN,
+        "isNullable": DataType.BOOLEAN,
+        "isClearable": DataType.BOOLEAN,
+        "placeholder": DataType.STRING,
+    }
+
+    def __init__(
+        self,
+        data_source: DataSource,
+        *,
+        object_reference_display_field: str | None = None,
+    ):
+        super().__init__(data_source)
+        self.choices: ModelVariable | None = None
+        self.searchable: bool = False
+        self.nullable: bool = False
+        # Default the display field to the referenced table's key column when derivable, so the
+        # frontend always has a label to render for each choice.
+        if object_reference_display_field is None and isinstance(
+            data_source, Field | Parameter | Calculation
+        ):
+            data_type = data_source.to_data_type()
+            if isinstance(data_type, ObjectDataType):
+                source_table = cast(Table, data_type._source_table)  # noqa: SLF001
+                object_reference_display_field = source_table.key_column
+        if object_reference_display_field is None:
+            raise ValueError(
+                "Dropdown requires an object_reference_display_field (the field to show for each "
+                "choice); it could not be derived from the data source's referenced table key."
+            )
+        self.object_reference_display_field = object_reference_display_field
+
+    def _assert_supported(
+        self, data_source: Field | Parameter | Calculation | ContextVariable
+    ) -> None:
+        if not isinstance(data_source, Field | Parameter | Calculation):
+            return
+        data_type = data_source.to_data_type()
+        if not isinstance(data_type, ObjectDataType) or data_type.is_array():
+            raise ValueError(f"Dropdown must bind to a non-array OBJECT value; got {data_type}.")
+
+    def set_display_field(self, field: str) -> "Dropdown":
+        """Sets the field to display for each object choice."""
+        self.object_reference_display_field = field
+        return self
+
+    def set_searchable(self, searchable: bool) -> "Dropdown":
+        """Sets whether the dropdown includes a search box."""
+        self.searchable = searchable
+        return self
+
+    def set_nullable(self, nullable: bool) -> "Dropdown":
+        """Sets whether the dropdown value may be cleared to null."""
+        self.nullable = nullable
+        return self
+
+    def set_choices(self, choices: ModelVariable) -> "Dropdown":
+        """Sets the model variable providing the list of available choices."""
+        self.choices = choices
+        return self
+
+
+@typechecked
+@json_type_info("dateTimePicker")
+class DateTimePicker(InputElement):
+    """
+    A date, time, or date-time picker bound to a ``DATE``, ``TIME``, or ``DATETIME`` value.
+
+    The ``mode`` selects which portion is edited. Supports list and range validation.
+
+    Attributes:
+        mode (DateTimeMode): Which portion of the value is edited.
+        with_selector (bool): If ``True``, displays an inline calendar selector.
+        time_interval (int | None): Minute increment for the time portion.
+    """
+
+    supported_data_types = frozenset({DataType.DATE, DataType.TIME, DataType.DATETIME})
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "size": DataType.STRING,
+        "displayFormat": DataType.STRING,
+    }
+
+    def __init__(
+        self,
+        data_source: DataSource,
+        mode: DateTimeMode = DateTimeMode.DATE_TIME,
+        *,
+        object_field_reference: str | None = None,
+    ):
+        super().__init__(data_source, object_field_reference=object_field_reference)
+        self.mode = mode
+        self.with_selector: bool | None = None
+        self.time_interval: int | None = None
+
+    def _property_types(self) -> dict[str, DataType]:
+        types = dict(self.PROPERTY_TYPES)
+        if self.mode in (DateTimeMode.DATE, DateTimeMode.DATE_TIME):
+            types["withSelector"] = DataType.BOOLEAN
+        if self.mode in (DateTimeMode.TIME, DateTimeMode.DATE_TIME):
+            types["timeInterval"] = DataType.INTEGER
+        return types
+
+    def supports_list_validation(self) -> bool:
+        return True
+
+    def set_mode(self, mode: DateTimeMode) -> "DateTimePicker":
+        """Sets which portion of the value (date, time, or both) is edited."""
+        self.mode = mode
+        return self
+
+    def set_with_selector(self, with_selector: bool) -> "DateTimePicker":
+        """Sets whether an inline calendar selector is shown."""
+        self.with_selector = with_selector
+        return self
+
+    def set_time_interval(self, minutes: int) -> "DateTimePicker":
+        """Sets the minute increment for the time portion."""
+        self.time_interval = minutes
+        return self
+
+
+@typechecked
+@json_type_info("colorPicker")
+class ColorPicker(InputElement):
+    """
+    A colour picker bound to a ``STRING`` value (typically a hex colour).
+
+    Attributes:
+        swatch_colors (list[str] | None): Palette restricting selectable colours; when omitted the
+            UI may use its default theme palette.
+        allow_custom (bool | None): Whether free-form hex entry is allowed.
+    """
+
+    supported_data_types = frozenset({DataType.STRING})
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "size": DataType.STRING,
+        "allowCustom": DataType.BOOLEAN,
+        "placeholder": DataType.STRING,
+    }
+
+    def __init__(
+        self,
+        data_source: DataSource,
+    ):
+        super().__init__(data_source)
+        self.swatch_colors: list[str] | None = None
+        self.allow_custom: bool | None = None
+
+    def set_swatch_colors(self, colors: list[str]) -> "ColorPicker":
+        """Sets the palette of swatch colours available in the picker."""
+        self.swatch_colors = colors
+        return self
+
+    def set_allow_custom(self, allow: bool) -> "ColorPicker":
+        """Sets whether free-form hex colour entry is allowed."""
+        self.allow_custom = allow
+        return self
+
+
+@typechecked
+@json_type_info("iconPicker")
+class IconPicker(InputElement):
+    """
+    An icon picker bound to a ``STRING`` value (an icon identifier).
+
+    Attributes:
+        icon_set (IconSet): Which icon catalogue to show.
+        defaults (list[str] | None): Icon ids shown first in the picker.
+        preview_color (str | None): CSS colour used to tint icons in the dropdown.
+    """
+
+    supported_data_types = frozenset({DataType.STRING})
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "size": DataType.STRING,
+        "previewColor": DataType.STRING,
+        "placeholder": DataType.STRING,
+    }
+
+    def __init__(
+        self,
+        data_source: DataSource,
+        icon_set: IconSet = IconSet.ALL,
+    ):
+        super().__init__(data_source)
+        self.icon_set = icon_set
+        self.defaults: list[Icon] | None = None
+        self.preview_color: str | None = None
+
+    def set_icon_set(self, icon_set: IconSet) -> "IconPicker":
+        """Sets the icon catalogue to display in the picker."""
+        self.icon_set = icon_set
+        return self
+
+    def set_defaults(self, defaults: list[Icon]) -> "IconPicker":
+        """Sets the icons displayed first in the picker."""
+        self.defaults = defaults
+        return self
+
+    def set_preview_color(self, color: str) -> "IconPicker":
+        """Sets the CSS colour used to tint icons in the picker dropdown."""
+        self.preview_color = color
+        return self
+
+
+@typechecked
+@json_type_info("array")
+class ArrayElement(InputElement):
+    """
+    Shows and edits the value of an ARRAY-typed field, named value or context variable as one
+    element.
+
+    Whether it can be edited comes from its element states, as for any :class:`InputElement`.
+    Unlike :class:`ListElement`, which lays out a template element once per row of an
+    OBJECT_ARRAY, this shows the values themselves.
+
+    Attributes:
+        layout (ArrayLayout): How the values are laid out.
+        object_reference_display_field (str | None): For an OBJECT_ARRAY, the field of the
+            referenced table each value is shown by. Defaults to the referenced table's key column.
+        placeholder (str | None): Text shown when the array is empty.
+        allow_duplicates (bool): Whether the same value may be added twice. Defaults to ``False``:
+            adding a duplicate is refused, and any the value already holds are marked.
+        allow_blanks (bool): Whether a blank (null) keeps its place in the array. Defaults to
+            ``False``: blanks are not shown, clearing a value removes it, and an edit writes the
+            array back without them.
+    """
+
+    PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
+        "displayFormat": DataType.STRING,
+        "placeholder": DataType.STRING,
+        "allowDuplicates": DataType.BOOLEAN,
+        "allowBlanks": DataType.BOOLEAN,
+    }
+
+    def __init__(
+        self,
+        data_source: DataSource,
+        layout: ArrayLayout = ArrayLayout.BADGE,
+        *,
+        object_reference_display_field: str | None = None,
+    ):
+        super().__init__(data_source)
+        self.layout = layout
+        if object_reference_display_field is None and isinstance(
+            data_source, Field | Parameter | Calculation
+        ):
+            data_type = data_source.to_data_type()
+            if isinstance(data_type, ObjectDataType):
+                source_table = cast(Table, data_type._source_table)  # noqa: SLF001
+                object_reference_display_field = source_table.key_column
+        self.object_reference_display_field = object_reference_display_field
+        self.placeholder: str | None = None
+        self.allow_duplicates: bool = False
+        self.allow_blanks: bool = False
+
+    def _assert_supported(
+        self, data_source: Field | Parameter | Calculation | ContextVariable
+    ) -> None:
+        if not isinstance(data_source, Field | Parameter | Calculation):
+            return
+        data_type = data_source.to_data_type()
+        if not data_type.is_array():
+            raise ValueError(f"ArrayElement must bind to an ARRAY value; got {data_type}.")
+
+    def set_layout(self, layout: ArrayLayout) -> "ArrayElement":
+        """Sets how the values are laid out."""
+        self.layout = layout
+        return self
+
+    def set_display_field(self, field: str) -> "ArrayElement":
+        """Sets the referenced-table field each value of an OBJECT_ARRAY is shown by."""
+        self.object_reference_display_field = field
+        return self
+
+    def set_placeholder(self, placeholder: str) -> "ArrayElement":
+        """Sets the text shown when the array is empty."""
+        self.placeholder = placeholder
+        return self
+
+    def set_allow_duplicates(self, allow: bool = True) -> "ArrayElement":
+        """Sets whether the same value may be added twice."""
+        self.allow_duplicates = allow
+        return self
+
+    def set_allow_blanks(self, allow: bool = True) -> "ArrayElement":
+        """Sets whether a blank (null) keeps its place in the array."""
+        self.allow_blanks = allow
+        return self
+
+
+#: Sizes a :class:`RangeBar` supports: the thin bar (SMALL) and the bordered bar (LARGE).
+RANGE_BAR_SIZES = (ElementSize.SMALL, ElementSize.LARGE)
+
+_NUMERIC_TYPES = frozenset({DataType.INTEGER, DataType.DECIMAL})
+_NUMERIC_ARRAY_TYPES = frozenset({DataType.INTEGER_ARRAY, DataType.DECIMAL_ARRAY})
+
+
+@typechecked
+@json_type_info("rangeBar")
+class RangeBar(Element):
+    """
+    A read-only bar from ``min`` to ``max`` that shows a value against coloured ranges.
+
+    The error, warning, success and info ranges are drawn as bands in that state's background
+    colour, and the value is drawn as a fill from ``min`` or as a marker, in the colour of the
+    range it lands in. The bar has no input, no click behaviour and no label.
+
+    Every property is a model variable, read at render time. Each range is a numeric array of
+    inclusive ``[from, to]`` pairs, e.g. ``[0, 5, 7, 10]`` is 0–5 and 7–10. A single value is
+    open-ended: on its own it covers everything up to it; among other ranges it opens towards
+    the side with no other range. Overlaps resolve error > warning > success > info.
+
+    With no ranges, the element's state (:meth:`add_conditional_error` and friends) colours the
+    whole bar. When ranges are given they decide the colours.
+
+    Attributes:
+        value:
+            The value shown on the bar (``INTEGER`` or ``DECIMAL``).
+        min:
+            The start of the scale. Defaults to 0 when unset.
+        max:
+            The end of the scale. Defaults to 100 when unset.
+        error_ranges, warning_ranges, success_ranges, info_ranges:
+            ``INTEGER_ARRAY`` or ``DECIMAL_ARRAY`` values of ``[from, to]`` pairs.
+        indicator:
+            A ``STRING`` value holding ``"FILL"`` (the default) or ``"MARKER"``.
+    """
+
+    def __init__(
+        self,
+        value: DataSource,
+        min_value: DataSource | None = None,
+        max_value: DataSource | None = None,
+    ):
+        super().__init__()
+        self.value = self._variable(value, _NUMERIC_TYPES)
+        self.min = self._variable(min_value, _NUMERIC_TYPES)
+        self.max = self._variable(max_value, _NUMERIC_TYPES)
+        self.error_ranges: ModelVariable | None = None
+        self.warning_ranges: ModelVariable | None = None
+        self.success_ranges: ModelVariable | None = None
+        self.info_ranges: ModelVariable | None = None
+        self.indicator: ModelVariable | None = None
+
+    def set_error_ranges(self, ranges: DataSource) -> "RangeBar":
+        """Sets the numeric array of ``[from, to]`` pairs drawn as error ranges."""
+        self.error_ranges = self._variable(ranges, _NUMERIC_ARRAY_TYPES)
+        return self
+
+    def set_warning_ranges(self, ranges: DataSource) -> "RangeBar":
+        """Sets the numeric array of ``[from, to]`` pairs drawn as warning ranges."""
+        self.warning_ranges = self._variable(ranges, _NUMERIC_ARRAY_TYPES)
+        return self
+
+    def set_success_ranges(self, ranges: DataSource) -> "RangeBar":
+        """Sets the numeric array of ``[from, to]`` pairs drawn as success ranges."""
+        self.success_ranges = self._variable(ranges, _NUMERIC_ARRAY_TYPES)
+        return self
+
+    def set_info_ranges(self, ranges: DataSource) -> "RangeBar":
+        """Sets the numeric array of ``[from, to]`` pairs drawn as info ranges."""
+        self.info_ranges = self._variable(ranges, _NUMERIC_ARRAY_TYPES)
+        return self
+
+    def set_indicator(self, indicator: DataSource) -> "RangeBar":
+        """Sets the ``STRING`` value holding ``"FILL"`` or ``"MARKER"``."""
+        self.indicator = self._variable(indicator, frozenset({DataType.STRING}))
+        return self
+
+    def set_size(self, size: ElementSize) -> "RangeBar":
+        """
+        Sets the bar size: ``ElementSize.SMALL`` (the default) or ``ElementSize.LARGE``.
+
+        Raises:
+            ValueError: If ``size`` is any other ``ElementSize``.
+        """
+        if size not in RANGE_BAR_SIZES:
+            raise ValueError(f"Invalid size for RangeBar: {size.value}. Use SMALL or LARGE.")
+        self.size = size
+        return self
+
+    @staticmethod
+    def _variable(
+        source: DataSource | None, supported: frozenset[DataType]
+    ) -> ModelVariable | None:
+        """Resolve ``source``, checking a field's or named value's data type is ``supported``.
+
+        Raises:
+            ValueError: If the source's data type is not one of ``supported``.
+        """
+        if source is None or isinstance(source, ModelVariable):
+            return source
+        if isinstance(source, Field | Parameter | Calculation):
+            data_type = source.to_data_type()
+            if data_type not in supported:
+                raise ValueError(
+                    f"RangeBar does not support data type {data_type} for {source.id}; "
+                    f"supported: {sorted(t.value for t in supported)}"
+                )
+        return get_model_variable(source)

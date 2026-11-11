@@ -70,6 +70,7 @@ from daitum_configuration.data_source.model_transform.model_transform_config imp
 from daitum_configuration.data_source.model_transform.model_transform_input import (
     ModelTransformInput,
 )
+from daitum_configuration.data_source.model_transform.publish_config import PublishConfig
 from daitum_configuration.data_source.run_external_model.run_external_model_config import (
     RunExternalModelConfig,
 )
@@ -84,7 +85,11 @@ from daitum_configuration.data_source.track_changes_config import TrackChangesCo
 _CONFIGS: dict[str, tuple[type, tuple[tuple[str, ...], dict[str, Any], dict[str, Any]]]] = {
     DataSourceType.DATA_STORE.value: (
         DataStoreConfig,
-        (("data_store_key", "tables"), {}, {"model_filter": DataFilter}),
+        (
+            ("data_store_key", "tables"),
+            {},
+            {"model_filter": DataFilter, "model_filters": ListOf(DataFilter)},
+        ),
     ),
     DataSourceType.EXCEL_TRANSFORM.value: (
         ExcelTransformConfig,
@@ -104,7 +109,11 @@ _CONFIGS: dict[str, tuple[type, tuple[tuple[str, ...], dict[str, Any], dict[str,
         (
             ("file_key", "file_name"),
             {},
-            {"inputs": ListOf(ModelTransformInput), "log_table_columns": _LogTableColumns},
+            {
+                "inputs": ListOf(ModelTransformInput),
+                "log_table_columns": _LogTableColumns,
+                "publish": ListOf(PublishConfig),
+            },
         ),
     ),
     DataSourceType.DISTANCE_MATRIX.value: (

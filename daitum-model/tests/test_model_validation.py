@@ -9,8 +9,6 @@ non-raising ``validate()`` entry point.
 from __future__ import annotations
 
 import pytest
-from fixtures import invalid_models
-
 from daitum_model import (
     CircularDependencyError,
     FieldReferenceError,
@@ -19,6 +17,7 @@ from daitum_model import (
     TableReferenceError,
 )
 from daitum_model.validation.engine import RULES
+from fixtures import invalid_models
 
 
 class TestTableCycles:
@@ -27,7 +26,7 @@ class TestTableCycles:
         assert not report.ok
         issues = [i for i in report if isinstance(i, CircularDependencyError)]
         assert len(issues) == 1
-        assert "A -> B -> A" in issues[0].render()
+        assert "table 'A' -> table 'B' -> table 'A'" in issues[0].render()
 
     def test_cycle_via_formula_across_tables(self):
         # B is derived from A and a calculated field on A reads a column of B.
@@ -46,7 +45,7 @@ class TestTableCycles:
         report = invalid_models.table_cycle_with_self_edge().validate()
         cycles = [i for i in report if isinstance(i, CircularDependencyError)]
         assert len(cycles) == 1
-        assert "A -> B -> A" in cycles[0].render()
+        assert "table 'A' -> table 'B' -> table 'A'" in cycles[0].render()
 
 
 class TestNamedValueCycles:
@@ -54,7 +53,23 @@ class TestNamedValueCycles:
         report = invalid_models.named_value_cycle().validate()
         cycles = [i for i in report if isinstance(i, CircularDependencyError)]
         assert len(cycles) == 1
-        assert "C1 -> C2 -> C1" in cycles[0].render()
+        assert "calculation 'C1' -> calculation 'C2' -> calculation 'C1'" in cycles[0].render()
+
+
+class TestCrossDomainCycles:
+    def test_field_reads_calc_that_aggregates_its_table(self):
+        # field -> calculation -> table: invisible to a table-only or calc-only graph; only
+        # the combined build-order graph closes it. Regression for the DemandCurveIntervals bug.
+        report = invalid_models.cross_domain_table_calc_cycle().validate()
+        cycles = report.by_rule("no-circular-build-order-dependencies")
+        assert len(cycles) == 1
+        assert "DemandCurveIntervals" in cycles[0].location
+        assert "DEMAND_CURVE_FIRST_MINUTE" in cycles[0].location
+
+    def test_calc_aggregating_a_different_table_is_valid(self):
+        # Control: the calc aggregates another table, so there is no loop.
+        report = invalid_models.non_cyclic_calc_aggregating_other_table().validate()
+        assert report.by_rule("no-circular-build-order-dependencies") == []
 
 
 class TestFieldCycles:
@@ -174,7 +189,7 @@ class TestStandaloneValidate:
 
     def test_by_rule_filters_issues(self):
         report = invalid_models.named_value_cycle().validate()
-        assert report.by_rule("no-circular-named-value-dependencies")
+        assert report.by_rule("no-circular-build-order-dependencies")
         assert report.by_rule("does-not-exist") == []
 
 

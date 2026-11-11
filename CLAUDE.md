@@ -103,24 +103,30 @@ pip install -e daitum-model -e daitum-ui -e daitum-configuration
 
 ### Linting and Type Checking
 
-**CRITICAL: When fixing linting issues, ALWAYS run the automated tools (Black, Ruff) instead of
-manually editing code formatting.**
+**`./pipelines/lint.sh` is the source of truth** — it is exactly what CI runs: `ruff format
+--check`, then `ruff check`, then `mypy`. There is no Black in this repo; the formatter is
+`ruff format`. Run `./pipelines/lint.sh` before committing and treat its result as final.
+
+**CRITICAL: When fixing linting issues, ALWAYS let `ruff format` handle formatting instead of
+manually editing whitespace or line wrapping.** Running the wrong formatter (e.g. Black, or
+ruff without the repo config) re-wraps the whole tree to a different line length and produces
+large, spurious diffs.
 
 ```bash
-# Run all checks (Black, Ruff, MyPy) — same as CI pipeline
+# Run all checks — same as CI pipeline (format check, lint, type check)
 ./pipelines/lint.sh
 
-# Individual tools (always use venv)
-source venv/bin/activate && black daitum-model/src daitum-ui/src daitum-configuration/src
+# Individual tools (always use venv; config auto-discovered from the root pyproject.toml)
+source venv/bin/activate && ruff format daitum-model/src daitum-ui/src daitum-configuration/src
 source venv/bin/activate && ruff check daitum-model/src daitum-ui/src daitum-configuration/src
 source venv/bin/activate && mypy --explicit-package-bases daitum-model/src daitum-ui/src daitum-configuration/src
 ```
 
 **Workflow for fixing linting issues:**
-1. Run Black first to auto-format.
-2. Run Ruff to check/fix linting: `ruff check --fix`.
+1. Run `ruff format` first to auto-format.
+2. Run `ruff check --fix` to check/fix linting.
 3. Add `# noqa: RULE_CODE` comments only when necessary for legitimate exceptions.
-4. Never manually edit code formatting — let Black handle it.
+4. Never manually edit code formatting — let `ruff format` handle it.
 
 ### Running Tests
 

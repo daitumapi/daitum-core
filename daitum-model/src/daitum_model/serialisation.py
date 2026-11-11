@@ -143,7 +143,6 @@ class Buildable:
             elif isinstance(obj, (str, int, float, bool)) or obj is None:
                 return obj
 
-            # Fallback: not allowed
             raise TypeError(f"Unsupported type in build: {type(obj).__name__} ({obj})")
 
         result = {}

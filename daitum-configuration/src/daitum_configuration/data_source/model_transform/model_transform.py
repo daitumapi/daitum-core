@@ -39,9 +39,42 @@ this object. Use :meth:`build` to obtain the JSON to upload.
 import warnings
 from typing import Any
 
-from daitum_model import Calculation, Field, ModelBuilder, Parameter, Table
+from daitum_model import (
+    BaseDataType,
+    Calculation,
+    Field,
+    MapDataType,
+    ModelBuilder,
+    ObjectDataType,
+    Parameter,
+    Table,
+)
 from daitum_model.fields import ComboField, DataField
 from daitum_model.serialisation import Buildable
+
+
+def _data_types_match(dest: BaseDataType, src: BaseDataType) -> bool:
+    """Whether a value of type ``src`` may be routed into a slot of type ``dest``.
+
+    Primitive/array :class:`~daitum_model.DataType` values must be equal. Composite types
+    (:class:`~daitum_model.ObjectDataType`, :class:`~daitum_model.MapDataType`) match when they are
+    the same kind, same array-ness / map value type, and their referenced tables agree on id, key
+    column and id field — so a sub-model table and its parent counterpart line up even though they
+    are distinct objects.
+    """
+    if isinstance(dest, ObjectDataType) and isinstance(src, ObjectDataType):
+        return dest.is_array() == src.is_array() and _tables_match(
+            dest._source_table, src._source_table
+        )
+    if isinstance(dest, MapDataType) and isinstance(src, MapDataType):
+        return dest.data_type == src.data_type and _tables_match(
+            dest._source_table, src._source_table
+        )
+    return bool(dest == src)
+
+
+def _tables_match(dest: Any, src: Any) -> bool:
+    return bool(dest.key_column == src.key_column and dest.id_field == src.id_field)
 
 
 class ModelTransform(Buildable):
@@ -66,7 +99,7 @@ class ModelTransform(Buildable):
         self._parameter_outputs: dict[str, str] = {}
         self._table_outputs: dict[str, dict] = {}
 
-    # -- Report role -------------------------------------------------------------------
+    # Report role
 
     def add_report_sheet(
         self,
@@ -108,7 +141,7 @@ class ModelTransform(Buildable):
         self._parameter_outputs[name] = source.id
         return self
 
-    # -- Data-source role --------------------------------------------------------------
+    # Data-source role
 
     def add_data_source_table(
         self,
@@ -126,13 +159,23 @@ class ModelTransform(Buildable):
                 ids are auto-paired (data and combo fields only).
         """
         if field_mapping is not None:
-            resolved = {dest.id: src.id for dest, src in field_mapping.items()}
+            pairs = list(field_mapping.items())
         else:
-            resolved = {}
-            sub_model_fields = [field.id for field in sub_model_table.get_fields()]
-            for field in parent_table.get_fields():
-                if field.id in sub_model_fields and isinstance(field, (DataField, ComboField)):
-                    resolved[field.id] = field.id
+            sub_model_by_id = {field.id: field for field in sub_model_table.get_fields()}
+            pairs = [
+                (field, sub_model_by_id[field.id])
+                for field in parent_table.get_fields()
+                if field.id in sub_model_by_id and isinstance(field, (DataField, ComboField))
+            ]
+
+        for dest, src in pairs:
+            if not _data_types_match(dest.to_data_type(), src.to_data_type()):
+                raise ValueError(
+                    f"Field type mismatch mapping '{src.id}' ({src.to_data_type()}) into "
+                    f"'{dest.id}' ({dest.to_data_type()})."
+                )
+
+        resolved = {dest.id: src.id for dest, src in pairs}
 
         self._table_outputs[parent_table.id] = {
             "sourceName": sub_model_table.id,
@@ -151,10 +194,15 @@ class ModelTransform(Buildable):
             parent_value: The parent-model parameter or calculation to set.
             source: The sub-model parameter or calculation supplying the value.
         """
+        if not _data_types_match(parent_value.to_data_type(), source.to_data_type()):
+            raise ValueError(
+                f"Named value type mismatch mapping '{source.id}' ({source.to_data_type()}) into "
+                f"'{parent_value.id}' ({parent_value.to_data_type()})."
+            )
         self._parameter_outputs[parent_value.id] = source.id
         return self
 
-    # -- Deprecated ---------------------------------------------------------------------
+    # Deprecated
 
     def add_output_table(
         self,

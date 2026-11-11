@@ -15,399 +15,30 @@
 """
 Modal dialog system for overlay views and transactional editing.
 
-This module provides the Modal class, which creates modal dialog containers that
-display views as overlays with pre-configured action buttons. Modals support
-transactional editing workflows with automatic save, cancel, and reset functionality.
-
-Main Components
----------------
-
-**Modal Class:**
-    Container that wraps a view and provides:
-
-    - Configurable dimensions (width, height)
-    - Static or dynamic titles
-    - Pre-configured action buttons (Save, Cancel/Close, Reset, Delete)
-    - Custom footer elements
-    - Transaction-aware event handlers
-
-**Button Types:**
-    - Close Button: Non-transactional close (default)
-    - Cancel Button: Transactional cancel with rollback
-    - Save Button: Commit changes and close
-    - Reset Button: Rollback and restart transaction
-    - Delete Button: Custom destructive action
-
-Modal Workflows
----------------
-
-**Edit Dialog Mode (edit_dialog=True):**
-    Activated when Save, Cancel, Reset, or Delete buttons are added.
-    Supports transactional editing:
-
-    - BEGIN transaction when modal opens (via show_modal_action)
-    - SAVE: Commits transaction and closes modal
-    - CANCEL: Rolls back transaction and closes modal
-    - RESET: Rolls back and begins new transaction (keeps modal open)
-    - DELETE: Custom event (typically includes transaction handling)
-
-**View-Only Mode (edit_dialog=False):**
-    Default mode with only Close button.
-    No transaction management:
-
-    - CLOSE: Simply closes modal without transaction operations
-    - Used for information display, read-only views, or reports
-
-Default Button Behaviors
--------------------------
-
-**Close Button (default):**
-    - Text: "Close"
-    - Event: Rollback transaction + Close modal
-    - Use: Non-editing dialogs or safe close
-
-**Cancel Button:**
-    - Text: "Cancel"
-    - Event: Rollback transaction + Close modal
-    - Use: Editing dialogs, discards changes
-    - Sets edit_dialog=True
-
-**Save Button:**
-    - Text: "Save"
-    - Event: Commit transaction + Close modal
-    - Use: Editing dialogs, saves changes
-    - Sets edit_dialog=True
-    - Default styling: Blue background, white text
-
-**Reset Button:**
-    - Text: "Reset"
-    - Event: Rollback transaction + Begin new transaction
-    - Use: Editing dialogs, resets form to original values
-    - Sets edit_dialog=True and show_reset_button=True
-    - Keeps modal open for continued editing
-
-**Delete Button:**
-    - Text: "Delete"
-    - Event: Must be provided (no default)
-    - Use: Destructive operations
-    - Sets edit_dialog=True
-    - Default styling: Red background, white text
-    - Requires custom event with transaction handling
-
-Title Configuration
--------------------
-
-Modals support two title modes:
-
-**Static Title:**
-    Fixed text displayed in modal header.
-    Set by passing a string to the title parameter.
-
-**Dynamic Title:**
-    Title derived from ContextVariable value.
-    Set by passing a ContextVariable to the title parameter.
-    Useful for showing record-specific information (e.g., "Edit: John Doe").
-
-Footer Customization
---------------------
-
-In addition to pre-configured buttons, modals can have custom footer elements:
-
-- Add any Element to the footer using add_footer()
-- Footer elements appear alongside standard buttons
-- Useful for additional actions, status indicators, or help text
-
-Modal Identification
---------------------
-
-Each modal receives a unique randomly-generated ID (16 ASCII characters).
-This ID is used to reference the modal in show_modal_action() calls.
-
-Examples
---------
-Creating a simple view-only modal::
-
-    # Create view and builder
-    builder = UiBuilder()
-    info_view = builder.add_form_view(display_name="Information")
-
-    # Modal with just a close button (no transactions)
-    info_modal = builder.add_modal(
-        view=info_view,
-        height="400px",
-        width="600px",
-        title="Information"
-    )
-    # Default close button is already configured
-
-Creating an edit modal with save and cancel::
-
-    # Create view
-    edit_form_view = builder.add_form_view(display_name="Edit Form")
-
-    # Modal for editing data (transactional)
-    edit_modal = builder.add_modal(
-        view=edit_form_view,
-        height="500px",
-        width="700px",
-        title="Edit Customer"
-    )
-
-    # Add save button (commits changes)
-    edit_modal.add_save_button()
-
-    # Replace close with cancel button (discards changes)
-    edit_modal.add_cancel_button()
-
-Creating a modal with dynamic title::
-
-    # Context variable for customer name
-    customer_name_var = builder.add_context_variable(
-        id="modal_title_name",
-        type=CVType.STRING,
-        default_value=""
-    )
-
-    # Create view
-    customer_detail_view = builder.add_form_view(display_name="Customer Details")
-
-    # Modal with dynamic title from context variable
-    customer_modal = builder.add_modal(
-        view=customer_detail_view,
-        height="600px",
-        width="800px",
-        title=customer_name_var  # Title updates from context
-    )
-    customer_modal.add_save_button()
-    customer_modal.add_cancel_button()
-
-Creating a modal with reset button::
-
-    # Create view
-    data_entry_view = builder.add_form_view(display_name="Data Entry")
-
-    # Edit modal with reset functionality
-    form_modal = builder.add_modal(
-        view=data_entry_view,
-        height="450px",
-        width="650px",
-        title="Data Entry"
-    )
-    form_modal.add_save_button()
-    form_modal.add_cancel_button()
-    form_modal.add_reset_button()  # Allows user to reset form
-
-Creating a modal with delete button::
-
-    # Create delete event
-    delete_event = ModelEvent()
-    delete_event.add_begin_transaction()
-    delete_event.add_delete_row_action(
-        target_table=customers_table,
-        row_count=1,
-        select_mode=RowSelectionMode.INDEX,
-        row=current_customer_context_var
-    )
-    delete_event.add_commit_transaction()
-    delete_event.add_close_modal_action()
-
-    # Create view
-    delete_confirmation_view = builder.add_form_view(
-        display_name="Delete Confirmation"
-    )
-
-    # Modal with delete functionality
-    delete_modal = builder.add_modal(
-        view=delete_confirmation_view,
-        height="300px",
-        width="500px",
-        title="Confirm Delete"
-    )
-    delete_modal.add_delete_button(on_click=delete_event)
-    delete_modal.add_cancel_button()
-
-Customizing button appearance::
-
-    # Create view
-    custom_view = builder.add_form_view(display_name="Custom Form")
-
-    # Modal with custom button styling
-    styled_modal = builder.add_modal(
-        view=custom_view,
-        height="500px",
-        width="700px",
-        title="Custom Styling"
-    )
-
-    # Custom save button with icon and colours
-    styled_modal.add_save_button(
-        text_color="#ffffff",
-        background_color="#4caf50",
-        icon_source="FontAwesome.6.CHECK",
-        icon_color="#ffffff"
-    )
-
-    # Custom cancel button
-    styled_modal.add_cancel_button(
-        text_color="#f44336",
-        background_color="#ffebee"
-    )
-
-Creating a modal with custom events::
-
-    # Custom save event with additional actions
-    custom_save_event = ModelEvent()
-    custom_save_event.add_commit_transaction()
-    custom_save_event.add_run_data_source_action("refresh_list")
-    custom_save_event.add_close_modal_action()
-    custom_save_event.add_switch_view_action("list_view")
-
-    # Create view
-    form_view = builder.add_form_view(display_name="Form View")
-
-    # Create modal with custom event
-    custom_modal = builder.add_modal(
-        view=form_view,
-        height="500px",
-        width="700px",
-        title="Custom Save"
-    )
-    custom_modal.add_save_button(on_click=custom_save_event)
-    custom_modal.add_cancel_button()
-
-Adding custom footer elements::
-
-    from daitum_ui.elements import Text
-
-    # Create view
-    complex_form_view = builder.add_form_view(display_name="Complex Form")
-
-    # Modal with additional footer content
-    help_modal = builder.add_modal(
-        view=complex_form_view,
-        height="600px",
-        width="800px",
-        title="Complex Form"
-    )
-    help_modal.add_save_button()
-    help_modal.add_cancel_button()
-
-    # Add help text to footer
-    help_text = Text(
-        value="* Required fields",
-        color="#666666"
-    )
-    help_modal.add_footer(help_text)
-
-Full-featured edit modal::
-
-    # Create view
-    comprehensive_edit_view = builder.add_form_view(
-        display_name="Comprehensive Edit"
-    )
-
-    # Complete edit modal with all button types
-    full_modal = builder.add_modal(
-        view=comprehensive_edit_view,
-        height="700px",
-        width="900px",
-        title="Edit Record"
-    )
-
-    # Primary action
-    full_modal.add_save_button(
-        background_color="#2196f3"
-    )
-
-    # Secondary actions
-    full_modal.add_cancel_button()
-    full_modal.add_reset_button()
-
-    # Destructive action
-    full_modal.add_delete_button(on_click=delete_event)
-
-Opening a modal from an event::
-
-    from daitum_ui.model_event import ModelEvent
-    from daitum_ui.elements import Button
-
-    # Event to show the modal
-    show_edit_modal_event = ModelEvent()
-    show_edit_modal_event.add_show_modal_action(
-        modal_id=edit_modal.id,
-        transactional=True  # Begins transaction automatically
-    )
-
-    # Attach to button click
-    edit_button = Button(
-        text_value="Edit",
-        on_click=show_edit_modal_event
-    )
-
-Confirmation dialog pattern::
-
-    # Create view
-    confirmation_view = builder.add_form_view(
-        display_name="Confirmation"
-    )
-
-    # Simple confirmation modal
-    confirm_modal = builder.add_modal(
-        view=confirmation_view,
-        height="250px",
-        width="450px",
-        title="Confirm Action"
-    )
-
-    # Custom confirm event
-    confirm_event = ModelEvent()
-    confirm_event.add_commit_transaction()
-    # ... add custom actions ...
-    confirm_event.add_close_modal_action()
-
-    confirm_modal.add_save_button(
-        text_color="#ffffff",
-        background_color="#f44336"
-    )
-    confirm_modal.save_button.text_value = "Confirm"  # Change button text
-
-    confirm_modal.add_cancel_button()
-
-Responsive modal sizing::
-
-    # Create views
-    large_view = builder.add_table_view(table=large_table)
-    quick_action_view = builder.add_form_view(display_name="Quick Action")
-
-    # Modal with percentage-based dimensions
-    responsive_modal = builder.add_modal(
-        view=large_view,
-        height="80vh",  # 80% of viewport height
-        width="90%",    # 90% of viewport width
-        title="Large Modal"
-    )
-    responsive_modal.add_close_button()
-
-    # Small modal for quick actions
-    small_modal = builder.add_modal(
-        view=quick_action_view,
-        height="200px",
-        width="400px",
-        title="Quick Action"
-    )
-    small_modal.add_save_button()
-    small_modal.add_cancel_button()
+Provides the ``Modal`` class, a container that wraps a single view as an overlay
+with configurable action buttons (Close, Cancel, Save, Reset, Delete) and custom
+footer elements. Adding a Save, Cancel, Reset, or Delete button switches the modal
+into edit-dialog mode for transactional editing; titles may be static strings or
+driven by a ``ContextVariable``.
+
+Example:
+    >>> builder = UiBuilder()
+    >>> edit_view = builder.add_form_view(display_name="Edit Form")
+    >>> edit_modal = builder.add_modal(
+    ...     view=edit_view, height="500px", width="700px", title="Edit Customer"
+    ... )
+    >>> edit_modal.add_save_button()
+    >>> edit_modal.add_cancel_button()
 """
-
-import random
-import string
 
 from typeguard import typechecked
 
 from daitum_ui._buildable import Buildable
+from daitum_ui._ids import new_id
 from daitum_ui.base_view import BaseView
 from daitum_ui.context_variable import ContextVariable
 from daitum_ui.elements import Button, Element
+from daitum_ui.icons import Icon
 from daitum_ui.model_event import ModelEvent
 
 
@@ -459,7 +90,7 @@ class Modal(Buildable):
             width: CSS width value (e.g. ``"700px"`` or ``"90%"``).
             title: Static title string, a ``ContextVariable`` for a dynamic title, or ``None``.
         """
-        self.id: str = "".join(random.choices(string.ascii_letters, k=16))
+        self.id: str = new_id()
         self.view_id = view.id
         self.height = height
         self.width = width
@@ -509,7 +140,7 @@ class Modal(Buildable):
         self,
         text_color: str | None = "black",
         background_color: str | None = "transparent",
-        icon_source: str | None = None,
+        icon_source: Icon | None = None,
         icon_color: str | None = None,
         on_click: ModelEvent | None = None,
     ) -> Button:
@@ -551,7 +182,7 @@ class Modal(Buildable):
         self,
         text_color: str | None = "327BBF",
         background_color: str | None = "white",
-        icon_source: str | None = None,
+        icon_source: Icon | None = None,
         icon_color: str | None = None,
         on_click: ModelEvent | None = None,
     ) -> Button:
@@ -592,7 +223,7 @@ class Modal(Buildable):
         self,
         text_color: str | None = "white",
         background_color: str | None = "#327BBF",
-        icon_source: str | None = None,
+        icon_source: Icon | None = None,
         icon_color: str | None = None,
         on_click: ModelEvent | None = None,
     ) -> Button:
@@ -636,7 +267,7 @@ class Modal(Buildable):
         self,
         text_color: str | None = "black",
         background_color: str | None = "transparent",
-        icon_source: str | None = None,
+        icon_source: Icon | None = None,
         icon_color: str | None = None,
         on_click: ModelEvent | None = None,
     ) -> Button:
@@ -682,7 +313,7 @@ class Modal(Buildable):
         on_click: ModelEvent,
         text_color: str | None = "white",
         background_color: str | None = "red",
-        icon_source: str | None = None,
+        icon_source: Icon | None = None,
         icon_color: str | None = None,
     ) -> Button:
         """

@@ -48,6 +48,8 @@ PROBE_SPECIMENS: list[Specimen] = [
         "date_arr",
         "datetime_arr",
         "time_arr",
+        "coord",
+        "coord_arr",
         "object",
         "object_arr",
         "map",

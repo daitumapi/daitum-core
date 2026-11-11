@@ -39,7 +39,7 @@ class ValidationIssue:
 
     Attributes:
         rule_id: Stable machine id of the rule that produced this issue (e.g.
-            ``"no-circular-table-dependencies"``); useful for programmatic filtering.
+            ``"no-circular-build-order-dependencies"``); useful for programmatic filtering.
         location: A stable, human-readable path to the offending object, e.g.
             ``"table 'Orders'"`` or ``"calculation 'TOTAL_COST'"``.
         message: What is wrong and, where possible, how to fix it.

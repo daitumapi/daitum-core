@@ -63,16 +63,7 @@ class SteepestDynamicLocalSearch(Algorithm):
 
     def _build_parameters(self) -> dict[str, Any]:
         return {
-            "Log info": Algorithm._quant(self.log_info),
-            "Evaluations": Algorithm._quant(self.evaluations),
-            "Maximum evaluations without improvement": Algorithm._quant(
-                self.max_evaluations_without_improvement
-            ),
-            "Maximum time without improvement": Algorithm._quant(self.max_time_without_improvement),
-            "Minimum improvement": Algorithm._quant(self.min_improvement),
-            "Maximum restart count": Algorithm._quant(self.max_restart_count),
-            "PRNG seed": Algorithm._quant(self.prng_seed),
-            "Time limit": Algorithm._quant(self.time_limit),
+            **self._base_parameters(),
             "Allow neutral walks": Algorithm._quant(self.allow_neutral_walks),
             "Integer step size": Algorithm._quant(self.integer_step_size),
             "Decimal step size": Algorithm._quant(self.decimal_step_size),
@@ -86,24 +77,10 @@ class SteepestDynamicLocalSearch(Algorithm):
         if not isinstance(self.allow_neutral_walks, bool):
             raise TypeError("allow_neutral_walks must be bool")
 
-        self._validate_int_param("integer_step_size", self.integer_step_size)
-        self._validate_int_param("integer_step_change", self.integer_step_change)
-        self._validate_int_param("integer_lowest_step", self.integer_lowest_step)
+        self._validate_int("integer_step_size", self.integer_step_size, min_value=0)
+        self._validate_int("integer_step_change", self.integer_step_change, min_value=0)
+        self._validate_int("integer_lowest_step", self.integer_lowest_step, min_value=0)
 
-        self._validate_float_param("decimal_step_size", self.decimal_step_size)
-        self._validate_float_param("decimal_step_change", self.decimal_step_change)
-        self._validate_float_param("decimal_lowest_step", self.decimal_lowest_step)
-
-    @staticmethod
-    def _validate_int_param(name: str, value: int | NamedValue) -> None:
-        if not isinstance(value, int | NamedValue):
-            raise TypeError(f"{name} must be int or NamedValue")
-        if isinstance(value, int) and value < 0:
-            raise ValueError(f"{name} must be non-negative")
-
-    @staticmethod
-    def _validate_float_param(name: str, value: float | NamedValue) -> None:
-        if not isinstance(value, float | NamedValue):
-            raise TypeError(f"{name} must be float or NamedValue")
-        if isinstance(value, float) and value < 0:
-            raise ValueError(f"{name} must be non-negative")
+        self._validate_float("decimal_step_size", self.decimal_step_size, min_value=0.0)
+        self._validate_float("decimal_step_change", self.decimal_step_change, min_value=0.0)
+        self._validate_float("decimal_lowest_step", self.decimal_lowest_step, min_value=0.0)

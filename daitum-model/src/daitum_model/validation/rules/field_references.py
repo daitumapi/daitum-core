@@ -119,7 +119,7 @@ class AllFieldReferencesExist:
 
         # Every other reference leaf must resolve where it is defined / registered. A bare field
         # already checked above is skipped so it is not reported twice.
-        for leaf in graph.formula_dependencies(obj):
+        for leaf in obj.dependencies():
             if isinstance(leaf, Field) and leaf.id in local_field_ids:
                 continue
             self._check_leaf(leaf, location, graph, report)

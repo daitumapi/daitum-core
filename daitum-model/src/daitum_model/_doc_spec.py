@@ -54,9 +54,7 @@ ALL_TYPES = (
 )
 
 
-# ---------------------------------------------------------------------------
 # Return-type derivation — a projection of result_type() over a complete pool
-# ---------------------------------------------------------------------------
 #
 # Return types are derived by running each function's real ``result_type`` across a *complete*
 # operand pool — one operand per data-type kind, including every ``<T>_MAP`` and object kind — so
@@ -103,6 +101,10 @@ def _operand_pool() -> tuple[list[Any], Any]:
     operands.append(table.add_object_reference_field("obj_arr", other, is_array=True))
     for dt in PRIMITIVE_DATA_TYPES:
         operands.append(table.add_map_field(f"m_{dt.name}", dt, other))
+    # Coordinates are not in PRIMITIVE_DATA_TYPES (no map variant), so add them explicitly — the
+    # coordinate/routing functions need coordinate operands to be constructed by the probe.
+    operands.append(table.add_data_field("s_COORDINATE", DataType.COORDINATE))
+    operands.append(table.add_data_field("a_COORDINATE", DataType.COORDINATE_ARRAY))
     return operands, other
 
 

@@ -66,6 +66,8 @@ TIME_AND_ARRAY_TYPES = {
 
 STRING_AND_ARRAY_TYPES = {DataType.STRING, DataType.STRING_ARRAY}
 
+COORDINATE_AND_ARRAY_TYPES = {DataType.COORDINATE, DataType.COORDINATE_ARRAY}
+
 
 def _is_object_array(x: Operand) -> bool:
     """Whether *x* is an ``OBJECT_ARRAY`` operand.
@@ -1674,6 +1676,232 @@ def DAY(
             # Returns 3
     """
     return _functions.Day(date)
+
+
+def COORDINATE(
+    latitude: Operand | int | float,
+    longitude: Operand | int | float,
+) -> Formula:
+    """
+    Constructs a geographic coordinate from latitude and longitude components.
+
+    The COORDINATE function pairs a `latitude` and `longitude` into a single coordinate value.
+    Both arguments must be numeric. It supports single values and arrays; if either argument is
+    an array, the result is an array of coordinates.
+
+    Arguments:
+        latitude:
+            The latitude in the range -90 to 90.
+        longitude:
+            The longitude in the range -180 to 180.
+
+
+    Returns:
+        A coordinate, or an array of coordinates if either argument is an array.
+
+
+    Raises:
+        ValueError: If either argument is not a numeric type.
+
+    Examples:
+        .. code-block:: python
+
+            COORDINATE(-33.87, 151.21)
+    """
+    return _functions.Coordinate(latitude, longitude)
+
+
+def LATITUDE(
+    coordinate: Operand,
+) -> Formula:
+    """
+    Extracts the latitude component from a coordinate or array of coordinates.
+
+    Arguments:
+        coordinate:
+            The coordinate or array of coordinates from which to extract the latitude.
+
+
+    Returns:
+        The latitude as a decimal, or array of decimals.
+
+
+    Raises:
+        ValueError: If the input is not a coordinate type.
+
+    Examples:
+        .. code-block:: python
+
+            LATITUDE(COORDINATE(-33.87, 151.21))
+            # Returns -33.87
+    """
+    return _functions.Latitude(coordinate)
+
+
+def LONGITUDE(
+    coordinate: Operand,
+) -> Formula:
+    """
+    Extracts the longitude component from a coordinate or array of coordinates.
+
+    Arguments:
+        coordinate:
+            The coordinate or array of coordinates from which to extract the longitude.
+
+
+    Returns:
+        The longitude as a decimal, or array of decimals.
+
+
+    Raises:
+        ValueError: If the input is not a coordinate type.
+
+    Examples:
+        .. code-block:: python
+
+            LONGITUDE(COORDINATE(-33.87, 151.21))
+            # Returns 151.21
+    """
+    return _functions.Longitude(coordinate)
+
+
+def ROUTE_DISTANCE(
+    from_: Operand,
+    to: Operand,
+    profile: Operand | str | None = None,
+) -> Formula:
+    """
+    Computes the road-network distance, in metres, between two coordinates.
+
+    `from_` and `to` are each a coordinate or coordinate array; a single value is used against
+    every element of an array argument, and two arrays are paired by position. Any array argument
+    makes the result a decimal array (one distance per pairing).
+
+    Arguments:
+        from_:
+            The origin coordinate or coordinate array.
+        to:
+            The destination coordinate or coordinate array.
+        profile:
+            Optional routing profile string (or string array), passed to the routing service as
+            written. Defaults to ``"car"``; an unknown profile falls back to car routing.
+
+
+    Returns:
+        The distance in metres as a decimal, or a decimal array if any argument is an array.
+
+
+    Raises:
+        ValueError: If `from_`/`to` are not coordinate types, or `profile` is not a string type.
+
+    Examples:
+        .. code-block:: python
+
+            ROUTE_DISTANCE(depot, stops)
+    """
+    return _functions.RouteDistance(from_, to, profile)
+
+
+def ROUTE_DURATION(
+    from_: Operand,
+    to: Operand,
+    profile: Operand | str | None = None,
+) -> Formula:
+    """
+    Computes the road-network travel time, in seconds, between two coordinates.
+
+    Behaves exactly like :func:`ROUTE_DISTANCE` for its arguments and array handling, but returns
+    travel time in seconds rather than distance in metres.
+
+    Arguments:
+        from_:
+            The origin coordinate or coordinate array.
+        to:
+            The destination coordinate or coordinate array.
+        profile:
+            Optional routing profile string (or string array), passed to the routing service as
+            written. Defaults to ``"car"``; an unknown profile falls back to car routing.
+
+
+    Returns:
+        The travel time in seconds as a decimal, or a decimal array if any argument is an array.
+
+
+    Raises:
+        ValueError: If `from_`/`to` are not coordinate types, or `profile` is not a string type.
+
+    Examples:
+        .. code-block:: python
+
+            ROUTE_DURATION(depot, stops)
+    """
+    return _functions.RouteDuration(from_, to, profile)
+
+
+def PATH_DISTANCE(
+    waypoints: Operand,
+    profile: Operand | str | None = None,
+) -> Formula:
+    """
+    Computes the total road-network distance, in metres, of a path visiting waypoints in order.
+
+    `waypoints` is a coordinate array of at least two points. The whole list is routed as a single
+    path, so the result is a single total (never an array).
+
+    Arguments:
+        waypoints:
+            The coordinate array to visit, in order (at least two points).
+        profile:
+            Optional routing profile string, passed to the routing service as written. Defaults to
+            ``"car"``; an unknown profile falls back to car routing.
+
+
+    Returns:
+        The total distance in metres as a decimal.
+
+
+    Raises:
+        ValueError: If `waypoints` is not a coordinate array, or `profile` is not a string.
+
+    Examples:
+        .. code-block:: python
+
+            PATH_DISTANCE(route_stops)
+    """
+    return _functions.PathDistance(waypoints, profile)
+
+
+def PATH_DURATION(
+    waypoints: Operand,
+    profile: Operand | str | None = None,
+) -> Formula:
+    """
+    Computes the total road-network travel time, in seconds, of a path visiting waypoints in order.
+
+    Behaves exactly like :func:`PATH_DISTANCE` for its arguments, but returns the total travel time
+    in seconds rather than distance in metres.
+
+    Arguments:
+        waypoints:
+            The coordinate array to visit, in order (at least two points).
+        profile:
+            Optional routing profile string, passed to the routing service as written. Defaults to
+            ``"car"``; an unknown profile falls back to car routing.
+
+
+    Returns:
+        The total travel time in seconds as a decimal.
+
+
+    Raises:
+        ValueError: If `waypoints` is not a coordinate array, or `profile` is not a string.
+
+    Examples:
+        .. code-block:: python
+
+            PATH_DURATION(route_stops)
+    """
+    return _functions.PathDuration(waypoints, profile)
 
 
 def DATE(

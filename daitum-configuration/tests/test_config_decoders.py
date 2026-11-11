@@ -410,6 +410,48 @@ class TestModelTransformRoundTrip:
         }
         assert decoded.build() == built
 
+    def test_model_transform_config_with_publish(self, model):
+        from datetime import timedelta
+
+        from daitum_configuration import (
+            EqualityDataFilter,
+            OverlapDataFilter,
+            PublishExpansion,
+            PublishTargetType,
+        )
+        from daitum_configuration.data_source.data_source import DataSource
+        from daitum_configuration.data_source.model_transform.model_transform_config import (
+            ModelTransformConfig,
+        )
+
+        budget = model["symbols"]["BUDGET"]
+        sub = ModelBuilder()
+        sites = sub.add_data_table("Sites")
+        code = sites.add_data_field("Code", DataType.STRING)
+        sites.set_key_column("Code")
+        shifts = sub.add_data_table("Shifts")
+        site = shifts.add_data_field("Site", sites.to_data_type())
+
+        overlap = OverlapDataFilter(["start"], budget, budget, pad_after=timedelta(hours=2))
+        cfg = (
+            ModelTransformConfig("file_key", "transform.dtm")
+            .add_datastore_input("store", {"T": "S"}, [overlap])
+            .add_publish(
+                "mapping",
+                shifts,
+                target_type=PublishTargetType.DATA_STORE_INTERFACE,
+                expand={"site": PublishExpansion(site, {"code": code})},
+                owned_scope=[EqualityDataFilter(["k"], budget), overlap],
+                write_on_failure_outputs=[model["symbols"]["Items"]],
+            )
+            .add_publish("standard", shifts)
+        )
+        built = DataSource("Transform", cfg).build()
+        decoded = decode_into(DataSource, built, _model_ctx(model))
+        assert decoded.config.publish[0].target_type == PublishTargetType.DATA_STORE_INTERFACE
+        assert isinstance(decoded.config.publish[0].owned_scope[1], OverlapDataFilter)
+        assert decoded.build() == built
+
     def test_model_transform_embeds_sub_model(self):
         from daitum_model import DataType, ModelBuilder
         from daitum_model.decoding import LoadContext

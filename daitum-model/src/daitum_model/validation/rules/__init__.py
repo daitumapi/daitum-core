@@ -23,23 +23,21 @@ create a new module here with a ``@rule``-decorated class and import it below.
 from __future__ import annotations
 
 from . import (
+    build_order_cycles,
     data_type_refs,
     derived_config,
     field_cycles,
     field_references,
     join_config,
-    named_value_cycles,
-    table_cycles,
     union_config,
 )
 
 __all__ = [
+    "build_order_cycles",
     "data_type_refs",
     "derived_config",
     "field_cycles",
     "field_references",
     "join_config",
-    "named_value_cycles",
-    "table_cycles",
     "union_config",
 ]
