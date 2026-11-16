@@ -104,6 +104,55 @@ class TestTable:
         calc_field = table.add_calculated_field("Is Valid", formulas.NOT(formulas.ISBLANK(cost)))
         assert calc_field is not None
 
+    def test_add_overridable_field(self):
+        from daitum_model import OverridableField
+
+        model = ModelBuilder()
+        table = model.add_data_table("Jobs")
+        cost = table.add_data_field("Cost", DataType.DECIMAL)
+        price = table.add_overridable_field("Price", cost * 1.1)
+
+        assert isinstance(price, OverridableField)
+        assert price.id == "Price__effective"
+        assert price.calculated.id == "Price__calculated"
+        assert price.override.id == "Price__override"
+        assert price.effective is price
+        assert price.override.nullable is True
+        assert price.override.data_type == DataType.DECIMAL
+        assert price.formula.to_string() == "IFBLANK([Price__override], [Price__calculated])"
+        # All three registered on the table.
+        assert table.get_field("Price__calculated") is price.calculated
+        assert table.get_field("Price__override") is price.override
+        assert table.get_field("Price__effective") is price
+
+    def test_overridable_field_as_operand_uses_effective(self):
+        model = ModelBuilder()
+        table = model.add_data_table("Jobs")
+        cost = table.add_data_field("Cost", DataType.DECIMAL)
+        price = table.add_overridable_field("Price", cost * 1.1)
+        margin = table.add_calculated_field("Margin", price - cost)
+        assert margin.formula.to_string() == "([Price__effective] - [Cost])"
+
+    def test_add_overridable_field_duplicate_id_raises(self):
+        model = ModelBuilder()
+        table = model.add_data_table("Jobs")
+        cost = table.add_data_field("Cost", DataType.DECIMAL)
+        table.add_data_field("Price__override", DataType.DECIMAL)
+        with pytest.raises(ValueError, match="Price__override"):
+            table.add_overridable_field("Price", cost * 1.1)
+        # No partial registration.
+        assert "Price__calculated" not in table.field_definitions
+        assert "Price__effective" not in table.field_definitions
+
+    def test_overridable_field_builds_as_calculated(self):
+        model = ModelBuilder()
+        table = model.add_data_table("Jobs")
+        cost = table.add_data_field("Cost", DataType.DECIMAL)
+        price = table.add_overridable_field("Price", cost * 1.1)
+        built = price.build()
+        assert built["@type"] == "calculated"
+        assert "override" not in str(built.keys())
+
     def test_table_to_dict(self):
         model = ModelBuilder()
         table = model.add_data_table("Jobs")

@@ -32,6 +32,11 @@ There are two ways to add an element:
   checks the bound field belongs to the form's source table, places it, and returns the element
   for fluent configuration.
 
+A placed element's cell geometry is also chainable: ``set_horizontal_alignment``,
+``set_row_span``, and ``set_column_span`` on the returned element write through to its
+:class:`FormCell`, alongside the element's own setters (``set_size``, ``set_font_weight``,
+``set_searchable``, …).
+
 Example:
     >>> form = builder.add_form_view(
     ...     display_name="Customer Details",
@@ -40,8 +45,10 @@ Example:
     ...     filter_mode=filter_mode,
     ... )
     >>> form.set_columns(num_columns=2, width="250px")
-    >>> form.add_text("Name:", row=1, column=1)
-    >>> form.add_text_input(customers_table.name_field, row=1, column=2)
+    >>> form.add_text("Name:", row=1, column=1).set_horizontal_alignment(
+    ...     HorizontalAlignment.RIGHT
+    ... )
+    >>> form.add_text_input(customers_table.name_field, row=1, column=2).set_column_span(2)
 """
 
 from dataclasses import dataclass
@@ -61,6 +68,7 @@ from daitum_ui._data import ModelVariable, ModelVariableType
 from daitum_ui.base_view import BaseView
 from daitum_ui.data import FilterMode
 from daitum_ui.elements import (
+    ApplicationLink,
     ArrayElement,
     ArrayLayout,
     Button,
@@ -83,6 +91,7 @@ from daitum_ui.elements import (
     TextInput,
 )
 from daitum_ui.icons import Icon
+from daitum_ui.link_destination import ApplicationLinkKey
 from daitum_ui.model_event import ModelEvent
 from daitum_ui.styles import HorizontalAlignment, IconConfig
 
@@ -265,6 +274,9 @@ class FormView(BaseView):
             horizontal_alignment=horizontal_alignment,
         )
         self.cells.append(cell)
+        # Let the element's chainable geometry setters (set_horizontal_alignment, set_row_span,
+        # set_column_span) write through to this cell.
+        element._form_cell = cell  # noqa: SLF001
         return cell
 
     # Per-type convenience adders
@@ -353,6 +365,37 @@ class FormView(BaseView):
         self.add_form_element(row, column, element)
         return element
 
+    def add_application_link(  # noqa: PLR0913, PLR0917
+        self,
+        row: int,
+        column: int,
+        application: str,
+        keys: list[ApplicationLinkKey] | None = None,
+        scenario_id: Field | Parameter | Calculation | None = None,
+        text_value: str = "Open",
+        open_new_tab: bool = False,
+    ) -> ApplicationLink:
+        """
+        Add a hyperlink that navigates to another Daitum application.
+
+        ``scenario_id``, when given, must be INTEGER-typed; a ``Field`` must belong to the
+        form's source table.
+        """
+        if scenario_id is not None:
+            if isinstance(scenario_id, Field):
+                self._assert_field_in_table(scenario_id)
+            self._assert_data_type(scenario_id, DataType.INTEGER)
+
+        element = ApplicationLink(
+            application=application,
+            keys=keys,
+            scenario_id=scenario_id,
+            text_value=text_value,
+            open_new_tab=open_new_tab,
+        )
+        self.add_form_element(row, column, element)
+        return element
+
     def add_list(self, list_element: ListElement, row: int, column: int) -> ListElement:
         """Place a pre-built :class:`~daitum_ui.elements.ListElement` at a grid position."""
         self.add_form_element(row, column, list_element)
@@ -403,16 +446,23 @@ class FormView(BaseView):
         value: Field | Parameter | Calculation,
         row: int,
         column: int,
+        *,
+        display_field: str | None = None,
     ) -> Dropdown:
         """
         Add a dropdown bound to an OBJECT value.
 
-        The display label defaults to the referenced table's key column; override with
-        ``set_display_field`` on the returned element.
+        Args:
+            value: The OBJECT value the dropdown edits.
+            row: Starting grid row.
+            column: Starting grid column.
+            display_field: The referenced table's field to display for each choice. Defaults to
+                the referenced table's key column; pass this when the label field differs from
+                the key (the ``Dropdown`` constructor needs it up front).
         """
         if isinstance(value, Field):
             self._assert_field_in_table(value)
-        element = Dropdown(value)
+        element = Dropdown(value, object_reference_display_field=display_field)
         self.add_form_element(row, column, element)
         return element
 

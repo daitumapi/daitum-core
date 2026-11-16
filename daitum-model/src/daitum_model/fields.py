@@ -299,6 +299,44 @@ class CalculatedField(Field):
         return self.formula.dependencies()
 
 
+@typechecked
+class OverridableField(CalculatedField):
+    """
+    The effective field of an overridable trio created by
+    :meth:`~daitum_model.tables.DataTable.add_overridable_field`: a calculated field, an
+    override data field, and this field — ``IFBLANK(override, calculated)``.
+
+    Used as an operand it yields the effective value. Builds as a plain calculated field.
+    """
+
+    def __init__(
+        self,
+        id: str,
+        table: Table,
+        formula: Formula,
+        override_field: DataField,
+        calculated_field: CalculatedField,
+    ):
+        super().__init__(id, table, formula)
+        self._override_field = override_field
+        self._calculated_field = calculated_field
+
+    @property
+    def override(self) -> DataField:
+        """The data field holding the manual override value."""
+        return self._override_field
+
+    @property
+    def calculated(self) -> CalculatedField:
+        """The calculated field holding the computed value."""
+        return self._calculated_field
+
+    @property
+    def effective(self) -> OverridableField:
+        """The effective field (this field): override when present, otherwise calculated."""
+        return self
+
+
 @json_type_info("data")
 @typechecked
 class DataField(Field):

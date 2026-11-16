@@ -30,7 +30,7 @@ Example::
 from abc import ABC
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import ClassVar, cast
+from typing import TYPE_CHECKING, ClassVar, TypeVar, cast
 
 from daitum_model import (
     Baseline,
@@ -72,12 +72,22 @@ from daitum_ui.model_event import ModelEvent
 from daitum_ui.styles import HorizontalAlignment, IconConfig
 from daitum_ui.template_binding_key import TemplateBindingKey
 
-from ._link_destination import ModelEditorLinkDestination
+from .link_destination import (
+    ApplicationLinkDestination,
+    ApplicationLinkKey,
+    ModelEditorLinkDestination,
+)
+
+if TYPE_CHECKING:
+    from daitum_ui.form_view import FormCell  # mypy-only; form_view imports elements at runtime
 
 #: What an input element may bind to. A ``Field``/``Parameter``/``Calculation``/``ContextVariable``
 #: is resolved and (where typed) validated; an already-resolved ``ModelVariable`` is passed through
 #: verbatim (used by form adders for context-variable references and by the decoder).
 DataSource = Field | Parameter | Calculation | ContextVariable | ModelVariable
+
+#: Self-type for chainable element setters, so a chain keeps the concrete element type.
+_ElementT = TypeVar("_ElementT", bound="Element")
 
 
 class ElementSize(Enum):
@@ -698,9 +708,9 @@ class Element(BaseElement):
 
     #: The properties of this element whose value may be driven per-row by a field/named value,
     #: mapped to the data type that value must resolve to. Keys are the camelCase property names;
-    #: this is both the allowlist and the type spec. Empty on the base (nothing mappable);
-    #: subclasses override. ``TextInput``/``DateTimePicker`` compute it from instance state via
-    #: :meth:`_property_types`.
+    #: this is both the allowlist and the type spec. Empty on the base; subclasses override.
+    #: ``hidden`` is always mappable and is added for every element by :meth:`_property_types`,
+    #: which also computes instance-dependent additions (e.g. ``TextInput``/``DateTimePicker``).
     #:
     #: TODO: the platform also allows mapping fixed-set properties (enums such as fontWeight,
     #: variant, layoutStyle, display; icon-subset/id fields such as iconSet, defaults, iconSource;
@@ -709,6 +719,10 @@ class Element(BaseElement):
     #: back once we validate the bound value against the allowed set.
     PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {}
 
+    #: The form cell this element was last placed in, set by ``FormView.add_form_element``.
+    #: A class-level default so decoded instances (built via ``cls.__new__``) also carry it.
+    _form_cell: "FormCell | None" = None
+
     def __init__(self, hidden: bool | None = None, size: ElementSize | None = None):
         super().__init__()
         self.hidden = hidden
@@ -716,10 +730,68 @@ class Element(BaseElement):
         self.tooltip: str | None = None
         self.property_field_mapping: dict[str, str] = {}
 
+    def set_size(self: _ElementT, size: ElementSize) -> _ElementT:
+        """Sets the visual size of this element."""
+        self.size = size
+        return self
+
+    def _placement_error(self) -> ValueError:
+        """The error raised by a cell-geometry setter on an element not placed in a form."""
+        return ValueError(
+            f"{type(self).__name__} has not been placed in a form view; add it with "
+            f"FormView.add_form_element or a per-type adder before setting cell geometry."
+        )
+
+    def set_horizontal_alignment(self: _ElementT, alignment: HorizontalAlignment) -> _ElementT:
+        """Sets the horizontal alignment of this element within its form cell.
+
+        Writes through to the owning :class:`~daitum_ui.form_view.FormCell`; when an element is
+        placed more than once, the last placement wins. Note this is distinct from a
+        :class:`Container`'s own ``horizontal_alignment``, which aligns its children.
+
+        Raises:
+            ValueError: If the element has not been placed in a form view.
+        """
+        cell = self._form_cell
+        if cell is None:
+            raise self._placement_error()
+        cell.horizontal_alignment = alignment
+        return self
+
+    def set_row_span(self: _ElementT, span: int) -> _ElementT:
+        """Sets the number of grid rows this element's form cell spans.
+
+        Writes through to the owning :class:`~daitum_ui.form_view.FormCell`; when an element is
+        placed more than once, the last placement wins.
+
+        Raises:
+            ValueError: If the element has not been placed in a form view.
+        """
+        cell = self._form_cell
+        if cell is None:
+            raise self._placement_error()
+        cell.row_span = span
+        return self
+
+    def set_column_span(self: _ElementT, span: int) -> _ElementT:
+        """Sets the number of grid columns this element's form cell spans.
+
+        Writes through to the owning :class:`~daitum_ui.form_view.FormCell`; when an element is
+        placed more than once, the last placement wins.
+
+        Raises:
+            ValueError: If the element has not been placed in a form view.
+        """
+        cell = self._form_cell
+        if cell is None:
+            raise self._placement_error()
+        cell.column_span = span
+        return self
+
     def _property_types(self) -> dict[str, DataType]:
         """The mappable properties for *this* element. Overridden where the set depends on
         instance state (e.g. a multiline :class:`TextInput`, a :class:`DateTimePicker` mode)."""
-        return type(self).PROPERTY_TYPES
+        return {**type(self).PROPERTY_TYPES, "hidden": DataType.BOOLEAN}
 
     def add_property_field_mapping(
         self, property_name: str, value: Field | Parameter | Calculation | TemplateBindingKey
@@ -741,11 +813,6 @@ class Element(BaseElement):
         """
         supported = self._property_types()
         if property_name not in supported:
-            if not supported:
-                raise ValueError(
-                    f"{type(self).__name__} has no mappable properties; "
-                    f"cannot map {property_name!r}."
-                )
             raise ValueError(
                 f"Unsupported property {property_name!r} for {type(self).__name__}. "
                 f"Supported properties are: {', '.join(sorted(supported))}."
@@ -1049,6 +1116,8 @@ class Container(ElementContainer):
             layouts.
         horizontal_alignment:
             Determines how child elements are aligned horizontally within the container.
+            Distinct from the inherited :meth:`Element.set_horizontal_alignment`, which aligns
+            this container within its owning form cell.
     """
 
     PROPERTY_TYPES: ClassVar[dict[str, DataType]] = {
@@ -1674,7 +1743,9 @@ class ListElement(Element):
         self.wrap = wrap
         return self
 
-    def set_size(self, height: str | None = None, width: str | None = None) -> "ListElement":
+    def set_size(  # type: ignore[override]  # pre-existing CSS-dimension signature
+        self, height: str | None = None, width: str | None = None
+    ) -> "ListElement":
         """Sets the height and/or width of the list element."""
         self.height = height
         self.width = width
@@ -1768,6 +1839,37 @@ class ModelEditorLink(Element):
 
 
 @typechecked
+@json_type_info("applicationLink")
+class ApplicationLink(Element):
+    """
+    A hyperlink element that navigates to another Daitum application.
+
+    Attributes:
+        text_value (str): The visible label of the link. Accepts a static string or a
+            model-variable reference rendered as ``${...}``. Defaults to ``"Open"``.
+        destination (ApplicationLinkDestination): The application destination built from the
+            provided ``application``, ``keys``, ``scenario_id``, and ``open_new_tab`` arguments.
+    """
+
+    def __init__(
+        self,
+        application: str,
+        keys: list[ApplicationLinkKey] | None = None,
+        scenario_id: Field | Parameter | Calculation | ContextVariable | None = None,
+        text_value: str | Parameter | Calculation | Field | TemplateBindingKey = "Open",
+        open_new_tab: bool = False,
+    ):
+        super().__init__()
+
+        if isinstance(text_value, str):
+            self.text_value: str = text_value
+        else:
+            self.text_value = f"${{{text_value.to_string()}}}"
+
+        self.destination = ApplicationLinkDestination(application, keys, scenario_id, open_new_tab)
+
+
+@typechecked
 @json_type_info("textInput")
 class TextInput(InputElement):
     """
@@ -1799,9 +1901,10 @@ class TextInput(InputElement):
 
     def _property_types(self) -> dict[str, DataType]:
         # rows/resize only apply to a multiline (rows-set) text area.
+        types = super()._property_types()
         if self.rows is None:
-            return self.PROPERTY_TYPES
-        return {**self.PROPERTY_TYPES, "rows": DataType.INTEGER, "resize": DataType.STRING}
+            return types
+        return {**types, "rows": DataType.INTEGER, "resize": DataType.STRING}
 
 
 @typechecked
@@ -1950,7 +2053,7 @@ class DateTimePicker(InputElement):
         self.time_interval: int | None = None
 
     def _property_types(self) -> dict[str, DataType]:
-        types = dict(self.PROPERTY_TYPES)
+        types = super()._property_types()
         if self.mode in (DateTimeMode.DATE, DateTimeMode.DATE_TIME):
             types["withSelector"] = DataType.BOOLEAN
         if self.mode in (DateTimeMode.TIME, DateTimeMode.DATE_TIME):

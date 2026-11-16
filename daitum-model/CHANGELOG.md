@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.6.0]
+- New `DataTable.add_overridable_field(id, formula)`: one call creates the overridable trio —
+  `{id}__calculated` (a calculated field computing the formula), `{id}__override` (a nullable
+  data field holding a manual override) and `{id}__effective` (the returned `OverridableField`,
+  evaluating to `IFBLANK(override, calculated)`). Passed to other formulas, the returned field
+  yields the effective value; its `calculated`, `override` and `effective` properties expose the
+  trio. `OverridableField` is exported from `daitum_model` and serialises as a plain calculated
+  field.
+
 ## [2.5.0]
 - New `COORDINATE` and `COORDINATE_ARRAY` data types for geographic (latitude/longitude) fields.
   Declare them like any other field type (`table.add_data_field("Loc", DataType.COORDINATE)`);

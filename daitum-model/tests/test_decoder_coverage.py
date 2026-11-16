@@ -34,6 +34,9 @@ _INLINE = {
     "Field",
     "DataField",
     "CalculatedField",
+    # Builds as a plain "calculated" field; the overridable trio is a build-time convenience
+    # invisible in JSON, so it intentionally decodes back as CalculatedField.
+    "OverridableField",
     "ComboField",
     "ObjectDataType",
     "MapDataType",

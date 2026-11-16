@@ -1,5 +1,41 @@
 # Changelog
 
+## [4.1.0]
+
+### Added
+- `Element.add_property_field_mapping` supports the `"hidden"` property (`DataType.BOOLEAN`) on
+  every element, restoring support removed in 4.0.0.
+- Chainable cell-geometry setters on elements placed in a form: `set_horizontal_alignment`,
+  `set_row_span`, and `set_column_span` on the element returned by `FormView.add_form_element`
+  and the per-type `add_*` adders write through to the owning `FormCell`, restoring the pre-4.0
+  fluent idiom (e.g. `form.add_text(...).set_horizontal_alignment(...)`). Calling one on an
+  element not placed in a form raises; when an element is placed more than once, the last
+  placement wins. Serialised output is unchanged.
+- `Element.set_size(ElementSize)` — a chainable setter for the existing `size` attribute on
+  every element, replacing the removed `FormElement.set_size(FormSize)`. `RangeBar.set_size`
+  (validated `SMALL`/`LARGE`) and `ListElement.set_size(height, width)` keep their existing
+  signatures.
+- `FormView.add_drop_down(..., display_field=)` — sets the dropdown's
+  `object_reference_display_field` at construction, for dropdowns whose display label is not
+  the referenced table's key column (previously the `Dropdown` constructor raised before
+  `set_display_field` could run, forcing manual construction plus `add_form_element`).
+- Migration note: the `FormVariant.HEADER` label style removed in 4.0.0 was a bold label — use
+  `Text.set_font_weight(FontWeight.BOLD)`.
+- Table and tree views auto-detect an `OverridableField` (created by
+  `DataTable.add_overridable_field`) in `add_field`: the column is rebound to the override data
+  field with a `REFERENCE_WITH_OVERRIDE` default value reference pointing at the calculated
+  field, so users see the effective value and can set or reset an override. Tree views apply the
+  same wiring to each hierarchy level's child field. Requires `daitum-model>=2.6.0`.
+- `ApplicationLinkDestination` and `ApplicationLinkKey` — new `LinkDestination` subtype for
+  navigating to another application, with named parameters (`tag` + a model variable or
+  literal string), an optional `scenario_id`, and `open_new_tab`.
+  `ModelEvent.add_application_navigate_action` adds the corresponding navigate action, and the
+  `ApplicationLink` element (plus `FormView.add_application_link`) adds a clickable hyperlink
+  to the same destination — mirroring `ModelEditorLinkDestination`'s navigate action and
+  `ModelEditorLink` element. `NavigateArgs.destination` is now typed against the new
+  `LinkDestination` base rather than the concrete `ModelEditorLinkDestination`; `open_new_tab`
+  moved onto that base class (inherited by both subtypes) to match the Java hierarchy.
+
 ## [4.0.0]
 
 ### Added

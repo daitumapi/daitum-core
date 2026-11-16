@@ -32,7 +32,7 @@ from daitum_model.serialisation import Buildable
 
 from ._helpers import _validate_name
 from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType, _TableBase
-from .fields import CalculatedField, ComboField, DataField, Field
+from .fields import CalculatedField, ComboField, DataField, Field, OverridableField
 from .formula import Formula, Operand, to_formula
 
 
@@ -394,3 +394,57 @@ class DataTable(Table):
         combo_field = ComboField(id, self, formula, calculate_in_optimiser)
         self._add_field(combo_field)
         return combo_field
+
+    def add_overridable_field(
+        self,
+        id: str,
+        formula: Operand | float | int | bool | str,
+        order_index: int | None = None,
+        description: str | None = None,
+    ) -> OverridableField:
+        """
+        Adds an overridable calculated field to the table.
+
+        Creates three fields: ``{id}__calculated`` (a `CalculatedField` computing ``formula``),
+        ``{id}__override`` (a nullable `DataField` holding a manual override), and
+        ``{id}__effective`` (the returned `OverridableField`, evaluating to the override when
+        present and the calculated value otherwise). Table and tree views detect the effective
+        field and automatically wire the column so users see the effective value and can set or
+        reset an override.
+
+        Args:
+            id (str): The base ID; the three fields are suffixed ``__calculated``,
+                ``__override`` and ``__effective``.
+            formula (Formula): The formula used to compute the calculated value.
+            order_index (int | None): The order index of the effective field.
+            description (str | None): Description of the effective field.
+
+        Returns:
+            OverridableField: The effective field, with ``calculated``, ``override`` and
+            ``effective`` accessors for the trio.
+        """
+        from daitum_model import formulas  # pylint: disable=import-outside-toplevel
+
+        ids = [f"{id}__calculated", f"{id}__override", f"{id}__effective"]
+        for field_id in ids:
+            if field_id in self.field_definitions and field_id not in self._initialised_ids:
+                raise ValueError(f"A field with id {field_id} already exists in the table")
+
+        formula = to_formula(formula)
+        calculated = CalculatedField(ids[0], self, formula)
+        self._add_field(calculated)
+
+        # The override must be nullable regardless of data type: blank means "no override".
+        override = DataField(ids[1], self, formula.data_type)
+        override.nullable = True
+        self._add_field(override)
+
+        effective = OverridableField(
+            ids[2], self, formulas.IFBLANK(override, calculated), override, calculated
+        )
+        if order_index is not None:
+            effective.set_order_index(order_index)
+        if description is not None:
+            effective.set_description(description)
+        self._add_field(effective)
+        return effective

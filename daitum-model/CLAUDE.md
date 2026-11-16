@@ -23,7 +23,7 @@ daitum-model/
 │   ├── derived_table.py     # DerivedTable, SortDirection, AggregationMethod
 │   ├── joined_table.py      # JoinedTable, JoinCondition, JoinType
 │   ├── union_table.py       # UnionTable, UnionSource
-│   ├── fields.py            # DataField, CalculatedField, ComboField
+│   ├── fields.py            # DataField, CalculatedField, ComboField, OverridableField
 │   ├── formula.py           # Formula (abstract base node), Constant, CONST(), Operand base
 │   ├── expression.py        # Internal: operator nodes, OperatorDef registry, Function base, type engine
 │   ├── _functions.py        # Internal: per-function Function node classes (SUM, IF, LOOKUP, …)
@@ -71,7 +71,7 @@ All table types inherit from `Table`. They manage fields and expose array-subscr
 | `JoinedTable` | Result of joining multiple tables on conditions |
 | `UnionTable` | Stacked rows from multiple source tables |
 
-Factory methods on tables: `add_data_field`, `add_calculated_field`, `add_combo_field`,
+Factory methods on tables: `add_data_field`, `add_calculated_field`, `add_combo_field`, `add_overridable_field`,
 `add_object_reference_field`, `add_map_field`.
 
 ### Field Hierarchy
@@ -83,6 +83,7 @@ validators.
 | `DataField` | Imported/raw data with optional default, format, and uniqueness |
 | `CalculatedField` | Computed via a `Formula` |
 | `ComboField` | Data or calculated based on the `calculate_in_optimiser` flag |
+| `OverridableField` | Effective field of an overridable trio: override when present, else calculated |
 
 ### Formula
 `Formula` wraps an expression string and a `DataType`. Python operators (`+`, `-`, `*`, `/`, `<`,

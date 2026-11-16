@@ -62,7 +62,7 @@ from ._validation_list import (
 from .data_types import BaseDataType, DataType, MapDataType, ObjectDataType
 from .decoding import LoadError
 from .derived_table import AggregationMethod, DerivedTable, SortDirection
-from .fields import Field
+from .fields import Field, OverridableField
 from .formula import Formula
 from .joined_table import JoinCondition, JoinedTable, JoinType
 from .model import ModelBuilder
@@ -117,6 +117,7 @@ __all__ = [
     "Table",
     "Formula",
     "Field",
+    "OverridableField",
     "Calculation",
     "Parameter",
     "UnionSource",

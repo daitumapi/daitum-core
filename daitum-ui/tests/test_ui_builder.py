@@ -199,7 +199,7 @@ class TestPropertyFieldMappingValidation:
 
         _, table = self._model()
         link = ModelEditorLink(table.get_field("Count"))
-        with pytest.raises(ValueError, match="has no mappable properties"):
+        with pytest.raises(ValueError, match="Unsupported property 'color'"):
             link.add_property_field_mapping("color", table.get_field("Colour"))
 
     def test_unmappable_icon_property_rejected(self):
@@ -353,3 +353,165 @@ class TestFilterRegistrationGuard:
         flt.add_filter_option(table.get_field("Cost"), "Cost")
         card.set_use_filter(flt)
         assert "views" in ui.build()
+
+
+class TestApplicationLinkDestination:
+    @staticmethod
+    def _model():
+        model = ModelBuilder()
+        table = model.add_data_table("Jobs")
+        table.set_key_column("ID")
+        table.add_data_field("ID", DataType.STRING)
+        table.add_data_field("Count", DataType.INTEGER)
+        return model, table
+
+    def test_literal_key_builds(self):
+        from daitum_ui.link_destination import ApplicationLinkDestination, ApplicationLinkKey
+
+        destination = ApplicationLinkDestination("myapp", [ApplicationLinkKey("tag", "value")])
+        assert destination.build() == {
+            "@type": "application",
+            "application": "myapp",
+            "keys": [{"tag": "tag", "literal": "value"}],
+            "openNewTab": False,
+        }
+
+    def test_variable_key_builds(self):
+        from daitum_ui.link_destination import ApplicationLinkDestination, ApplicationLinkKey
+
+        _, table = self._model()
+        destination = ApplicationLinkDestination(
+            "myapp", [ApplicationLinkKey("tag", table.get_field("Count"))]
+        )
+        assert destination.build()["keys"] == [
+            {"tag": "tag", "variable": {"type": "FIELD", "value": table.get_field("Count").id}}
+        ]
+
+    def test_empty_keys_still_emitted(self):
+        from daitum_ui.link_destination import ApplicationLinkDestination
+
+        assert ApplicationLinkDestination("myapp").build()["keys"] == []
+
+    def test_blank_tag_raises(self):
+        from daitum_ui.link_destination import ApplicationLinkKey
+
+        with pytest.raises(ValueError, match="non-empty tag"):
+            ApplicationLinkKey("", "value")
+
+    def test_blank_application_raises(self):
+        from daitum_ui.link_destination import ApplicationLinkDestination
+
+        with pytest.raises(ValueError, match="non-empty application"):
+            ApplicationLinkDestination("")
+
+    def test_duplicate_tag_raises(self):
+        from daitum_ui.link_destination import ApplicationLinkDestination, ApplicationLinkKey
+
+        with pytest.raises(ValueError, match="more than one key for the same tag"):
+            ApplicationLinkDestination(
+                "myapp",
+                [ApplicationLinkKey("tag", "a"), ApplicationLinkKey("tag", "b")],
+            )
+
+    def test_open_new_tab_passed_through(self):
+        from daitum_ui.link_destination import ApplicationLinkDestination
+
+        destination = ApplicationLinkDestination("myapp", open_new_tab=True)
+        assert destination.build()["openNewTab"] is True
+
+    def test_navigate_action_builds(self):
+        from daitum_ui.model_event import ModelEvent
+
+        event = ModelEvent()
+        event.add_application_navigate_action("myapp")
+        built = event.build()["actions"][0]
+        assert built["@type"] == "NAVIGATE"
+        assert built["destination"]["@type"] == "application"
+        assert built["destination"]["application"] == "myapp"
+
+    def test_form_view_add_application_link(self):
+        from daitum_ui.data import MatchRowFilterMode
+
+        _, table = self._model()
+        fm = MatchRowFilterMode()
+        fm.set_filter_row("row")
+        ui = UiBuilder()
+        form = ui.add_form_view(display_name="F", table=table, filter_mode=fm)
+        link = form.add_application_link(1, 1, "myapp", scenario_id=table.get_field("Count"))
+        assert link.build()["destination"]["@type"] == "application"
+        cells = form.build()["viewDefinition"]["cells"]
+        assert cells[0]["element"]["@type"] == "applicationLink"
+
+    def test_form_view_add_application_link_rejects_non_integer_scenario(self):
+        model, table = self._model()
+        table.add_data_field("Name", DataType.STRING)
+        from daitum_ui.data import MatchRowFilterMode
+
+        fm = MatchRowFilterMode()
+        fm.set_filter_row("row")
+        ui = UiBuilder()
+        form = ui.add_form_view(display_name="F", table=table, filter_mode=fm)
+        with pytest.raises(ValueError):
+            form.add_application_link(1, 1, "myapp", scenario_id=table.get_field("Name"))
+
+
+class TestFormCellGeometry:
+    """The chainable cell-geometry setters on placed elements (restored 3.x idiom)."""
+
+    @staticmethod
+    def _form():
+        from daitum_ui.data import MatchRowFilterMode
+
+        model = ModelBuilder()
+        table = model.add_data_table("Jobs")
+        table.set_key_column("ID")
+        table.add_data_field("ID", DataType.STRING)
+        table.add_data_field("Name", DataType.STRING)
+        table.add_object_reference_field("Ref", table)
+
+        fm = MatchRowFilterMode()
+        fm.set_filter_row("row")
+        form = UiBuilder().add_form_view(display_name="F", table=table, filter_mode=fm)
+        return table, form
+
+    def test_geometry_setters_write_through_to_cell(self):
+        from daitum_ui.styles import HorizontalAlignment
+
+        table, form = self._form()
+        label = form.add_text("Name:", row=1, column=1)
+        result = (
+            label.set_horizontal_alignment(HorizontalAlignment.RIGHT)
+            .set_row_span(2)
+            .set_column_span(3)
+        )
+        assert result is label  # chainable, returns the element
+
+        cell = form.build()["viewDefinition"]["cells"][0]
+        assert cell["horizontalAlignment"] == HorizontalAlignment.RIGHT.value
+        assert cell["rowSpan"] == 2
+        assert cell["columnSpan"] == 3
+
+    def test_geometry_setter_on_unplaced_element_raises(self):
+        from daitum_ui.elements import Text
+
+        with pytest.raises(ValueError, match="not been placed"):
+            Text(value="loose").set_row_span(2)
+
+    def test_set_size_chains_and_serialises(self):
+        from daitum_ui.elements import ElementSize
+
+        table, form = self._form()
+        text_input = form.add_text_input(table.get_field("Name"), row=1, column=2)
+        assert text_input.set_size(ElementSize.SMALL) is text_input
+
+        cell = form.build()["viewDefinition"]["cells"][0]
+        assert cell["element"]["size"] == ElementSize.SMALL.value
+
+    def test_add_drop_down_display_field_overrides_key_column(self):
+        table, form = self._form()
+        dropdown = form.add_drop_down(table.get_field("Ref"), 1, 1, display_field="Name")
+        assert dropdown.object_reference_display_field == "Name"
+
+        # Without the override the referenced table's key column is used.
+        default = form.add_drop_down(table.get_field("Ref"), 2, 1)
+        assert default.object_reference_display_field == "ID"

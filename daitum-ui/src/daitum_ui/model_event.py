@@ -68,8 +68,12 @@ from ._events import (
     Target,
     ValueType,
 )
-from ._link_destination import ModelEditorLinkDestination
 from .data import Value
+from .link_destination import (
+    ApplicationLinkDestination,
+    ApplicationLinkKey,
+    ModelEditorLinkDestination,
+)
 
 
 def _build_source(
@@ -567,6 +571,34 @@ class ModelEvent(Buildable):
         """
         model_editor_link = ModelEditorLinkDestination(model_id, scenario_id, open_new_tab)
         action = NavigateArgs(model_editor_link)
+        action.condition_context_variable = condition.id if condition else None
+        self.actions.append(action)
+
+    def add_application_navigate_action(
+        self,
+        application: str,
+        keys: list[ApplicationLinkKey] | None = None,
+        scenario_id: Field | Parameter | Calculation | ContextVariable | None = None,
+        open_new_tab: bool = False,
+        condition: ContextVariable | None = None,
+    ):
+        """
+        Adds an action that navigates to another Daitum application.
+
+        Args:
+            application (str): Identifier of the target application.
+            keys (list[ApplicationLinkKey] | None): Named parameters passed to the target
+                application. Tags must be unique.
+            scenario_id (Field | Parameter | Calculation | ContextVariable | None):
+                Value identifying the scenario to open within the target application.
+            open_new_tab (bool): If ``True``, the application opens in a new browser tab.
+                Defaults to ``False``.
+            condition (Optional[ContextVariable]): Context variable controlling
+                conditional execution of the action. If provided, the action only
+                executes when the context variable evaluates to true.
+        """
+        application_link = ApplicationLinkDestination(application, keys, scenario_id, open_new_tab)
+        action = NavigateArgs(application_link)
         action.condition_context_variable = condition.id if condition else None
         self.actions.append(action)
 

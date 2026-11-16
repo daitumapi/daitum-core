@@ -16,7 +16,16 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
-from daitum_model import Baseline, Calculation, DataType, Field, ObjectDataType, Parameter, Table
+from daitum_model import (
+    Baseline,
+    Calculation,
+    DataType,
+    Field,
+    ObjectDataType,
+    OverridableField,
+    Parameter,
+    Table,
+)
 from typeguard import typechecked
 
 from ._buildable import Buildable, json_type_info
@@ -641,6 +650,20 @@ class BaseTableView(BaseView, FilterableView):
         return self
 
 
+def _configure_overridable(view_field: ViewField, field: Field) -> Field:
+    """
+    Rebind an overridable column to its override field, with the calculated field wired as a
+    REFERENCE_WITH_OVERRIDE default value reference. Returns the field the column binds to.
+    """
+    if isinstance(field, OverridableField):
+        view_field.field_id = field.override.id
+        view_field.set_default_value_reference(
+            field.calculated, DefaultValueBehaviour.REFERENCE_WITH_OVERRIDE
+        )
+        return field.override
+    return field
+
+
 def _validation_view_field(field: Field, view_field: ViewField) -> ViewField:
     from ._validation import _add_validation_formatting
 
@@ -713,6 +736,7 @@ class TableView(BaseTableView):
         """
         table_field = self._table.get_field(field_id)
         view_field = ViewField(field_id, readonly)
+        table_field = _configure_overridable(view_field, table_field)
 
         self.fields.append(_validation_view_field(table_field, view_field))
 
@@ -874,12 +898,18 @@ class TreeView(BaseTableView):
                 raise ValueError(f"The field {child} does not exist in the table {table.id}")
 
         view_field = TreeViewField(field_id, read_only)
+        _configure_overridable(view_field, self._table.get_field(field_id))
         view_field.set_children(children)
 
-        deepest_child_id = children[-1]
-        deepest_child = (
-            self._tables[-1].get_field(deepest_child_id) if deepest_child_id is not None else None
-        )
+        deepest_child: Field | None = None
+        for index, child_view_field in enumerate(view_field.children, start=1):
+            if isinstance(child_view_field, _NullViewField):
+                continue
+            child_field = _configure_overridable(
+                child_view_field, self._tables[index].get_field(child_view_field.field_id)
+            )
+            if index == len(view_field.children):
+                deepest_child = child_field
 
         if deepest_child is not None:
             self.fields.append(_validation_view_field(deepest_child, view_field))

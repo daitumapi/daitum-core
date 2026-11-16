@@ -131,7 +131,7 @@ class TestViewRoundTrip:
         from daitum_ui.elements import Card, Text
         from daitum_ui.icons import Icon
         from daitum_ui.model_event import ModelEvent
-        from daitum_ui.styles import IconConfig
+        from daitum_ui.styles import HorizontalAlignment, IconConfig
 
         model, table = _model()
         ui = UiBuilder()
@@ -140,9 +140,11 @@ class TestViewRoundTrip:
         flag = ui.add_context_variable("flag", CVType.BOOLEAN, default_value=False)
         go_event = ModelEvent()
         go_event.add_switch_view_action("x")
-        view.add_text("Label:", row=1, column=1)
+        view.add_text("Label:", row=1, column=1).set_horizontal_alignment(
+            HorizontalAlignment.RIGHT
+        ).set_row_span(2)
         view.add_text(table.get_field("ID"), row=1, column=2)
-        view.add_text_input(table.get_field("ID"), row=2, column=1)
+        view.add_text_input(table.get_field("ID"), row=2, column=1).set_column_span(2)
         view.add_text_area(table.get_field("ID"), row=2, column=2)
         view.add_number_input(table.get_field("Cost"), row=3, column=1)
         view.add_check_box(table.get_field("Active"), row=3, column=2)
