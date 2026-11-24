@@ -39,9 +39,10 @@ class EditOverride(Buildable):
     actual value resides.
 
     Attributes:
-        target_reference_field (str):
+        target_reference_field (Optional[str]):
             The field in the current (displayed) table that contains a reference (such as an object
-            reference or ID) to the row or table that actually holds the editable data.
+            reference or ID) to the row or table that actually holds the editable data. ``None``
+            means the target field is on the displayed table itself.
 
         target_field_id (str):
             The field ID within the referenced target (from `target_reference_field`) where the
@@ -53,7 +54,7 @@ class EditOverride(Buildable):
             map.
     """
 
-    target_reference_field: str
+    target_reference_field: str | None
     target_field_id: str
     map_key_field: str | None = None
 

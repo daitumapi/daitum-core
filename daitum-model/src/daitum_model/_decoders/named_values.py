@@ -69,6 +69,8 @@ def decode_parameter(data: dict[str, Any], ctx: LoadContext) -> Parameter:
     )
     if data.get("importFormat") is not None:
         param.set_import_format(data["importFormat"])
+    if data.get("applicationKey") is not None:
+        param.set_application_key(data["applicationKey"])
     if data.get("trackingGroups"):
         param.set_tracking_groups(data["trackingGroups"])
     return param

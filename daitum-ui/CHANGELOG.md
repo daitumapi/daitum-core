@@ -1,5 +1,77 @@
 # Changelog
 
+## [4.2.0]
+
+### Added
+- `SchedulerView` (`@type: "scheduler"`), the Gantt scheduler: tasks drawn as cards on a
+  timeline, grouped into nested levels of lines. Create it with
+  `UiBuilder.add_scheduler_view(source_table, display_name=None, hidden=False)`, then
+  `add_card_template`, `set_task`, `add_level` and `set_time_axis`. Supporting classes:
+  `SchedulerTaskDefinition` (move/resize, change events, per-task backgrounds, default
+  background), `SchedulerLevel` (labels, summaries, statistics, collapsing, moving across lines,
+  allowed values, add buttons), `SchedulerTimeAxis` with `WorkingTime` and `SchedulerSession`,
+  `SchedulerStatistics`, `SchedulerBackground`, `SchedulerTableBackground`,
+  `SchedulerResourcePane`, `SchedulerUnscheduledPane` and `SchedulerLayout`, plus the
+  `SchedulerScale`, `Weekday`, `SchedulerLineFilter`, `SchedulerPane`, `BackgroundEffect`,
+  `StatisticFormat` and `StatisticAggregation` enums.
+- Scheduler settings are checked as they are made: `set_*`/`add_*` raise `ValueError` when a
+  field is on the wrong table or has the wrong type, a card template is not registered, a change
+  event begins its own transaction, and so on. `SchedulerView.validate(ui=None)` adds the rules a
+  single call cannot check — that the required pieces are present and that settings made in
+  separate calls agree, plus references to context variables, modals, filters and sync groups when
+  given the `UiBuilder` — and `UiBuilder.build()` raises `SchedulerValidationError` listing every
+  problem.
+- `SchedulerResourcePane.set_on_double_click` and `SchedulerUnscheduledPane.set_on_double_click`:
+  an optional event fired on double-clicking a pane card, with that resource's or task's row as
+  the active row, for example to open a modal that edits it.
+- `SchedulerTimeAxis(show_now_line=...)`: draw a vertical line at the current time; off by
+  default.
+- `SchedulerTimeAxis(period_label=...)`: the toolbar text shown in place of the date range on a
+  single-day (TIME) scheduler; `None` keeps "Daily times" and `""` hides it. Only allowed when
+  the task times are TIME.
+- Scheduler sessions come from a model table, so they can differ by day:
+  `SchedulerTimeAxis(sessions=...)` or `SchedulerTimeAxis.set_sessions` with a
+  `SchedulerSession`. Each row has a label, a TIME start and end, and optionally a DATE or
+  a day of the week; a day uses its dated rows, else its weekday's rows, else the rows with
+  neither. There is no fixed list of sessions.
+- `SchedulerLevel.set_line_table(table)`: a table with one row per line of the level, joined
+  by columns named after the level fields up to and including it (as statistics tables are).
+  When set, the summary, summary status and always-show fields are read from it, so they can
+  depend on the parent lines, and `showLines` ALL draws every row (a drawn row also draws its
+  parent lines). Single-value levels can use summaries, always-show and ALL through a line table.
+  `validate` reports a line table whose level columns do not match the levels.
+- `SchedulerView.set_resource_pane(..., resource_reference_field=...)`: the pane can list a
+  table derived from the resources (for example one carrying per-resource rollups the resource
+  table cannot calculate without a cycle) whose OBJECT field points at the resource. One card
+  per referenced resource (the first row wins; rows with no reference are not listed);
+  `task_resource_field`, `allowed_resources_field` and the allocate edit override reference the
+  resource table, and a double-click's active row is the listed table's row.
+- `SchedulerView.set_total_row(summary=...)` may insert named values or calculations with
+  `${Name}`, so the total summary can show a model rollup.
+- `drop_validity` module: `DropOutcomes`, `DropValidity` and `DropValidityOverlay`, the drag
+  feedback settings shared by views that support drag and drop.
+- `view_layout` module: `ViewLayout`, the base of a view's named layouts.
+- `table_toolbar` module: `TableToolbar`, the toolbar shown above a `TableView`, with a search
+  bar, filter, column-hiding, density and full-screen controls that can each be turned off, and
+  a `default_density` from the `Density` enum (`COMPACT`, `COMFORTABLE`, `SPACIOUS`). Nothing is
+  shown unless `show_toolbar` is set. Attach it with `TableView.set_toolbar`.
+- `BaseTableView.set_row_actions(row_actions, position=RowActionsPosition.LAST)`: a column on
+  each row with the right-click menu's items, shown as one "more" menu button (`MENU`) or as
+  separate icon buttons (`BUTTONS`); without it, or with `NONE`, they stay on the right-click menu
+  only. `position` puts the column at the start of the row (`FIRST`, after the drag handle and
+  row number columns when shown) or at the end (`LAST`); it stays in place when the table scrolls
+  sideways.
+- `BaseTableView.set_confirm_row_removal(bool)`: ask the user to confirm before a row is removed;
+  off by default.
+- `ContextMenuEvent.icon` and an `icon` keyword argument on `TableView.add_context_menu_event`
+  and `TreeView.add_context_menu_event`: an optional `Icon` shown alongside the command; a
+  default icon is used when omitted.
+- All of the above round-trip through the UI decoders.
+
+### Changed
+- `EditOverride.target_reference_field` may be `None`, meaning the target field is on the
+  displayed table itself.
+
 ## [4.1.0]
 
 ### Added

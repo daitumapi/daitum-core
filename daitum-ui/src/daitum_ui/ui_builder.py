@@ -90,6 +90,7 @@ from .modal import Modal
 from .named_value_view import NamedValueView, Orientation
 from .navigation_items import GroupViewNavItem, SingleViewNavItem
 from .roster_view import RosterView
+from .scheduler_view import SchedulerValidationError, SchedulerView
 from .tabbed_view import TabbedView
 from .tabular import TableView, TreeView
 
@@ -598,6 +599,41 @@ class UiBuilder(Buildable):
             ... )
         """
         builder = RosterView(source_table, display_name, hidden)
+        self._views.append(builder)
+        return builder
+
+    def add_scheduler_view(
+        self,
+        source_table: Table,
+        display_name: str | None = None,
+        hidden: bool = False,
+    ) -> SchedulerView:
+        """
+        Create and register a `SchedulerView` (Gantt scheduler) for this view builder.
+
+        Configure it with `add_card_template`, `set_task`, `add_level` and `set_time_axis`.
+        `build()` validates every scheduler and raises `SchedulerValidationError` listing any
+        problems.
+
+        Parameters:
+            source_table:
+                The task table; it needs an ``id_field``.
+            display_name:
+                An optional human-readable name for the view.
+            hidden:
+                Whether the view should be initially hidden in the UI.
+
+        Returns:
+            SchedulerView
+                The constructed scheduler view, allowing further configuration.
+
+        Example:
+            >>> scheduler = builder.add_scheduler_view(jobs_table, display_name="Schedule")
+            >>> scheduler.add_card_template("job", job_card)
+            >>> start, end = jobs_table.get_field("Start"), jobs_table.get_field("End")
+            >>> scheduler.set_task(start, end, "job")
+        """
+        builder = SchedulerView(source_table, display_name, hidden)
         self._views.append(builder)
         return builder
 
@@ -1204,10 +1240,14 @@ class UiBuilder(Buildable):
 
         This method ensures views are correctly ordered (with the default
         view first) before delegating to the base ``build`` implementation.
+        Every `SchedulerView` is validated first.
 
         Returns:
             dict:
                 The fully built ui definition.
+
+        Raises:
+            SchedulerValidationError: If a scheduler view breaks the platform's rules.
 
         Example:
             >>> # Build a complete UI definition
@@ -1238,6 +1278,14 @@ class UiBuilder(Buildable):
             >>> # ui_definition is a dict that can be serialised and used to render the UI
         """
         self._sort_views()
+        problems = [
+            problem
+            for view in self._views
+            if isinstance(view, SchedulerView)
+            for problem in view.validate(self)
+        ]
+        if problems:
+            raise SchedulerValidationError(problems)
         self._assert_filters_registered()
         built = super().build()
         built["views"] = [view.build() for view in self._views]

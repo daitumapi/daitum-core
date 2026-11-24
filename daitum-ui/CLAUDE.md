@@ -25,6 +25,7 @@ daitum-ui/
 │   │
 │   ├── base_view.py             # BaseView (abstract), ActionBar
 │   ├── tabular.py               # TableView, TreeView, ViewField, DisplayState
+│   ├── table_toolbar.py         # TableToolbar, Density (toolbar above a TableView)
 │   ├── form_view.py             # FormView and FormElement subclasses
 │   ├── chart_view.py            # ChartView, CombinationChartView
 │   ├── card_view.py             # CardView
@@ -33,6 +34,9 @@ daitum-ui/
 │   ├── gantt_view.py            # CategoryGanttView, TreeGridGanttView
 │   ├── map_view.py              # MapView (locations + routes)
 │   ├── roster_view.py           # RosterView (staff rosters)
+│   ├── scheduler_view.py        # SchedulerView (Gantt scheduler) and its validation
+│   ├── drop_validity.py         # DropOutcomes, DropValidity, DropValidityOverlay
+│   ├── view_layout.py           # ViewLayout base for named view layouts
 │   ├── tabbed_view.py           # TabbedView
 │   ├── layout.py                # FlexView, GridView, layout enums
 │   │
@@ -79,7 +83,7 @@ builder.write_to_file("model")     # → writes ui-definition.json into the dire
 **Factory methods:** `add_table_view`, `add_tree_view`, `add_form_view`, `add_chart_view`,
 `add_combination_chart_view`, `add_card_view`, `add_named_value_view`, `add_fixed_value_view`,
 `add_gantt_view`, `add_location_view`, `add_route_view`, `add_grid_view`, `add_flex_view`,
-`add_tabbed_view`, `add_roster_view`, `add_modal`, `add_context_variable`,
+`add_tabbed_view`, `add_roster_view`, `add_scheduler_view`, `add_modal`, `add_context_variable`,
 `add_navigation_item`, `add_navigation_group`.
 
 ### View Hierarchy
@@ -100,6 +104,7 @@ All concrete views inherit from `BaseView` (abstract). `BaseView` provides: `id`
 | `TreeGridGanttView` | Gantt with hierarchical task rows |
 | `MapView` | Geographic locations or routes |
 | `RosterView` | Staff rostering / scheduling grid |
+| `SchedulerView` | Gantt scheduler: task cards on a timeline, grouped into levels |
 | `TabbedView` | Tab container for other views |
 | `GridView` / `FlexView` | CSS Grid / Flexbox layout containers |
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.7.0]
+- New `Parameter.set_application_key(key)` links a model-level parameter to a platform application
+  key (serialised as `applicationKey`). When the model belongs to an application with a matching
+  key, the platform writes the key's value into the parameter; otherwise it behaves as a normal
+  parameter. Raises `ValueError` on a scenario-level parameter.
+
 ## [2.6.0]
 - New `DataTable.add_overridable_field(id, formula)`: one call creates the overridable trio —
   `{id}__calculated` (a calculated field computing the formula), `{id}__override` (a nullable

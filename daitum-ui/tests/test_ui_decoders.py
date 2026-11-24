@@ -798,6 +798,60 @@ class TestTemplateFactoryFragilityGuard:
             .set_size(ElementSize.LARGE)
         )
 
+        from daitum_ui.scheduler_view import (
+            BackgroundEffect,
+            SchedulerScale,
+            SchedulerSession,
+            SchedulerStatistics,
+            SchedulerTimeAxis,
+            Weekday,
+            WorkingTime,
+        )
+
+        crews = model.add_data_table("Crews")
+        crews.add_data_field("Name", DataType.STRING)
+        table.set_id_field("ID")
+        table.add_data_field("Start", DataType.DATETIME)
+        table.add_data_field("End", DataType.DATETIME)
+        table.add_data_field("Open From", DataType.DATETIME_ARRAY)
+        table.add_data_field("Open To", DataType.DATETIME_ARRAY)
+        table.add_object_reference_field("Crew", crews)
+        scheduler = ui.add_scheduler_view(table, display_name="Scheduler")
+        scheduler.add_card_template("job", Card()).add_card_template("crew", Card())
+        scheduler_task = scheduler.set_task(table.get_field("Start"), table.get_field("End"), "job")
+        scheduler_background = scheduler_task.add_background(
+            table.get_field("Open From"), table.get_field("Open To"), BackgroundEffect.ALLOW
+        )
+        scheduler_level = scheduler.add_level(table.get_field("Crew"))
+        working_time = WorkingTime([Weekday.MONDAY], "08:00", "17:00")
+        time_axis = SchedulerTimeAxis([SchedulerScale.WORK_DAY], working_time=working_time)
+        scheduler.set_time_axis(time_axis)
+        scheduler_statistics = SchedulerStatistics(
+            table,
+            table.get_field("Start"),
+            table.get_field("End"),
+            table.get_field("Cost"),
+            table.get_field("ID"),
+        )
+        table_background = scheduler.add_background(
+            table, table.get_field("Start"), table.get_field("End")
+        )
+        resource_pane = scheduler.set_resource_pane(crews, "crew", table.get_field("Crew"))
+        unscheduled_pane = scheduler.set_unscheduled_pane("job", table.get_field("Cost"))
+        scheduler_layout = scheduler.add_layout("Compact", card_template="job")
+        session_table = model.add_data_table("Sessions")
+        session_table.add_data_field("Label", DataType.STRING)
+        session_table.add_data_field("Start", DataType.TIME)
+        session_table.add_data_field("End", DataType.TIME)
+        session_table.add_data_field("Date", DataType.DATE)
+        sessions = SchedulerSession(
+            session_table,
+            session_table.get_field("Label"),
+            session_table.get_field("Start"),
+            session_table.get_field("End"),
+            date_field=session_table.get_field("Date"),
+        )
+
         return model, [
             table_view,
             tree_view,
@@ -844,6 +898,18 @@ class TestTemplateFactoryFragilityGuard:
             range_bar,
             review_rating,
             array_element,
+            scheduler,
+            scheduler_task,
+            scheduler_background,
+            scheduler_level,
+            working_time,
+            time_axis,
+            scheduler_statistics,
+            table_background,
+            resource_pane,
+            unscheduled_pane,
+            scheduler_layout,
+            sessions,
         ]
 
     def test_every_template_factory_constructs(self):

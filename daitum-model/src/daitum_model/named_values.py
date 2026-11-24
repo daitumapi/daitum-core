@@ -279,6 +279,7 @@ class Parameter(Buildable, Operand):
         self._value = value
         self.model_level = model_level
         self.import_format: str | None = None
+        self.application_key: str | None = None
         self.tracking_groups: list[str] | None = None
 
         self._model: ModelBuilder | None = None
@@ -308,6 +309,21 @@ class Parameter(Buildable, Operand):
     def set_import_format(self, import_format: str) -> Parameter:
         """Sets the import format string for this parameter."""
         self.import_format = import_format
+        return self
+
+    def set_application_key(self, application_key: str) -> Parameter:
+        """
+        Link this parameter to a platform application key. Returns self.
+
+        When the model belongs to an application with a key of the same name, the platform writes
+        the key's value into this parameter; otherwise the parameter behaves normally.
+
+        Raises:
+            ValueError: If the parameter is not model-level.
+        """
+        if not self.model_level:
+            raise ValueError(f"Application key requires a model-level parameter: {self.id}")
+        self.application_key = application_key
         return self
 
     def to_string(self) -> str:

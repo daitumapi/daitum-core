@@ -43,6 +43,7 @@ from .data import (
 )
 from .elements import ElementStates
 from .filter_component import FilterableView, FilterComponent
+from .icons import Icon
 from .model_event import EditorEvent, ModelEvent
 from .styles import (
     BaseStyle,
@@ -52,6 +53,7 @@ from .styles import (
     ConditionalFormattingType,
     Editor,
 )
+from .table_toolbar import TableToolbar
 
 
 class DisplayState(Enum):
@@ -67,6 +69,35 @@ class DisplayState(Enum):
     STANDARD = "STANDARD"
     READ_ONLY = "READ_ONLY"
     PRESENTATION = "PRESENTATION"
+
+
+class RowActionsDisplay(Enum):
+    """
+    Specifies how a row's actions are shown in the row actions column.
+
+    Attributes:
+        NONE: No row actions column; the actions are on the right-click menu only.
+        MENU: One "more" button per row, opening the same menu as a right-click.
+        BUTTONS: Every action as its own icon button.
+    """
+
+    NONE = "NONE"
+    MENU = "MENU"
+    BUTTONS = "BUTTONS"
+
+
+class RowActionsPosition(Enum):
+    """
+    Specifies where the row actions column sits. It stays in place when the table scrolls
+    sideways.
+
+    Attributes:
+        FIRST: At the start of the row, after the drag handle and row number columns when shown.
+        LAST: At the end of the row.
+    """
+
+    FIRST = "FIRST"
+    LAST = "LAST"
 
 
 class ViewField(Buildable):
@@ -511,12 +542,21 @@ class ContextMenuEvent(Buildable):
         levels (list[int] | None): Tree-view depths, indexed against the view's
             ``table_evaluation_order``, at which this command appears. ``None`` (the default)
             means every depth. Not applicable to a single-table view, where it stays ``None``.
+        icon (Icon | None): Optional icon shown alongside the command. A default icon is used
+            when it is ``None``.
     """
 
-    def __init__(self, name: str, event: ModelEvent, levels: list[int] | None = None):
+    def __init__(
+        self,
+        name: str,
+        event: ModelEvent,
+        levels: list[int] | None = None,
+        icon: Icon | None = None,
+    ):
         self.name: str = name
         self.event: ModelEvent = event
         self.levels: list[int] | None = levels
+        self.icon: Icon | None = icon
 
 
 @dataclass
@@ -567,6 +607,12 @@ class BaseTableView(BaseView, FilterableView):
         only_display_nested_headers (bool): Whether to show only the nested headers,
             hiding field-level headers.
         show_dropdowns_below (bool): Whether dropdowns always appear below the editing cell.
+        row_actions (Optional[RowActionsDisplay]): A column on each row with the right-click
+            menu's items. ``None`` means ``RowActionsDisplay.NONE``. Standard table views only.
+        row_actions_position (Optional[RowActionsPosition]): Where the row actions column sits.
+            ``None`` means ``RowActionsPosition.LAST``. Standard table views only.
+        confirm_row_removal (bool): Whether removing a row asks the user to confirm first.
+            Standard table views only.
     """
 
     def __init__(
@@ -595,7 +641,7 @@ class BaseTableView(BaseView, FilterableView):
         self.display_state = DisplayState.STANDARD
         self.display_state_condition: Condition | None = None
 
-        self.can_move_rows: bool = True
+        self.can_move_rows: bool = False
         self.can_change_size: bool = True
         self.can_sort: bool = True
         self.can_filter: bool = True
@@ -619,10 +665,14 @@ class BaseTableView(BaseView, FilterableView):
 
         self.context_menu_events: list[ContextMenuEvent] | None = None
 
+        self.row_actions: RowActionsDisplay | None = None
+        self.row_actions_position: RowActionsPosition | None = None
+        self.confirm_row_removal: bool = False
+
     def _add_context_menu_event(
-        self, name: str, event: ModelEvent, levels: list[int] | None
+        self, name: str, event: ModelEvent, levels: list[int] | None, icon: Icon | None
     ) -> ContextMenuEvent:
-        context_menu_event = ContextMenuEvent(name, event, levels)
+        context_menu_event = ContextMenuEvent(name, event, levels, icon)
         if self.context_menu_events is None:
             self.context_menu_events = []
         self.context_menu_events.append(context_menu_event)
@@ -647,6 +697,31 @@ class BaseTableView(BaseView, FilterableView):
     def set_use_filter(self, use_filter: FilterComponent) -> "BaseTableView":
         """Sets the filter component for this view."""
         FilterableView.__init__(self, use_filter)
+        return self
+
+    def set_row_actions(
+        self,
+        row_actions: RowActionsDisplay,
+        position: RowActionsPosition = RowActionsPosition.LAST,
+    ) -> "BaseTableView":
+        """
+        Sets how row actions are shown in the row actions column, and where that column sits.
+
+        Args:
+            row_actions (RowActionsDisplay): How a row's actions are shown.
+            position (RowActionsPosition): Where the row actions column sits. Defaults to
+                ``RowActionsPosition.LAST``.
+
+        Returns:
+            BaseTableView: This view, for chaining.
+        """
+        self.row_actions = row_actions
+        self.row_actions_position = position
+        return self
+
+    def set_confirm_row_removal(self, confirm: bool) -> "BaseTableView":
+        """Sets whether removing a row asks the user to confirm first."""
+        self.confirm_row_removal = confirm
         return self
 
 
@@ -695,6 +770,8 @@ class TableView(BaseTableView):
     Attributes:
         filter_mode (Optional[daitum_ui.data.FilterMode]): An optional filtering strategy
             applied to the table.
+        toolbar (Optional[daitum_ui.table_toolbar.TableToolbar]): An optional toolbar
+            shown above the table.
     """
 
     def __init__(
@@ -715,6 +792,7 @@ class TableView(BaseTableView):
         BaseTableView.__init__(self, table, display_name, hidden)
         self._hidden_conditions: list[Condition] | None = None
         self.filter_mode: FilterMode | None = None
+        self.toolbar: TableToolbar | None = None
 
     def add_field(
         self,
@@ -742,7 +820,9 @@ class TableView(BaseTableView):
 
         return view_field
 
-    def add_context_menu_event(self, name: str, event: ModelEvent) -> ContextMenuEvent:
+    def add_context_menu_event(
+        self, name: str, event: ModelEvent, *, icon: Icon | None = None
+    ) -> ContextMenuEvent:
         """
         Adds a named command to the view's right-click (context) menu.
 
@@ -751,11 +831,18 @@ class TableView(BaseTableView):
         Args:
             name (str): The label shown in the context menu.
             event (ModelEvent): The event fired when the command is selected.
+            icon (Icon | None): Optional icon shown alongside the command. A default icon is
+                used when omitted.
 
         Returns:
             ContextMenuEvent: The created command.
         """
-        return self._add_context_menu_event(name, event, None)
+        return self._add_context_menu_event(name, event, None, icon)
+
+    def set_toolbar(self, toolbar: TableToolbar) -> "TableView":
+        """Sets the toolbar shown above the table."""
+        self.toolbar = toolbar
+        return self
 
 
 @json_type_info("tree")
@@ -919,7 +1006,12 @@ class TreeView(BaseTableView):
         return view_field
 
     def add_context_menu_event(
-        self, name: str, event: ModelEvent, levels: int | list[int] | None = None
+        self,
+        name: str,
+        event: ModelEvent,
+        levels: int | list[int] | None = None,
+        *,
+        icon: Icon | None = None,
     ) -> ContextMenuEvent:
         """
         Adds a named command to the tree view's right-click (context) menu.
@@ -933,6 +1025,8 @@ class TreeView(BaseTableView):
                 indexed against ``table_evaluation_order`` (0 is the root level). A single ``int``
                 is accepted for one depth. Omit (or pass ``None``) to show the command at every
                 depth.
+            icon (Icon | None): Optional icon shown alongside the command. A default icon is
+                used when omitted.
 
         Returns:
             ContextMenuEvent: The created command.
@@ -959,4 +1053,4 @@ class TreeView(BaseTableView):
             if len(set(resolved_levels)) != len(resolved_levels):
                 raise ValueError("Context menu levels must not contain duplicates.")
 
-        return self._add_context_menu_event(name, event, resolved_levels)
+        return self._add_context_menu_event(name, event, resolved_levels, icon)

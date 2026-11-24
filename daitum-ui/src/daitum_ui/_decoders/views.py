@@ -31,6 +31,7 @@ a new view added without one is caught by the coverage gate
 
 from __future__ import annotations
 
+import copy
 from typing import Any
 
 from daitum_model.decoding import LoadContext, LoadError, register_type
@@ -51,6 +52,7 @@ from daitum_ui.card_view import CardView
 from daitum_ui.chart_view import ChartView, CombinationChartView
 from daitum_ui.charts import ChartSeries, ChartType, CombinationChartComponent
 from daitum_ui.data import Condition, FilterMode
+from daitum_ui.drop_validity import DropValidity, DropValidityOverlay
 from daitum_ui.elements import (
     ArrayElement,
     Button,
@@ -91,6 +93,27 @@ from daitum_ui.roster_view import (
     RosterTaskDefinition,
     RosterView,
 )
+from daitum_ui.scheduler_view import (
+    BackgroundEffect,
+    SchedulerBackground,
+    SchedulerLayout,
+    SchedulerLevel,
+    SchedulerLineFilter,
+    SchedulerPane,
+    SchedulerResourcePane,
+    SchedulerScale,
+    SchedulerSession,
+    SchedulerStatistics,
+    SchedulerTableBackground,
+    SchedulerTaskDefinition,
+    SchedulerTimeAxis,
+    SchedulerUnscheduledPane,
+    SchedulerView,
+    StatisticAggregation,
+    StatisticFormat,
+    Weekday,
+    WorkingTime,
+)
 from daitum_ui.styles import (
     AxisLabelStyle,
     ColumnStyle,
@@ -99,7 +122,16 @@ from daitum_ui.styles import (
     Title,
 )
 from daitum_ui.tabbed_view import TabbedView, TabDefinition
-from daitum_ui.tabular import BaseTableView, ContextMenuEvent, TableView, TreeView, ViewField
+from daitum_ui.table_toolbar import TableToolbar
+from daitum_ui.tabular import (
+    BaseTableView,
+    ContextMenuEvent,
+    RowActionsDisplay,
+    RowActionsPosition,
+    TableView,
+    TreeView,
+    ViewField,
+)
 
 _ENVELOPE_KEYS = frozenset({"id", "displayName", "hidden", "hiddenConditions"})
 _VIEW_DEF_SKIP = frozenset({"@type"})
@@ -329,6 +361,259 @@ def _seed_field(data: dict[str, Any], ctx: LoadContext):
     return fields[0]
 
 
+# Scheduler classes validate their constructor arguments against live fields, so their templates
+# are bare instances holding typed defaults; the walk then restores every built key. Private
+# table references are re-resolved so a decoded scheduler can still be validated.
+# ``test_scheduler_templates_match_real_instances`` keeps these attribute sets in step with the
+# classes.
+
+
+def _bare(cls: type, attributes: dict[str, Any]) -> Any:
+    instance = cls.__new__(cls)  # type: ignore[call-overload]
+    instance.__dict__.update(attributes)
+    return instance
+
+
+def _table_or_none(data: dict[str, Any], ctx: LoadContext) -> Any:
+    table_id = data.get("sourceTable")
+    return None if table_id is None else resolve_table(table_id, ctx)
+
+
+def _scheduler_view_template(data: dict[str, Any], ctx: LoadContext) -> SchedulerView:
+    return SchedulerView(resolve_table(data["sourceTable"], ctx))
+
+
+SCHEDULER_TASK_DEFAULTS: dict[str, Any] = {
+    "_table_id": None,
+    "_time_kind": None,
+    "start_field": None,
+    "end_field": None,
+    "start_edit_override": None,
+    "end_edit_override": None,
+    "card_template": None,
+    "model_event_mappings": {},
+    "allow_move": False,
+    "allow_resize": False,
+    "editable_field": None,
+    "on_move": None,
+    "on_resize": None,
+    "on_double_click_row": None,
+    "double_click_time_context_variable": None,
+    "backgrounds": [],
+    "default_background": None,
+}
+
+SCHEDULER_LEVEL_DEFAULTS: dict[str, Any] = {
+    "_kind": None,
+    "_referenced": None,
+    "_task_table_id": None,
+    "field": None,
+    "edit_override": None,
+    "_line_table": None,
+    "label_field": None,
+    "line_table": None,
+    "summary_field": None,
+    "summary_status_field": None,
+    "null_label": None,
+    "show_lines": None,
+    "always_show_field": None,
+    "statistics": None,
+    "collapsible": False,
+    "default_collapsed": False,
+    "allow_move_across": False,
+    "allowed_values_field": None,
+    "on_move_across": None,
+    "on_add": None,
+    "context_variable": None,
+}
+
+# The one-element enum lists type the decoded (always emitted) lists as enum members.
+SCHEDULER_TIME_AXIS_DEFAULTS: dict[str, Any] = {
+    "scales": [SchedulerScale.DAY],
+    "default_scale": None,
+    "show_navigation": False,
+    "show_now_line": False,
+    "period_label": None,
+    "working_time": None,
+    "enforce_working_time": False,
+    "sessions": None,
+    "must_fit_session": False,
+    "sync_group": None,
+}
+
+WORKING_TIME_DEFAULTS: dict[str, Any] = {"days": [Weekday.MONDAY], "start": None, "end": None}
+
+SCHEDULER_SESSION_DEFAULTS: dict[str, Any] = {
+    "_source_table": None,
+    "source_table": None,
+    "label_field": None,
+    "start_field": None,
+    "end_field": None,
+    "date_field": None,
+    "day_of_week_field": None,
+}
+
+SCHEDULER_STATISTICS_DEFAULTS: dict[str, Any] = {
+    "_source_table": None,
+    "source_table": None,
+    "bucket_start_field": None,
+    "bucket_end_field": None,
+    "value_field": None,
+    "baseline_field": None,
+    "status_field": None,
+    "format": None,
+    "aggregation": None,
+}
+
+SCHEDULER_BACKGROUND_DEFAULTS: dict[str, Any] = {
+    "start_field": None,
+    "end_field": None,
+    "label_field": None,
+    "status_field": None,
+    "effect": None,
+}
+
+SCHEDULER_TABLE_BACKGROUND_DEFAULTS: dict[str, Any] = {
+    "_source_table": None,
+    **SCHEDULER_BACKGROUND_DEFAULTS,
+    "source_table": None,
+}
+
+SCHEDULER_RESOURCE_PANE_DEFAULTS: dict[str, Any] = {
+    "_source_table": None,
+    "_resource_table_id": None,
+    "_task_table_id": None,
+    "title": None,
+    "source_table": None,
+    "resource_reference_field": None,
+    "card_template_key": None,
+    "use_filter": None,
+    "task_resource_field": None,
+    "allocate_edit_override": None,
+    "allowed_resources_field": None,
+    "filter_on_selection": False,
+    "drag_label_field": None,
+    "on_allocate": None,
+    "on_double_click": None,
+    "drop_validity": None,
+}
+
+SCHEDULER_UNSCHEDULED_PANE_DEFAULTS: dict[str, Any] = {
+    "_task_table_id": None,
+    "title": None,
+    "card_template_key": None,
+    "duration_field": None,
+    "drag_label_field": None,
+    "on_place": None,
+    "on_double_click": None,
+}
+
+SCHEDULER_TEMPLATE_DEFAULTS: dict[type, dict[str, Any]] = {
+    SchedulerTaskDefinition: SCHEDULER_TASK_DEFAULTS,
+    SchedulerLevel: SCHEDULER_LEVEL_DEFAULTS,
+    SchedulerTimeAxis: SCHEDULER_TIME_AXIS_DEFAULTS,
+    WorkingTime: WORKING_TIME_DEFAULTS,
+    SchedulerSession: SCHEDULER_SESSION_DEFAULTS,
+    SchedulerStatistics: SCHEDULER_STATISTICS_DEFAULTS,
+    SchedulerBackground: SCHEDULER_BACKGROUND_DEFAULTS,
+    SchedulerTableBackground: SCHEDULER_TABLE_BACKGROUND_DEFAULTS,
+    SchedulerResourcePane: SCHEDULER_RESOURCE_PANE_DEFAULTS,
+    SchedulerUnscheduledPane: SCHEDULER_UNSCHEDULED_PANE_DEFAULTS,
+}
+
+
+def _bare_template(cls: type, *, resolves_table: bool = False):
+    """Factory for a bare scheduler template, deep-copying the class's typed defaults."""
+
+    def factory(data: dict[str, Any], ctx: LoadContext) -> Any:
+        attributes = copy.deepcopy(SCHEDULER_TEMPLATE_DEFAULTS[cls])
+        if resolves_table:
+            attributes["_source_table"] = _table_or_none(data, ctx)
+        return _bare(cls, attributes)
+
+    return factory
+
+
+def _scheduler_level_template(data: dict[str, Any], ctx: LoadContext) -> SchedulerLevel:
+    """A bare level whose line table is re-resolved, so a decoded view can still be validated."""
+    attributes = copy.deepcopy(SCHEDULER_LEVEL_DEFAULTS)
+    line_table = data.get("lineTable")
+    if line_table is not None:
+        attributes["_line_table"] = resolve_table(line_table, ctx)
+    level: SchedulerLevel = _bare(SchedulerLevel, attributes)
+    return level
+
+
+def _scheduler_layout_template(data: dict[str, Any], _ctx: LoadContext) -> SchedulerLayout:
+    return SchedulerLayout(data.get("name") or "layout")
+
+
+def _register_scheduler() -> None:
+    register_template(
+        SchedulerView,
+        factory=_scheduler_view_template,
+        elements={
+            "card_templates": MapOf(Card),
+            "layouts": SchedulerLayout,
+            "task": SchedulerTaskDefinition,
+            "levels": SchedulerLevel,
+            "time_axis": SchedulerTimeAxis,
+            "total_statistics": SchedulerStatistics,
+            "backgrounds": SchedulerTableBackground,
+            "resource_pane": SchedulerResourcePane,
+            "unscheduled_pane": SchedulerUnscheduledPane,
+            "default_pane": SchedulerPane,
+            "drop_validity": DropValidity,
+            "drop_validity_overlay": DropValidityOverlay,
+        },
+    )
+    elements: dict[type, dict[str, type | MapOf]] = {
+        SchedulerTaskDefinition: {
+            "start_edit_override": EditOverride,
+            "end_edit_override": EditOverride,
+            "model_event_mappings": MapOf(ModelEvent),
+            "on_move": ModelEvent,
+            "on_resize": ModelEvent,
+            "on_double_click_row": ModelEvent,
+            "backgrounds": SchedulerBackground,
+            "default_background": BackgroundEffect,
+        },
+        SchedulerLevel: {
+            "edit_override": EditOverride,
+            "show_lines": SchedulerLineFilter,
+            "statistics": SchedulerStatistics,
+            "on_move_across": ModelEvent,
+            "on_add": ModelEvent,
+        },
+        SchedulerTimeAxis: {
+            "default_scale": SchedulerScale,
+            "working_time": WorkingTime,
+            "sessions": SchedulerSession,
+        },
+        WorkingTime: {},
+        SchedulerSession: {},
+        SchedulerStatistics: {"format": StatisticFormat, "aggregation": StatisticAggregation},
+        SchedulerBackground: {"effect": BackgroundEffect},
+        SchedulerTableBackground: {"effect": BackgroundEffect},
+        SchedulerResourcePane: {
+            "allocate_edit_override": EditOverride,
+            "on_allocate": ModelEvent,
+            "on_double_click": ModelEvent,
+            "drop_validity": DropValidity,
+        },
+        SchedulerUnscheduledPane: {"on_place": ModelEvent, "on_double_click": ModelEvent},
+    }
+    for cls, cls_elements in elements.items():
+        resolves_table = "_source_table" in SCHEDULER_TEMPLATE_DEFAULTS[cls]
+        factory = (
+            _scheduler_level_template
+            if cls is SchedulerLevel
+            else _bare_template(cls, resolves_table=resolves_table)
+        )
+        register_template(cls, factory=factory, elements=cls_elements)
+    register_template(SchedulerLayout, factory=_scheduler_layout_template)
+
+
 #: Concrete view classes keyed by their ``viewDefinition.@type`` discriminator.
 _VIEW_TYPES: dict[str, type[BaseView]] = {
     "standard": TableView,
@@ -345,6 +630,7 @@ _VIEW_TYPES: dict[str, type[BaseView]] = {
     "tree grid gantt": TreeGridGanttView,
     "map": MapView,
     "roster": RosterView,
+    "scheduler": SchedulerView,
 }
 
 
@@ -353,7 +639,12 @@ def register() -> None:
     register_template(
         TableView,
         factory=_table_view_template(TableView),
-        elements={"fields": ViewField, "_hidden_conditions": Condition, "filter_mode": FilterMode},
+        elements={
+            "fields": ViewField,
+            "_hidden_conditions": Condition,
+            "filter_mode": FilterMode,
+            "toolbar": TableToolbar,
+        },
     )
     register_template(
         TreeView,
@@ -479,6 +770,8 @@ def register() -> None:
         elements={"edit_override": EditOverride},
     )
 
+    _register_scheduler()
+
     # Nested chart/gantt value types that take a live Field but store only its id string.
     register_template(ChartSeries, factory=_chart_series_template)
     gantt_task_elements: dict[str, type | MapOf] = {
@@ -500,10 +793,20 @@ def register() -> None:
     # on the base class makes it apply to all subclasses via the MRO-merged schema.
     register_elements(BaseView, {"title": Title})
 
-    # context_menu_events is a body-assigned list shared by TableView and TreeView; declaring it
-    # on BaseTableView applies to both via the MRO-merged schema.
-    register_elements(BaseTableView, {"context_menu_events": ContextMenuEvent})
-    register_template(ContextMenuEvent, factory=_context_menu_event_template)
+    # context_menu_events and the row actions settings are body-assigned attributes shared by
+    # TableView and TreeView whose defaults reveal no type; declaring them on BaseTableView applies
+    # to both via the MRO-merged schema.
+    register_elements(
+        BaseTableView,
+        {
+            "context_menu_events": ContextMenuEvent,
+            "row_actions": RowActionsDisplay,
+            "row_actions_position": RowActionsPosition,
+        },
+    )
+    register_template(
+        ContextMenuEvent, factory=_context_menu_event_template, elements={"icon": Icon}
+    )
     register_template(EditorEvent, factory=_editor_event_template)
 
     # ViewField is decoded as a leaf, but its nested optional Buildables are body-assigned, so

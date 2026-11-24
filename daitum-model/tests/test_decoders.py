@@ -348,11 +348,17 @@ class TestNamedValues:
     def test_parameter_round_trips(self):
         model = ModelBuilder()
         param = model.add_parameter("BUDGET", DataType.DECIMAL, 100.0, model_level=True)
-        param.set_import_format("yyyy")
+        param.set_import_format("yyyy").set_application_key("budget")
         built = param.build()
+        assert built["applicationKey"] == "budget"
         decoded = decode_parameter({**built, "id": "BUDGET"}, LoadContext(model=ModelBuilder()))
         assert isinstance(decoded, Parameter)
         assert decoded.build() == built
+
+    def test_application_key_requires_model_level(self):
+        param = ModelBuilder().add_parameter("RATE", DataType.DECIMAL, 0.1)
+        with pytest.raises(ValueError, match="model-level"):
+            param.set_application_key("rate")
 
 
 class TestTables:
